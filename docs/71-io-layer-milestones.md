@@ -111,6 +111,11 @@ Rough order-of-magnitude estimates for one developer. Acceptance criteria use
 this machine's real devices (default in = **Sennheiser Profile**, default out =
 **Kanto ORA4**).
 
+> **Progress:** M0 ✅ implemented (`examples/`, three `sounddevice` spikes) —
+> offline `--self-test`s pass and `--list-devices` confirms the Core Audio
+> devices; the live audio/mic check is run by the developer on real hardware.
+> M1–M9 pending.
+
 ### Phase 0 — Prove the plumbing (both directions)
 
 | M | Deliverable | Acceptance criteria | Est. |
