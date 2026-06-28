@@ -114,7 +114,11 @@ this machine's real devices (default in = **Sennheiser Profile**, default out =
 > **Progress:** M0 ✅ implemented (`examples/`, three `sounddevice` spikes) —
 > offline `--self-test`s pass and `--list-devices` confirms the Core Audio
 > devices; the live audio/mic check is run by the developer on real hardware.
-> M1–M9 pending.
+> M1 ✅ implemented — the `aiudio-io` C++ library (CMake + CTest): `AudioBuffer`,
+> `StreamConfig`, `RenderCallback`/`AudioBackend` contracts, the lock-free SPSC
+> `RingBuffer`, and sample-format conversions. The SPSC stress test (1M items, one
+> producer/one consumer) is clean under **ThreadSanitizer** and **ASan/UBSan**.
+> M2–M9 pending.
 
 ### Phase 0 — Prove the plumbing (both directions)
 

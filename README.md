@@ -122,7 +122,7 @@ status — **kept current as we go**.
 - [x] Deep-research dossier & design docs (`docs/`)
 - [x] I/O layer foundation plan (`docs/71-*`) & macOS capture plan (`docs/70-*`)
 - [ ] **I/O layer** — duplex device capture+playback, full-duplex clock (M0–M4)
-  *(M0 ✅ spikes in `examples/`; M1–M4 next)*
+  *(M0 ✅ spikes; M1 ✅ `aiudio-io` core contracts + lock-free ring buffer; M2–M4 next)*
 - [ ] **Graph spine** — typed IR + eager executor + the node contract
 - [ ] First end-to-end: capture → trivial graph (gain/meter) → playback, live
 
@@ -169,7 +169,11 @@ aiudio/
 │   ├── 70-macos-audio-capture-plan.md
 │   ├── 71-io-layer-milestones.md
 │   └── 90-references.md
-└── (src/, python/, tests/, examples/ — added as implementation begins)
+├── examples/              ← M0 audio I/O spikes (Python / sounddevice)
+├── include/aiudio/io/     ← aiudio-io public headers (M1)
+├── src/io/                ← aiudio-io implementation (M1)
+├── tests/                 ← C++ unit tests (CTest)
+└── CMakeLists.txt         ← C++ build (aiudio-io library + tests)
 ```
 
 ## Documentation
@@ -202,14 +206,33 @@ Accepted so far:
 
 ## Getting started
 
-> No build yet — implementation begins at I/O layer **M0**. For now:
+**Build the C++ core + run tests** (macOS; `brew install cmake` if needed):
 
-1. Read [`docs/00-vision-and-scope.md`](docs/00-vision-and-scope.md) and
-   [`docs/71-io-layer-milestones.md`](docs/71-io-layer-milestones.md).
-2. Toolchain prep (macOS): `brew install cmake` (Swift/clang/Python already
-   present on the target machine).
-3. The first runnable artifact will be the **M0 capture/playback spikes**
-   (`examples/`), then the `aiudio-io` C++ library (M1).
+```bash
+cmake -S . -B build
+cmake --build build -j
+ctest --test-dir build --output-on-failure
+```
+
+Optionally build with sanitizers (the ring buffer is verified race-free under both):
+
+```bash
+cmake -S . -B build-tsan -DAIUDIO_SANITIZE=thread          && ctest --test-dir build-tsan
+cmake -S . -B build-asan -DAIUDIO_SANITIZE=address,undefined && ctest --test-dir build-asan
+```
+
+**Run the M0 I/O spikes** (Python):
+
+```bash
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r examples/requirements.txt
+python examples/m0_sine_out.py --list-devices
+python examples/m0_sine_out.py --device Kanto                       # play a tone
+python examples/m0_passthrough.py --device-in Sennheiser --device-out Kanto
+```
+
+See [`examples/README.md`](examples/README.md) and
+[`docs/71-io-layer-milestones.md`](docs/71-io-layer-milestones.md).
 
 ## Tech stack & key decisions
 

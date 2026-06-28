@@ -161,6 +161,10 @@ a **new** one and mark the old `Superseded by ADR-XXXX` — never rewrite histor
 
 ## 11. How to work here
 
+- **Build & test:** `cmake -S . -B build && cmake --build build -j && ctest
+  --test-dir build --output-on-failure`. Sanitizers via
+  `-DAIUDIO_SANITIZE=thread` or `=address,undefined`. Python M0 spikes: see
+  `examples/README.md`.
 - **Doc-driven:** the design is written down before code. Read the relevant
   `docs/*` before implementing; reflect real changes back into the docs.
 - **Vertical slices:** prefer the smallest end-to-end slice that proves a claim
