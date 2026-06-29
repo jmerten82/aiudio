@@ -149,6 +149,24 @@ system or one process, with no virtual device (ADR-0007).
      silently capture nothing — see `docs/70-macos-audio-capture-plan.md` §6.
    - Then `afplay system.wav` to verify.
 
+## How to test G1 (graph IR + node contract — cross-platform, no audio)
+
+G1 adds the `aiudio-graph` library: the `Node` contract, the typed `Graph` IR with
+`validate()`, and trivial `GainNode` / `SumNode`. No audio device, no permissions.
+
+| What | Run |
+|---|---|
+| **Unit tests** | `ctest --test-dir build -R "graph"` (graph validation + node processing) |
+| **`ex_build_graph`** | `./build/examples/cpp/ex_build_graph` |
+
+1. **`test_graph`** — `validate()` accepts a DAG and rejects an out-of-range port,
+   an input port with two drivers, and a cycle. **`test_graph_nodes`** — `GainNode`
+   scales and `SumNode` mixes correctly.
+2. **`ex_build_graph`** — builds `GainNode ┐`/`GainNode ┘→ SumNode`, prints the
+   graph, runs `validate()` (and shows it rejecting a cycle + a bad port), then
+   runs the nodes on a block **by hand** (there's no executor yet — that's G2).
+   Exits `0` on success.
+
 ## Notes
 
 - M1 examples run **without any audio device** (the `OfflineDriver` pump); the M2

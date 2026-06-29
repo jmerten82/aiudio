@@ -71,6 +71,13 @@ public:
 
 Estimates are rough order-of-magnitude for one developer.
 
+> **Progress:** G1 ✅ in review (PR) — the `aiudio-graph` library: the `Node`
+> contract, the typed `Graph` IR (`addNode`/`connect`) with `validate()`
+> (port-range, single-driver-per-input, acyclicity), and trivial `GainNode` /
+> `SumNode`. Verified on macOS 26: builds warning-free, CTest 5/5 (incl. graph +
+> node tests), and `ex_build_graph` builds/validates a DAG, rejects a cycle and a
+> bad port, and runs the nodes by hand. G2–G6 pending.
+
 ### G1 — Node & Graph IR types (+ trivial nodes)
 - **Deliverable:** `aiudio-graph` library: `Node`, `Graph` (add/connect/validate),
   `Edge`, port/buffer types; two trivial nodes — `GainNode`, `SumNode` (mixer).
