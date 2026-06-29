@@ -78,13 +78,14 @@ Estimates are rough order-of-magnitude for one developer.
 > schedule with pre-allocated per-port buffers (fan-out / fan-in); `process()`
 > runs it as a `RenderCallback` (RT-safe). `SourceNode` / `SinkNode` bridge the
 > executor's `in`/`out`. Verified: CTest, ASan/UBSan-clean, offline render → 1.300.
-> G3 ✅ in review (PR) ⭐ — **first live end-to-end**: a compiled graph driven by
-> the M4 duplex backend (the executor IS a `RenderCallback`, so no glue). Added
+> G3 ✅ merged ⭐ — **first live end-to-end**: a compiled graph driven by the M4
+> duplex backend (the executor IS a `RenderCallback`, so no glue). Added
 > `MeterNode` (passthrough + level). Verified on macOS 26: the silent
 > `ex_graph_capture_probe` ran `Source → Meter → Gain(0) → Sink` **live through the
-> aggregate-device backend** (566 blocks executed by the IOProc, live input
-> present, silent output → PASS); the audible `ex_graph_live_passthrough` is the
-> developer's hands-on check. CTest 7/7. G4–G6 pending.
+> aggregate-device backend** (566 blocks executed by the IOProc → PASS) **and** the
+> audible `ex_graph_live_passthrough` (mic → graph → speakers) confirmed on
+> hardware. CTest 7/7. **The Phase-0 first-end-to-end deliverable is done.**
+> G4–G6 pending.
 
 ### G1 — Node & Graph IR types (+ trivial nodes)
 - **Deliverable:** `aiudio-graph` library: `Node`, `Graph` (add/connect/validate),
