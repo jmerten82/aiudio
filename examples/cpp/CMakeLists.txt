@@ -26,6 +26,11 @@ if(APPLE)
     aiudio_add_example(ex_duplex_passthrough aiudio::io)    # live in→out monitoring (M4)
     aiudio_add_example(ex_list_audio_processes aiudio::io)  # list tappable processes (M5)
 
+    # G3 — drive a compiled graph live through the Core Audio duplex backend.
+    # Link aiudio::graph (it pulls in aiudio::io + the Core Audio frameworks).
+    aiudio_add_example(ex_graph_capture_probe aiudio::graph)    # silent, objective
+    aiudio_add_example(ex_graph_live_passthrough aiudio::graph) # live monitoring (hands-on)
+
     # M5 tap capture: embed NSAudioCaptureUsageDescription into the binary and
     # ad-hoc sign it, so macOS shows the audio-capture (purple-dot) TCC prompt
     # and tracks the grant (docs/70 §6). Without this the tap captures silence.

@@ -184,6 +184,25 @@ with pre-allocated buffers, and `process()` runs it as a `RenderCallback`.
    The **same executor** is a `RenderCallback`, so in G3 a Core Audio backend will
    drive it for live audio — no code change to the graph.
 
+## How to test G3 (live graph through a backend — macOS)
+
+G3 wires a compiled graph to the **Core Audio duplex backend** — the first live
+`capture → graph → playback`. Adds `MeterNode` (passthrough + level). The
+`GraphExecutor` is a `RenderCallback`, so the backend drives the whole graph.
+
+| What | Sound? | Run |
+|---|---|---|
+| **`ex_graph_capture_probe`** — silent objective check | **silent** (needs mic) | `./build/examples/cpp/ex_graph_capture_probe --seconds 1.5` |
+| **`ex_graph_live_passthrough`** — live monitoring | **makes sound** | `./build/examples/cpp/ex_graph_live_passthrough --gain 1.0 --seconds 10` |
+
+1. **`ex_graph_capture_probe`** — `Source → Meter → Gain(0) → Sink` driven by the
+   duplex backend; `Gain(0)` silences the output, so it makes **no sound** while
+   proving the graph runs live (the MeterNode reports blocks executed + input
+   level). Objective PASS/CHECK. (Verified here: 566 blocks, live input present.)
+2. **`ex_graph_live_passthrough`** — `Source → Gain → Meter → Sink` live: mic →
+   speakers through the graph, with a live meter. **⚠️ Use headphones.** Mono mic
+   appears on the left channel (channel mapping/upmix is a later refinement).
+
 ## Notes
 
 - M1 examples run **without any audio device** (the `OfflineDriver` pump); the M2
