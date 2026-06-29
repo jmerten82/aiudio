@@ -14,6 +14,8 @@ aiudio_add_example(ex_conversions)
 aiudio_add_example(ex_offline_render_wav)
 
 if(APPLE)
-    aiudio_add_example(ex_play_sine_device)  # plays to a real device (Core Audio, M2)
-    aiudio_add_example(ex_device_probe)      # silent IOProc probe — objective M2 check
+    aiudio_add_example(ex_play_sine_device)      # plays to a real device (Core Audio, M2)
+    aiudio_add_example(ex_device_probe)          # silent IOProc probe — objective M2 check
+    aiudio_add_example(ex_capture_meter)         # live input level meter (M3)
+    aiudio_add_example(ex_capture_to_ringbuffer) # capture → ring buffer → WAV (M3)
 endif()

@@ -119,12 +119,18 @@ this machine's real devices (default in = **Sennheiser Profile**, default out =
 > `RingBuffer`, and sample-format conversions. The SPSC stress test (1M items, one
 > producer/one consumer) is clean under **ThreadSanitizer** and **ASan/UBSan**.
 > Runnable usage examples in `examples/cpp/`.
-> M2 🔜 in review (PR) — the **Core Audio HAL output backend** (`CoreAudioBackend`,
-> macOS): device `enumerate()`, output IOProc driving a `RenderCallback`, sample
-> rate / buffer-size negotiation, interleaved + non-interleaved output handling.
-> Builds warning-free; `enumerate()` verified on macOS 26 (matches the known
-> devices, finds the default output) via `test_coreaudio_enumerate`; live tone
-> playback (`ex_play_sine_device`) is the developer's on-device check. M3–M9 pending.
+> M2 ✅ merged — the **Core Audio HAL output backend** (`CoreAudioBackend`, macOS):
+> device `enumerate()`, output IOProc driving a `RenderCallback`, sample-rate /
+> buffer-size negotiation, interleaved + non-interleaved output. Verified
+> end-to-end on macOS 26 (silent `ex_device_probe`: IOProc fires with correct
+> geometry/throughput; audible `ex_play_sine_device`).
+> M3 🔜 in review (PR) — the **Core Audio HAL input backend** (`CoreAudioInputBackend`):
+> input IOProc captures into planar scratch and delivers it to a `RenderCallback`
+> as `in`; shared HAL helpers factored into `src/io/coreaudio_hal.hpp` (used by
+> both backends). Builds warning-free; `enumerate()` now also verifies a default
+> **input**. Examples: `ex_capture_meter` (live level meter) and
+> `ex_capture_to_ringbuffer` (capture → lock-free `RingBuffer` → WAV) — the
+> developer's hands-on mic checks. M4–M9 pending.
 
 ### Phase 0 — Prove the plumbing (both directions)
 
