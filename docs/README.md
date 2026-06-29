@@ -32,6 +32,7 @@ claim of consequence is cited; the consolidated source list lives in
 | [70-macos-audio-capture-plan.md](./70-macos-audio-capture-plan.md) | Concrete plan to tap local macOS audio sources (input devices, system output, per-app audio) and feed them into the graph engine — API decision matrix, recommended C++/Python architecture, milestones, permissions/packaging gotchas, runnable spike. |
 | [71-io-layer-milestones.md](./71-io-layer-milestones.md) | **Foundation milestone plan** for the full I/O layer (input **and** output) — the unifying duplex-callback/swappable-clock model, core C++ abstractions, M0–M9 milestones with acceptance criteria, dependency graph, and definition of done. |
 | [72-m1-aiudio-io-reference.md](./72-m1-aiudio-io-reference.md) | **M1 reference** — code-grounded description of exactly what the `aiudio-io` library implements: the value types, `RenderCallback`/`AudioBackend` contracts, the lock-free SPSC ring buffer, conversions, build, tests, examples, RT-safety summary, and what M1 deliberately leaves to M2+. |
+| [73-digital-audio-encoding.md](./73-digital-audio-encoding.md) | **Primer:** how audio is encoded in digital systems — sampling/Nyquist, quantization/bit depth, integer vs. float PCM, dBFS, channels/frames, interleaved vs. planar, blocks/latency, data rates, and beyond-PCM codecs — each tied to where aiudio's pipeline implements it. |
 
 ## How this dossier was produced
 
