@@ -85,12 +85,17 @@ Estimates are rough order-of-magnitude for one developer.
 > aggregate-device backend** (566 blocks executed by the IOProc → PASS) **and** the
 > audible `ex_graph_live_passthrough` (mic → graph → speakers) confirmed on
 > hardware. CTest 7/7. **The Phase-0 first-end-to-end deliverable is done.**
-> G4 ✅ in review (PR, shared with I/O M6) — **node library + offline backend**:
-> added `BiquadNode` (RBJ low-/high-pass) and the M6 `OfflineBackend` + WAV I/O, so
-> a `file → graph → file` render is a deterministic golden test. Verified on
-> macOS 26: CTest 10/10 (incl. biquad DC pass/block + a **bit-exact** offline gain
-> render); `ex_render_file_offline` low-passes a 300 Hz + 5 kHz mix (output RMS
-> 0.40 → 0.25). The same graph runs live (G3) and offline unchanged. G5–G6 pending.
+> G4 ✅ merged (shared with I/O M6) — **node library + offline backend**:
+> `BiquadNode` (RBJ low-/high-pass) + the M6 `OfflineBackend` + WAV I/O; a
+> `file → graph → file` render is a deterministic golden test (bit-exact).
+> G5 ✅ in review (PR) — **live graph edits**: `compile()` now builds a new
+> schedule and installs it with an **atomic swap** (RCU); the audio thread picks it
+> up at the next block and the old schedule is reclaimed off-thread once released
+> (renderCount handshake). Verified on macOS 26: CTest 11/11; the edit-while-running
+> stress test (1000 swaps while a thread spins `process()`) is **clean under
+> ThreadSanitizer** (race-free) and ASan/UBSan; `ex_graph_live_edit` swaps
+> 0.5 → 0.25 with no stop/restart. **This is the hook the agent uses to edit a
+> running graph.** G6 pending.
 
 ### G1 — Node & Graph IR types (+ trivial nodes)
 - **Deliverable:** `aiudio-graph` library: `Node`, `Graph` (add/connect/validate),
