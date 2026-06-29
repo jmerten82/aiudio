@@ -13,8 +13,9 @@ endfunction()
 
 aiudio_add_test(test_ring_buffer aiudio::io)
 aiudio_add_test(test_conversions aiudio::io)
-aiudio_add_test(test_graph aiudio::graph)        # G1
-aiudio_add_test(test_graph_nodes aiudio::graph)  # G1
+aiudio_add_test(test_graph aiudio::graph)           # G1
+aiudio_add_test(test_graph_nodes aiudio::graph)     # G1
+aiudio_add_test(test_graph_executor aiudio::graph)  # G2
 
 if(APPLE)
     aiudio_add_test(test_coreaudio_enumerate aiudio::io)  # device enumeration, no audio
