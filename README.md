@@ -169,7 +169,7 @@ aiudio/
 │   ├── 70-macos-audio-capture-plan.md
 │   ├── 71-io-layer-milestones.md
 │   └── 90-references.md
-├── examples/              ← M0 audio I/O spikes (Python / sounddevice)
+├── examples/              ← M0 Python I/O spikes + cpp/ M1 usage examples
 ├── include/aiudio/io/     ← aiudio-io public headers (M1)
 ├── src/io/                ← aiudio-io implementation (M1)
 ├── tests/                 ← C++ unit tests (CTest)
@@ -219,6 +219,13 @@ Optionally build with sanitizers (the ring buffer is verified race-free under bo
 ```bash
 cmake -S . -B build-tsan -DAIUDIO_SANITIZE=thread          && ctest --test-dir build-tsan
 cmake -S . -B build-asan -DAIUDIO_SANITIZE=address,undefined && ctest --test-dir build-asan
+```
+
+**Run the C++ usage examples** (no audio device needed — see [`examples/cpp/README.md`](examples/cpp/README.md)):
+
+```bash
+./build/examples/cpp/ex_render_callback
+./build/examples/cpp/ex_offline_render_wav out.wav && afplay out.wav
 ```
 
 **Run the M0 I/O spikes** (Python):

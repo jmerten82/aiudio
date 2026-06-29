@@ -18,6 +18,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # ---- Options ----
 option(AIUDIO_BUILD_TESTS "Build aiudio tests" ON)
+option(AIUDIO_BUILD_EXAMPLES "Build aiudio C++ examples" ON)
 set(AIUDIO_SANITIZE "" CACHE STRING
     "Sanitizers to enable, e.g. 'address,undefined' or 'thread' (empty = none)")
 
@@ -44,4 +45,9 @@ target_compile_options(aiudio_io PRIVATE -Wall -Wextra -Wpedantic)
 if(AIUDIO_BUILD_TESTS)
     enable_testing()
     add_subdirectory(tests)
+endif()
+
+# ---- Examples ----
+if(AIUDIO_BUILD_EXAMPLES)
+    add_subdirectory(examples/cpp)
 endif()

@@ -118,7 +118,7 @@ this machine's real devices (default in = **Sennheiser Profile**, default out =
 > `StreamConfig`, `RenderCallback`/`AudioBackend` contracts, the lock-free SPSC
 > `RingBuffer`, and sample-format conversions. The SPSC stress test (1M items, one
 > producer/one consumer) is clean under **ThreadSanitizer** and **ASan/UBSan**.
-> M2–M9 pending.
+> Runnable usage examples in `examples/cpp/`. M2–M9 pending.
 
 ### Phase 0 — Prove the plumbing (both directions)
 
