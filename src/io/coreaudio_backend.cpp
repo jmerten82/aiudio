@@ -3,92 +3,19 @@
 #include "aiudio/io/coreaudio_backend.hpp"
 
 #include <algorithm>
-#include <string>
 
 #include <CoreAudio/CoreAudio.h>
-#include <CoreFoundation/CoreFoundation.h>
 
 #include "aiudio/io/audio_buffer.hpp"
 #include "aiudio/io/conversions.hpp"
 #include "aiudio/io/render_callback.hpp"
 #include "aiudio/io/types.hpp"
+#include "coreaudio_hal.hpp"  // shared HAL property helpers (detail::)
 
 namespace aiudio::io {
 namespace {
 
-// --- Core Audio HAL property helpers (all setup-time; not RT) ---------------
-
-inline AudioObjectPropertyAddress prop(AudioObjectPropertySelector selector,
-                                       AudioObjectPropertyScope scope) {
-    return {selector, scope, kAudioObjectPropertyElementMain};
-}
-
-std::string cfToString(CFStringRef s) {
-    if (s == nullptr) return {};
-    char buf[512] = {0};
-    if (CFStringGetCString(s, buf, sizeof(buf), kCFStringEncodingUTF8)) return std::string(buf);
-    return {};
-}
-
-std::string stringProperty(AudioObjectID dev, AudioObjectPropertySelector selector) {
-    AudioObjectPropertyAddress a = prop(selector, kAudioObjectPropertyScopeGlobal);
-    CFStringRef str = nullptr;
-    UInt32 size = sizeof(str);
-    if (AudioObjectGetPropertyData(dev, &a, 0, nullptr, &size, &str) != noErr) return {};
-    std::string out = cfToString(str);
-    if (str != nullptr) CFRelease(str);
-    return out;
-}
-
-std::uint32_t channelsInScope(AudioObjectID dev, AudioObjectPropertyScope scope) {
-    AudioObjectPropertyAddress a = prop(kAudioDevicePropertyStreamConfiguration, scope);
-    UInt32 size = 0;
-    if (AudioObjectGetPropertyDataSize(dev, &a, 0, nullptr, &size) != noErr || size == 0) return 0;
-    std::vector<unsigned char> storage(size);
-    auto* abl = reinterpret_cast<AudioBufferList*>(storage.data());
-    if (AudioObjectGetPropertyData(dev, &a, 0, nullptr, &size, abl) != noErr) return 0;
-    std::uint32_t channels = 0;
-    for (UInt32 i = 0; i < abl->mNumberBuffers; ++i) channels += abl->mBuffers[i].mNumberChannels;
-    return channels;
-}
-
-UInt32 uint32Property(AudioObjectID dev, AudioObjectPropertySelector selector,
-                      AudioObjectPropertyScope scope) {
-    AudioObjectPropertyAddress a = prop(selector, scope);
-    UInt32 value = 0;
-    UInt32 size = sizeof(value);
-    AudioObjectGetPropertyData(dev, &a, 0, nullptr, &size, &value);
-    return value;
-}
-
-AudioObjectID defaultDevice(AudioObjectPropertySelector selector) {
-    AudioObjectPropertyAddress a = prop(selector, kAudioObjectPropertyScopeGlobal);
-    AudioObjectID dev = kAudioObjectUnknown;
-    UInt32 size = sizeof(dev);
-    AudioObjectGetPropertyData(kAudioObjectSystemObject, &a, 0, nullptr, &size, &dev);
-    return dev;
-}
-
-std::vector<AudioObjectID> allDeviceIds() {
-    AudioObjectPropertyAddress a = prop(kAudioHardwarePropertyDevices, kAudioObjectPropertyScopeGlobal);
-    UInt32 size = 0;
-    if (AudioObjectGetPropertyDataSize(kAudioObjectSystemObject, &a, 0, nullptr, &size) != noErr)
-        return {};
-    std::vector<AudioObjectID> ids(size / sizeof(AudioObjectID));
-    if (AudioObjectGetPropertyData(kAudioObjectSystemObject, &a, 0, nullptr, &size, ids.data()) != noErr)
-        return {};
-    return ids;
-}
-
-AudioObjectID findByUID(const std::string& uid) {
-    if (uid.empty()) return kAudioObjectUnknown;
-    for (AudioObjectID id : allDeviceIds()) {
-        if (stringProperty(id, kAudioDevicePropertyDeviceUID) == uid) return id;
-    }
-    return kAudioObjectUnknown;
-}
-
-// The C IOProc trampoline: forwards to the instance. Unused params are unnamed.
+// The output IOProc trampoline: forwards to the instance. Unused params unnamed.
 OSStatus ioProcTrampoline(AudioObjectID, const AudioTimeStamp*, const AudioBufferList*,
                           const AudioTimeStamp*, AudioBufferList* outOutputData,
                           const AudioTimeStamp*, void* clientData) {
@@ -106,69 +33,30 @@ CoreAudioBackend::~CoreAudioBackend() {
 }
 
 std::vector<AudioDeviceInfo> CoreAudioBackend::enumerate() {
-    std::vector<AudioDeviceInfo> result;
-    const AudioObjectID defOut = defaultDevice(kAudioHardwarePropertyDefaultOutputDevice);
-    const AudioObjectID defIn = defaultDevice(kAudioHardwarePropertyDefaultInputDevice);
-    for (AudioObjectID id : allDeviceIds()) {
-        AudioDeviceInfo info;
-        info.id = stringProperty(id, kAudioDevicePropertyDeviceUID);
-        info.name = stringProperty(id, kAudioObjectPropertyName);
-        info.inputChannels = channelsInScope(id, kAudioObjectPropertyScopeInput);
-        info.outputChannels = channelsInScope(id, kAudioObjectPropertyScopeOutput);
-        info.isDefaultOutput = (id == defOut);
-        info.isDefaultInput = (id == defIn);
-        AudioObjectPropertyAddress a =
-            prop(kAudioDevicePropertyNominalSampleRate, kAudioObjectPropertyScopeGlobal);
-        Float64 sr = 0;
-        UInt32 size = sizeof(sr);
-        if (AudioObjectGetPropertyData(id, &a, 0, nullptr, &size, &sr) == noErr && sr > 0) {
-            info.sampleRates.push_back(sr);
-        }
-        result.push_back(std::move(info));
-    }
-    return result;
+    return detail::enumerateDevices();
 }
 
 bool CoreAudioBackend::open(const StreamConfig& config, RenderCallback* callback) {
     callback_ = callback;
     deviceId_ = config.outputDeviceId.empty()
-                    ? defaultDevice(kAudioHardwarePropertyDefaultOutputDevice)
-                    : findByUID(config.outputDeviceId);
+                    ? detail::defaultDevice(kAudioHardwarePropertyDefaultOutputDevice)
+                    : detail::findByUID(config.outputDeviceId);
     if (deviceId_ == kAudioObjectUnknown || callback_ == nullptr) return false;
 
-    // Sample rate (negotiate: read what the device reports).
-    {
-        AudioObjectPropertyAddress a =
-            prop(kAudioDevicePropertyNominalSampleRate, kAudioObjectPropertyScopeOutput);
-        Float64 sr = 0;
-        UInt32 size = sizeof(sr);
-        if (AudioObjectGetPropertyData(deviceId_, &a, 0, nullptr, &size, &sr) == noErr && sr > 0) {
-            sampleRate_ = sr;
-        }
-    }
+    // Negotiate: read the device's reported sample rate; request the block size.
+    const Float64 sr = detail::nominalSampleRate(deviceId_, kAudioObjectPropertyScopeOutput);
+    if (sr > 0) sampleRate_ = sr;
+    detail::requestBufferFrameSize(deviceId_, kAudioObjectPropertyScopeOutput, config.blockSize);
+    const UInt32 bufferFrames =
+        detail::bufferFrameSize(deviceId_, kAudioObjectPropertyScopeOutput, config.blockSize);
 
-    // Best-effort: request the buffer frame size, then read back the actual value.
-    {
-        AudioObjectPropertyAddress a =
-            prop(kAudioDevicePropertyBufferFrameSize, kAudioObjectPropertyScopeOutput);
-        UInt32 requested = config.blockSize;
-        AudioObjectSetPropertyData(deviceId_, &a, 0, nullptr, sizeof(requested), &requested);
-    }
-    UInt32 bufferFrames = config.blockSize;
-    {
-        AudioObjectPropertyAddress a =
-            prop(kAudioDevicePropertyBufferFrameSize, kAudioObjectPropertyScopeOutput);
-        UInt32 size = sizeof(bufferFrames);
-        AudioObjectGetPropertyData(deviceId_, &a, 0, nullptr, &size, &bufferFrames);
-    }
-
-    outputChannels_ = channelsInScope(deviceId_, kAudioObjectPropertyScopeOutput);
+    outputChannels_ = detail::channelsInScope(deviceId_, kAudioObjectPropertyScopeOutput);
     if (outputChannels_ == 0) return false;
     maxFrames_ = (bufferFrames > 0) ? bufferFrames : config.blockSize;
 
     latencyFrames_ =
-        uint32Property(deviceId_, kAudioDevicePropertyLatency, kAudioObjectPropertyScopeOutput) +
-        uint32Property(deviceId_, kAudioDevicePropertySafetyOffset, kAudioObjectPropertyScopeOutput) +
+        detail::uint32Property(deviceId_, kAudioDevicePropertyLatency, kAudioObjectPropertyScopeOutput) +
+        detail::uint32Property(deviceId_, kAudioDevicePropertySafetyOffset, kAudioObjectPropertyScopeOutput) +
         maxFrames_;
 
     // Pre-allocate the planar scratch used when the device wants interleaved output.
@@ -207,8 +95,7 @@ void CoreAudioBackend::renderFromIOProc(void* outputBufferList) noexcept {
 
     if (nonInterleaved) {
         // One device buffer per channel → point the view straight at them (zero copy).
-        const std::uint32_t ch =
-            std::min<std::uint32_t>(out->mNumberBuffers, outputChannels_);
+        const std::uint32_t ch = std::min<std::uint32_t>(out->mNumberBuffers, outputChannels_);
         for (std::uint32_t c = 0; c < ch; ++c) {
             planarPtrs_[c] = static_cast<float*>(out->mBuffers[c].mData);
         }
@@ -230,9 +117,7 @@ void CoreAudioBackend::renderFromIOProc(void* outputBufferList) noexcept {
 bool CoreAudioBackend::start() {
     if (ioProcId_ == nullptr || deviceId_ == kAudioObjectUnknown) return false;
     if (running_) return true;
-    if (AudioDeviceStart(deviceId_, ioProcId_) != noErr) {
-        return false;
-    }
+    if (AudioDeviceStart(deviceId_, ioProcId_) != noErr) return false;
     running_ = true;
     return true;
 }

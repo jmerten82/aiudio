@@ -81,6 +81,32 @@ The M1 examples above use a device-free offline pump. M2 adds the real
    sine to a chosen device (the M2 "glitch-free playback" criterion). Use
    headphones; it produces real sound.
 
+## How to test M3 (Core Audio input backend — macOS)
+
+M3 adds `CoreAudioInputBackend` — capture from a device's HAL IOProc, delivered to
+a `RenderCallback` as `in`. Because capture needs the **microphone**, these are
+**hands-on tests** (macOS prompts for Microphone permission on first run; if
+denied you'll get silence). List input devices with `ex_play_sine_device --list`'s
+sibling info, or just pass a name substring.
+
+| What | Mic? | Run |
+|---|---|---|
+| **Enumeration unit test** | none | `ctest --test-dir build -R coreaudio` (also asserts a default **input** exists) |
+| **`ex_capture_meter`** — live level meter | **yes** | `./build/examples/cpp/ex_capture_meter --device Sennheiser --seconds 10` |
+| **`ex_capture_to_ringbuffer`** — capture → ring buffer → WAV | **yes** | `./build/examples/cpp/ex_capture_to_ringbuffer --device Sennheiser --seconds 5 capture.wav` then `afplay capture.wav` |
+
+1. **`ex_capture_meter`** — opens the input device and prints a live dBFS meter;
+   **speak into the mic and watch it move**. At the end it reports IOProc stats
+   (callbacks, frames/cb, channels). This is the M3 "captures input" check.
+2. **`ex_capture_to_ringbuffer`** — the headline demo: the audio thread (producer)
+   mono-mixes each captured block into a lock-free **`RingBuffer<float>`**; the
+   main thread (consumer) drains it to a WAV. Exercises the M1 ring buffer across
+   a real audio→consumer thread boundary (ADR-0004) and reports any dropped frames
+   (ring overrun). Record a few seconds, then `afplay capture.wav` to verify.
+
+> The mic permission attaches to the host (Terminal / the binary). See
+> `docs/70-macos-audio-capture-plan.md` §6.
+
 ## Notes
 
 - M1 examples run **without any audio device** (the `OfflineDriver` pump); the M2
