@@ -142,12 +142,14 @@ this machine's real devices (default in = **Sennheiser Profile**, default out =
 > float32) and `OfflineBackend` (the ADR-0005 offline clock) drive a
 > `RenderCallback` over a WAV faster than real time; golden `file → graph → file`
 > render is bit-exact. (Done jointly with graph **G4**.)
-> M8 🔜 in review (PR, == graph **G6**) — **Python bindings** (nanobind `_aiudio`):
+> M8 ✅ merged (PR #12, == graph **G6**) — **Python bindings** (nanobind `_aiudio`):
 > build/edit a `Graph`, drive a `GraphExecutor` with a **numpy `process()`**, and
 > render via `OfflineBackend`, all from Python. Verified: a Python
 > `source → gain → sink` returns numpy (out == in·gain); `pip install .`
-> (scikit-build-core) gives an importable `aiudio` package. M7 (plugin host) and M9
-> (resampling/channel-map/hot-plug) pending.
+> (scikit-build-core) gives an importable `aiudio` package. A follow-on **Python
+> control plane** (graph **G7**, ADR-0010, PR #13) added live RT-safe parameter
+> control + an output `DeviceBackend` frontend. **Remaining: M7 (plugin host) and M9
+> (resampling / channel-map / hot-plug) — neither a Phase-0 gate.**
 
 ### Phase 0 — Prove the plumbing (both directions)
 
