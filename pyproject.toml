@@ -14,6 +14,12 @@ dependencies = ["numpy>=1.26"]
 # `pip install -e ".[test]"` (or `pip install -r testing/python/requirements-dev.txt`).
 test = ["pytest>=8.0", "ruff>=0.5", "nbconvert>=7.0", "jupyter-client>=8.0", "ipykernel>=6.0", "matplotlib>=3.7"]
 
+[tool.ruff]
+# Notebooks intentionally use REPL idioms (semicolon-joined statements, mid-notebook
+# imports, display-only expressions); they are verified by *execution*
+# (testing/python/test_notebook.py), not by lint.
+extend-exclude = ["*.ipynb"]
+
 [tool.pytest.ini_options]
 # Test code lives in a dedicated testing/ folder (the Phase-0 strategy) plus the
 # binding unit tests next to the bindings. See testing/README.md.

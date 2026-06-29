@@ -69,7 +69,7 @@ allocator) and the hot path is exercised for faults instead.
 | **Binding unit** | `source→gain→sink` returns numpy (`out == in·gain`); cycle rejected; live `set_gain`/`set_cutoff`; `render_count`; `DeviceBackend.enumerate` | `bindings/test_python_bindings.py` | `pytest` |
 | **Cross-backend** ⭐ | **`numpy executor == offline WAV backend`** for the same graph (one IR, many backends); the control queue lands on the next block; meter telemetry | `testing/python/test_cross_backend.py` | `pytest` |
 | **Packaging** | `pip install .` exposes the documented API (`__all__`, `__version__`, `WavFormat`, macOS `DeviceBackend`) — guards the "symbol built but not re-exported" regression | `testing/python/test_packaging.py` | `pytest` |
-| **Notebook** | the guided tour notebook executes end to end with **0 cell errors** (living docs can't rot) | `testing/python/test_notebook.py` | `pytest` (marked `slow`) |
+| **Notebooks** | both the teaching **tour** (`notebooks/`) and the **acceptance walkthrough** (`testing/notebooks/`, every feature + its shortcomings) execute end to end with **0 cell errors** (living docs can't rot) | `testing/python/test_notebook.py` (parametrized) | `pytest` (marked `slow`) |
 | **Live device** ⭐ | start/stop lifecycle, **render cadence ≈ sr/block** (the C++ thread really ran the graph), live control accepted mid-stream, **GIL released** (Python loop runs concurrently), clean restart | `testing/python/test_live_device.py` | `AIUDIO_LIVE=1 pytest` (marked `live`) |
 | **Static analysis** | lint (`ruff`); the bindings/library themselves are checked by `clang-format`/`clang-tidy` | `python/ bindings/ examples/ testing/` | `ruff check …` |
 
@@ -84,15 +84,23 @@ testing/
 ├── cpp/
 │   ├── CMakeLists.txt            ← wired into ctest from the root CMakeLists
 │   └── test_rt_safety_alloc.cpp  ← RT-safety: process() is allocation-free
+├── notebooks/
+│   ├── build_walkthrough.py      ← generator (source) for the walkthrough notebook
+│   └── aiudio_acceptance_walkthrough.ipynb  ← every feature, step by step + shortcomings
 └── python/
     ├── conftest.py               ← `aud` fixture + `live` marker gating
     ├── _graphs.py                ← shared graph/signal builders
     ├── test_cross_backend.py     ← one-IR-many-backends + control plane
     ├── test_live_device.py       ← gated live RT device frontend
     ├── test_packaging.py         ← public-API surface
-    ├── test_notebook.py          ← execute the tour notebook
+    ├── test_notebook.py          ← execute every notebook (tour + walkthrough)
     └── requirements-dev.txt      ← pytest, ruff, nbclient, ipykernel, …
 ```
+
+The **acceptance walkthrough** (`testing/notebooks/`) is the human-facing companion to
+the automated suite: a step-by-step pass over *every* Python feature with an explicit
+shortcoming callout after each, plus a consolidated shortcomings matrix. It's executed by
+`test_notebook.py` (so it can't rot) and is regenerated from `build_walkthrough.py`.
 
 Pytest config (markers `live`/`slow`, `testpaths`) lives in `pyproject.toml`
 (`[tool.pytest.ini_options]`), so a bare `pytest` from the repo root discovers both
