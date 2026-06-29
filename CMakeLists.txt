@@ -41,6 +41,14 @@ target_include_directories(aiudio_io PUBLIC
 target_compile_features(aiudio_io PUBLIC cxx_std_20)
 target_compile_options(aiudio_io PRIVATE -Wall -Wextra -Wpedantic)
 
+# macOS: the Core Audio HAL output backend (M2) and its frameworks.
+if(APPLE)
+    target_sources(aiudio_io PRIVATE src/io/coreaudio_backend.cpp)
+    target_link_libraries(aiudio_io PUBLIC
+        "-framework CoreAudio"
+        "-framework CoreFoundation")
+endif()
+
 # ---- Tests ----
 if(AIUDIO_BUILD_TESTS)
     enable_testing()

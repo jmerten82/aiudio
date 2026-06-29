@@ -56,8 +56,35 @@ cmake --build build-asan -j
 ctest --test-dir build-asan --output-on-failure   # ASan/UBSan: no memory/UB errors
 ```
 
+## How to test M2 (Core Audio output backend — macOS)
+
+The M1 examples above use a device-free offline pump. M2 adds the real
+`CoreAudioBackend`, tested three ways — from safest to loudest:
+
+| What | Audio? | Run |
+|---|---|---|
+| **Enumeration unit test** | none | `ctest --test-dir build -R coreaudio` |
+| **`ex_device_probe`** — silent, instrumented IOProc | **silent** | `./build/examples/cpp/ex_device_probe --seconds 1.5` |
+| **`ex_play_sine_device`** — plays a tone | **makes sound** | `./build/examples/cpp/ex_play_sine_device --device Kanto --seconds 5` |
+
+1. **`test_coreaudio_enumerate`** (CTest, no audio) — asserts the HAL enumeration
+   lists devices and finds a system default output. Headless/CI-safe.
+2. **`ex_device_probe`** — opens the output device with a **silent** RenderCallback
+   that records what the IOProc delivered (callback count, frames/block, channels,
+   throughput vs. expected) using RT-safe relaxed atomics. It makes **no sound**,
+   so it's an *objective* runtime check you can run anytime. Exits `0` on PASS.
+   List devices first with `ex_play_sine_device --list`; target one with
+   `--device <name-substring>`.
+   <br>Example output (default device = Kanto ORA4): `551 callbacks, 128
+   frames/cb, 2 ch, 70528/72000 frames → PASS`.
+3. **`ex_play_sine_device`** — the subjective/manual acceptance check: plays a
+   sine to a chosen device (the M2 "glitch-free playback" criterion). Use
+   headphones; it produces real sound.
+
 ## Notes
 
-- These run **without any audio device** — they use the `OfflineDriver` pump, not
-  Core Audio. Live device playback arrives with the M2+ backends (`docs/71`).
+- M1 examples run **without any audio device** (the `OfflineDriver` pump); the M2
+  examples/tests use **Core Audio** and are macOS-only.
+- `ex_device_probe` is the recommended quick check that the device path works
+  without making noise; `ex_play_sine_device` is the final by-ear confirmation.
 - `out.wav` is git-ignored.
