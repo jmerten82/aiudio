@@ -173,6 +173,7 @@ aiudio/
 │   ├── 71-io-layer-milestones.md
 │   └── 90-references.md
 ├── examples/              ← cpp/ (C++ usage) + python/ (Python API) + M0 spikes
+├── notebooks/             ← guided Jupyter tour of the Python-controllable pipeline
 ├── include/aiudio/io/     ← aiudio-io headers (devices, taps, duplex, WAV, offline)
 ├── include/aiudio/graph/  ← aiudio-graph headers (Node, Graph, executor, nodes)
 ├── src/io/, src/graph/    ← library implementations
@@ -250,6 +251,18 @@ src, gain, sink = g.add_source(), g.add_gain(0.5), g.add_sink()
 g.connect(src, 0, gain, 0); g.connect(gain, 0, sink, 0)
 ex = aiudio.GraphExecutor(); ex.compile(g, channels=1, sample_rate=48000, max_block=512)
 out = ex.process(np.ones((1, 256), dtype=np.float32))   # -> numpy (1, 256), all 0.5
+```
+
+**Take the guided tour** — [`notebooks/aiudio_pipeline_tour.ipynb`](notebooks/aiudio_pipeline_tour.ipynb)
+walks the whole Python-controllable pipeline end to end (data format, building the
+typed graph IR, the executor's numpy bridge, a real biquad low-pass with a spectrum
+plot, fan-out/fan-in mixing, dBFS metering, live edits, and offline WAV rendering),
+and spells out what is **not** yet reachable from Python (live device I/O, process
+taps, the RT internals, control-rate automation, serialization, differentiability):
+
+```bash
+pip install . jupyter matplotlib
+jupyter notebook notebooks/aiudio_pipeline_tour.ipynb
 ```
 
 **Run the M0 I/O spikes** (Python):

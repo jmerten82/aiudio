@@ -103,8 +103,13 @@ NB_MODULE(_aiudio, m) {
              "Run one block: (channels, frames) float32 in -> (channels, frames) float32 out.")
         .def_prop_ro("compiled", [](const graph::GraphExecutor& e) { return e.compiled(); });
 
+    nb::enum_<io::WavFormat>(m, "WavFormat")
+        .value("Int16", io::WavFormat::Int16)
+        .value("Float32", io::WavFormat::Float32);
+
     nb::class_<io::OfflineBackend>(m, "OfflineBackend")
-        .def(nb::init<std::string, std::string>(), "input_wav"_a, "output_wav"_a)
+        .def(nb::init<std::string, std::string, io::WavFormat>(), "input_wav"_a, "output_wav"_a,
+             "output_format"_a = io::WavFormat::Float32)
         .def_prop_ro("input_ok", &io::OfflineBackend::inputOk)
         .def_prop_ro("input_channels", &io::OfflineBackend::inputChannels)
         .def_prop_ro("input_sample_rate", &io::OfflineBackend::inputSampleRate)

@@ -6,7 +6,7 @@ offline file backend so the research/ML layer and the agent can build, run, and
 edit graphs.
 """
 
-from ._aiudio import Graph, GraphExecutor, OfflineBackend  # noqa: F401
+from ._aiudio import Graph, GraphExecutor, OfflineBackend, WavFormat  # noqa: F401
 
-__all__ = ["Graph", "GraphExecutor", "OfflineBackend"]
+__all__ = ["Graph", "GraphExecutor", "OfflineBackend", "WavFormat"]
 __version__ = "0.0.1"
