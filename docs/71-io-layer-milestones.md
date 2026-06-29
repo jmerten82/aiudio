@@ -124,13 +124,18 @@ this machine's real devices (default in = **Sennheiser Profile**, default out =
 > buffer-size negotiation, interleaved + non-interleaved output. Verified
 > end-to-end on macOS 26 (silent `ex_device_probe`: IOProc fires with correct
 > geometry/throughput; audible `ex_play_sine_device`).
-> M3 🔜 in review (PR) — the **Core Audio HAL input backend** (`CoreAudioInputBackend`):
-> input IOProc captures into planar scratch and delivers it to a `RenderCallback`
-> as `in`; shared HAL helpers factored into `src/io/coreaudio_hal.hpp` (used by
-> both backends). Builds warning-free; `enumerate()` now also verifies a default
-> **input**. Examples: `ex_capture_meter` (live level meter) and
-> `ex_capture_to_ringbuffer` (capture → lock-free `RingBuffer` → WAV) — the
-> developer's hands-on mic checks. M4–M9 pending.
+> M3 ✅ merged — the **Core Audio HAL input backend** (`CoreAudioInputBackend`):
+> input IOProc → planar scratch → `RenderCallback`; shared HAL helpers factored
+> into `src/io/coreaudio_hal.hpp`. Verified end-to-end on macOS 26: real mic
+> captured through the IOProc → lock-free `RingBuffer` → WAV (72320 frames, 0
+> dropped, −36 dBFS real audio).
+> M4 🔜 in review (PR) — **full-duplex / shared clock** (`CoreAudioDuplexBackend`,
+> per ADR-0008): one IOProc on a single device, or a private **aggregate device**
+> (drift-compensated) when input ≠ output, delivering both `in` and `out` to a
+> `RenderCallback`. Verified silently on macOS 26: aggregate (Sennheiser-in +
+> Kanto-out) drove one duplex IOProc with in=1/out=2 channels, live input present.
+> Examples: `ex_duplex_probe` (silent, objective) and `ex_duplex_passthrough`
+> (live monitoring — hands-on). M5–M9 pending.
 
 ### Phase 0 — Prove the plumbing (both directions)
 

@@ -107,6 +107,26 @@ sibling info, or just pass a name substring.
 > The mic permission attaches to the host (Terminal / the binary). See
 > `docs/70-macos-audio-capture-plan.md` §6.
 
+## How to test M4 (full-duplex / shared clock — macOS)
+
+M4 adds `CoreAudioDuplexBackend` — input **and** output on one clock (a single
+device, or a drift-compensated **aggregate device** when they differ; ADR-0008).
+
+| What | Sound? | Run |
+|---|---|---|
+| **`ex_duplex_probe`** — silent objective check | **silent** (needs mic) | `./build/examples/cpp/ex_duplex_probe --seconds 1.5` |
+| **`ex_duplex_passthrough`** — live monitoring | **makes sound** | `./build/examples/cpp/ex_duplex_passthrough --seconds 10` |
+
+1. **`ex_duplex_probe`** — opens the duplex backend (default in + default out),
+   **outputs silence** while measuring the captured input, and reports the IOProc
+   stats (callbacks, frames, in/out channel counts, input level, whether an
+   aggregate device was created). No sound; objective PASS/CHECK. On the dev
+   machine it builds an aggregate (Sennheiser-in + Kanto-out) and reports
+   `in=1/out=2`.
+2. **`ex_duplex_passthrough`** — the live "capture → process → playback" check:
+   routes the mic to the speakers with a gain. **⚠️ Use headphones** (open
+   mic + open speakers = feedback). Confirms low-latency monitoring on one clock.
+
 ## Notes
 
 - M1 examples run **without any audio device** (the `OfflineDriver` pump); the M2

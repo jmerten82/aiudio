@@ -18,4 +18,6 @@ if(APPLE)
     aiudio_add_example(ex_device_probe)          # silent IOProc probe — objective M2 check
     aiudio_add_example(ex_capture_meter)         # live input level meter (M3)
     aiudio_add_example(ex_capture_to_ringbuffer) # capture → ring buffer → WAV (M3)
+    aiudio_add_example(ex_duplex_probe)          # silent full-duplex probe (M4)
+    aiudio_add_example(ex_duplex_passthrough)    # live in→out monitoring (M4)
 endif()
