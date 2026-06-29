@@ -149,6 +149,7 @@ status — **kept current as we go**.
 - [ ] C++ RT executor: inline + off-thread pooled neural nodes
 - [ ] Streaming / cached-conv export (non-causal → causal)
 - [ ] Plugin-host backend + VST3/CLAP packaging (I/O M7)
+- [ ] **True multi-source I/O** — N inputs + M outputs on one clock, one graph, from Python *(plan: [`docs/76`](docs/76-multi-source-io-roadmap.md); absorbs I/O **M9** + adds manager **M10**, Python **M11**, and spine **G8–G10**)*
 
 ### Phase 4 — Breadth
 - [ ] Source separation, more neural FX, neural-codec node

@@ -149,7 +149,9 @@ this machine's real devices (default in = **Sennheiser Profile**, default out =
 > (scikit-build-core) gives an importable `aiudio` package. A follow-on **Python
 > control plane** (graph **G7**, ADR-0010, PR #13) added live RT-safe parameter
 > control + an output `DeviceBackend` frontend. **Remaining: M7 (plugin host) and M9
-> (resampling / channel-map / hot-plug — plan in `docs/75`) — neither a Phase-0 gate.**
+> (resampling / channel-map / hot-plug) — neither a Phase-0 gate. M9 is now Phase B of
+> the [true multi-source I/O plan](76-multi-source-io-roadmap.md), which also adds the
+> multi-source manager (M10) + multi-stream executor + input-side Python (M11).**
 
 ### Phase 0 — Prove the plumbing (both directions)
 
@@ -190,7 +192,7 @@ this machine's real devices (default in = **Sennheiser Profile**, default out =
 | M | Deliverable | Acceptance criteria | Est. |
 |---|---|---|---|
 | **M8** | **Python bindings (nanobind)** + graph wiring: `SourceNode`/`SinkNode` in the graph IR (`50-*`); backend drives the RT executor | From Python: `open_duplex(in=Sennheiser, out=Kanto)`, build `source → gain → sink`, hear it live; `open_process_tap("com.spotify.client")` yields numpy blocks in Jupyter | 3–4 d |
-| **M9** | **Robustness** — sample-rate conversion, device hot-plug/disconnect, xrun/underrun policy, drift compensation, channel mapping/routing, multi-device. **Full plan: [`docs/75`](75-m9-robustness-hardening.md)** (sub-milestones M9.1–M9.6) | Survives unplugging the USB interface mid-stream (clean fallback, no crash); SR mismatch (44.1↔48) resampled transparently; mono↔stereo mapping correct | ongoing |
+| **M9** | **Robustness** — sample-rate conversion, device hot-plug/disconnect, xrun/underrun policy, drift compensation, channel mapping/routing, multi-device. **Full plan: [`docs/76`](76-multi-source-io-roadmap.md) Phase B** (sub-milestones M9.1–M9.6); it is the *alignment* layer of true multi-source I/O | Survives unplugging the USB interface mid-stream (clean fallback, no crash); SR mismatch (44.1↔48) resampled transparently; mono↔stereo mapping correct | ongoing |
 
 ---
 

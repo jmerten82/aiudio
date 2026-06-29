@@ -99,3 +99,7 @@ Proposed ──▶ Accepted ──▶ Deprecated
 - Plugin format priority (VST3 vs CLAP vs AU) for first release.
 - Open-source **license** choice.
 - Graph IR serialization format.
+- **Per-port channel counts** (G8) — extends ADR-0009's uniform-channel assumption. *(Plan: `docs/76` Phase A.)*
+- **Node/edge latency reporting + delay compensation** (G9). *(Plan: `docs/76` Phase A.)*
+- **Multi-stream executor + source/sink binding** (G10) — extends ADR-0009's single-in/out contract. *(Plan: `docs/76` Phase D.)*
+- **Multi-source manager clocking** (M10) — N backends + N rings + master clock; makes ADR-0008 §5 concrete. *(Plan: `docs/76` Phase C.)*
