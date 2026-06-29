@@ -1,0 +1,22 @@
+[build-system]
+requires = ["scikit-build-core>=0.10", "nanobind>=2.0"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "aiudio"
+version = "0.0.1"
+description = "AI-native digital audio processing framework — Python bindings"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = ["numpy>=1.26"]
+
+[tool.scikit-build]
+minimum-version = "0.10"
+# Build only the Python module (skip C++ tests/examples) and place _aiudio inside
+# the aiudio package.
+cmake.args = [
+    "-DAIUDIO_BUILD_PYTHON=ON",
+    "-DAIUDIO_BUILD_TESTS=OFF",
+    "-DAIUDIO_BUILD_EXAMPLES=OFF",
+]
+wheel.packages = ["python/aiudio"]

@@ -19,6 +19,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # ---- Options ----
 option(AIUDIO_BUILD_TESTS "Build aiudio tests" ON)
 option(AIUDIO_BUILD_EXAMPLES "Build aiudio C++ examples" ON)
+option(AIUDIO_BUILD_PYTHON "Build the Python bindings (requires nanobind)" OFF)
 set(AIUDIO_SANITIZE "" CACHE STRING
     "Sanitizers to enable, e.g. 'address,undefined' or 'thread' (empty = none)")
 
@@ -81,4 +82,17 @@ endif()
 # ---- Examples ----
 if(AIUDIO_BUILD_EXAMPLES)
     add_subdirectory(examples/cpp)
+endif()
+
+# ---- Python bindings (G6 / M8) ----
+if(AIUDIO_BUILD_PYTHON)
+    find_package(Python 3.10 COMPONENTS Interpreter Development.Module REQUIRED)
+    # Auto-discover nanobind via the interpreter (works for both a manual CMake
+    # build and the scikit-build-core `pip install .` flow).
+    if(NOT nanobind_DIR)
+        execute_process(COMMAND "${Python_EXECUTABLE}" -m nanobind --cmake_dir
+                        OUTPUT_STRIP_TRAILING_WHITESPACE OUTPUT_VARIABLE nanobind_DIR)
+    endif()
+    find_package(nanobind CONFIG REQUIRED)
+    add_subdirectory(bindings)
 endif()

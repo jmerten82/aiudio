@@ -88,14 +88,17 @@ Estimates are rough order-of-magnitude for one developer.
 > G4 ✅ merged (shared with I/O M6) — **node library + offline backend**:
 > `BiquadNode` (RBJ low-/high-pass) + the M6 `OfflineBackend` + WAV I/O; a
 > `file → graph → file` render is a deterministic golden test (bit-exact).
-> G5 ✅ in review (PR) — **live graph edits**: `compile()` now builds a new
-> schedule and installs it with an **atomic swap** (RCU); the audio thread picks it
-> up at the next block and the old schedule is reclaimed off-thread once released
-> (renderCount handshake). Verified on macOS 26: CTest 11/11; the edit-while-running
-> stress test (1000 swaps while a thread spins `process()`) is **clean under
-> ThreadSanitizer** (race-free) and ASan/UBSan; `ex_graph_live_edit` swaps
-> 0.5 → 0.25 with no stop/restart. **This is the hook the agent uses to edit a
-> running graph.** G6 pending.
+> G5 ✅ merged — **live graph edits**: `compile()` installs a new schedule with an
+> **atomic swap** (RCU); the audio thread picks it up next block and the old
+> schedule is reclaimed off-thread (renderCount handshake). TSan-clean
+> edit-while-running stress test. The hook the agent uses to edit a running graph.
+> G6 ✅ in review (PR, == I/O M8) — **Python bindings** (nanobind): the `_aiudio`
+> module exposes `Graph` (node factories, `connect`, `validate`, `set_gain`,
+> meter), `GraphExecutor` (`compile` + a **numpy `process()`** bridge), and
+> `OfflineBackend`. Verified on macOS 26: `_aiudio` builds clean; from Python a
+> `source → gain → sink` graph runs and returns numpy (out == in·gain); a live
+> `set_gain` takes effect; `pip install .` (scikit-build-core) yields an importable
+> `aiudio` package. **The graph spine (G1–G6) is complete.**
 
 ### G1 — Node & Graph IR types (+ trivial nodes)
 - **Deliverable:** `aiudio-graph` library: `Node`, `Graph` (add/connect/validate),

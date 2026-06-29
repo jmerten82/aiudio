@@ -6,9 +6,12 @@ can author and edit that graph from natural language, and the whole thing is
 built ML-first (differentiable, trainable, deployable) for both real-time and
 offline use.
 
-> **Status:** 🌱 Pre-alpha — foundation & design phase. The research dossier and
-> design are complete; implementation starts at the I/O layer. No public API yet.
-> **Last updated:** 2026-06-28.
+> **Status:** 🌱 Pre-alpha. **Phase 0 foundation in place:** the I/O layer
+> (capture / system + per-app taps / full-duplex / file, M0–M6) and the graph spine
+> (typed IR + executor + node library, runs live & offline, live-editable, with
+> **Python bindings**, G1–G6) are implemented and tested. Remaining I/O: M7
+> (plugin host), M9 (hardening). Next: Phase 1 (differentiable core).
+> **Last updated:** 2026-06-29.
 
 ---
 
@@ -123,7 +126,7 @@ status — **kept current as we go**.
 - [x] I/O layer foundation plan (`docs/71-*`) & macOS capture plan (`docs/70-*`)
 - [x] **I/O layer** — duplex device capture+playback, full-duplex clock (M0–M4)
   *(M0 spikes; M1 core; M2 output; M3 input; M4 full-duplex — all ✅ merged)*
-- [ ] **Graph spine** — typed IR + eager executor + the node contract *(ADR-0009 + `docs/74`; G1 ✅ IR; G2 ✅ executor; G3 ✅ live; G4 ✅ nodes+offline; G5 🔜 live edits — in review; G6 next)*
+- [x] **Graph spine** — typed IR + eager executor + the node contract *(ADR-0009 + `docs/74`; G1 IR · G2 executor · G3 live · G4 nodes+offline · G5 live edits · G6 Python bindings — all ✅)*
 - [x] First end-to-end: capture → trivial graph (gain/meter) → playback, live *(G3 ✅ — graph driven by the Core Audio duplex backend)*
 
 ### Phase 1 — Differentiable core
@@ -169,11 +172,15 @@ aiudio/
 │   ├── 70-macos-audio-capture-plan.md
 │   ├── 71-io-layer-milestones.md
 │   └── 90-references.md
-├── examples/              ← M0 Python I/O spikes + cpp/ M1 usage examples
-├── include/aiudio/io/     ← aiudio-io public headers (M1)
-├── src/io/                ← aiudio-io implementation (M1)
-├── tests/                 ← C++ unit tests (CTest)
-└── CMakeLists.txt         ← C++ build (aiudio-io library + tests)
+├── examples/              ← cpp/ (C++ usage) + python/ (Python API) + M0 spikes
+├── include/aiudio/io/     ← aiudio-io headers (devices, taps, duplex, WAV, offline)
+├── include/aiudio/graph/  ← aiudio-graph headers (Node, Graph, executor, nodes)
+├── src/io/, src/graph/    ← library implementations
+├── bindings/              ← nanobind Python bindings (_aiudio module)
+├── python/aiudio/         ← Python package
+├── tests/                 ← C++ unit tests (CTest) + Python binding tests
+├── pyproject.toml         ← `pip install .` (scikit-build-core + nanobind)
+└── CMakeLists.txt         ← C++ build (aiudio-io + aiudio-graph; -DAIUDIO_BUILD_PYTHON)
 ```
 
 ## Documentation
@@ -228,6 +235,21 @@ cmake -S . -B build-asan -DAIUDIO_SANITIZE=address,undefined && ctest --test-dir
 ```bash
 ./build/examples/cpp/ex_render_callback
 ./build/examples/cpp/ex_offline_render_wav out.wav && afplay out.wav
+```
+
+**Use it from Python** (nanobind bindings — build a graph, run it on numpy):
+
+```bash
+pip install .          # scikit-build-core + nanobind
+python examples/python/ex_graph_numpy.py
+```
+```python
+import aiudio, numpy as np
+g = aiudio.Graph()
+src, gain, sink = g.add_source(), g.add_gain(0.5), g.add_sink()
+g.connect(src, 0, gain, 0); g.connect(gain, 0, sink, 0)
+ex = aiudio.GraphExecutor(); ex.compile(g, channels=1, sample_rate=48000, max_block=512)
+out = ex.process(np.ones((1, 256), dtype=np.float32))   # -> numpy (1, 256), all 0.5
 ```
 
 **Run the M0 I/O spikes** (Python):

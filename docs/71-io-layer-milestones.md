@@ -138,12 +138,16 @@ this machine's real devices (default in = **Sennheiser Profile**, default out =
 > via `CATapDescription` → process tap → private aggregate → IOProc (Objective-C++);
 > delivered to a `RenderCallback` as `in`. Tap example signed with
 > `NSAudioCaptureUsageDescription`; live capture confirmed.
-> M6 🔜 in review (PR) — **file + offline backend**: `WavReader`/`WavWriter`
-> (PCM-16 + float32, planar API) and `OfflineBackend` (the ADR-0005 offline clock)
-> that drives a `RenderCallback` over a WAV **faster than real time** — the same
-> executor runs live (G3) and offline unchanged. Verified: WAV round-trips
-> (float32 bit-exact), and the golden `file → Source→Gain→Sink → file` render is
-> bit-exact. (Done jointly with graph **G4**.) M7–M9 pending.
+> M6 ✅ merged — **file + offline backend**: `WavReader`/`WavWriter` (PCM-16 +
+> float32) and `OfflineBackend` (the ADR-0005 offline clock) drive a
+> `RenderCallback` over a WAV faster than real time; golden `file → graph → file`
+> render is bit-exact. (Done jointly with graph **G4**.)
+> M8 🔜 in review (PR, == graph **G6**) — **Python bindings** (nanobind `_aiudio`):
+> build/edit a `Graph`, drive a `GraphExecutor` with a **numpy `process()`**, and
+> render via `OfflineBackend`, all from Python. Verified: a Python
+> `source → gain → sink` returns numpy (out == in·gain); `pip install .`
+> (scikit-build-core) gives an importable `aiudio` package. M7 (plugin host) and M9
+> (resampling/channel-map/hot-plug) pending.
 
 ### Phase 0 — Prove the plumbing (both directions)
 
