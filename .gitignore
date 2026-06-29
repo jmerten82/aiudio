@@ -9,6 +9,9 @@ env/
 .ruff_cache/
 .mypy_cache/
 
+# ---- Jupyter ----
+.ipynb_checkpoints/
+
 # ---- C++ / CMake ----
 build/
 build-*/

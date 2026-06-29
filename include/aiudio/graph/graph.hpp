@@ -35,6 +35,13 @@ struct ValidationResult {
 
 class Graph {
 public:
+    Graph() = default;
+    // Owns its nodes via unique_ptr → non-copyable, movable.
+    Graph(const Graph&) = delete;
+    Graph& operator=(const Graph&) = delete;
+    Graph(Graph&&) = default;
+    Graph& operator=(Graph&&) = default;
+
     /// Take ownership of a node; returns its id (its insertion index).
     NodeId addNode(std::unique_ptr<Node> node);
 
