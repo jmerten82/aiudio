@@ -71,12 +71,15 @@ public:
 
 Estimates are rough order-of-magnitude for one developer.
 
-> **Progress:** G1 ✅ in review (PR) — the `aiudio-graph` library: the `Node`
-> contract, the typed `Graph` IR (`addNode`/`connect`) with `validate()`
-> (port-range, single-driver-per-input, acyclicity), and trivial `GainNode` /
-> `SumNode`. Verified on macOS 26: builds warning-free, CTest 5/5 (incl. graph +
-> node tests), and `ex_build_graph` builds/validates a DAG, rejects a cycle and a
-> bad port, and runs the nodes by hand. G2–G6 pending.
+> **Progress:** G1 ✅ merged — the `aiudio-graph` library: the `Node` contract,
+> the typed `Graph` IR with `validate()` (port-range, single-driver, acyclicity),
+> and trivial `GainNode` / `SumNode`.
+> G2 ✅ in review (PR) — the **`GraphExecutor`**: `compile()` builds a static
+> topological schedule with pre-allocated per-port buffers (handling fan-out and
+> fan-in); `process()` runs it as a `RenderCallback` (RT-safe, no allocation).
+> `SourceNode` / `SinkNode` bridge the executor's `in`/`out`. Verified on macOS 26:
+> warning-free, CTest 6/6, ASan/UBSan-clean; `ex_run_graph_offline` renders
+> `Source → (Gain, Gain) → Sum → Sink` to the expected 1.300. G3–G6 pending.
 
 ### G1 — Node & Graph IR types (+ trivial nodes)
 - **Deliverable:** `aiudio-graph` library: `Node`, `Graph` (add/connect/validate),

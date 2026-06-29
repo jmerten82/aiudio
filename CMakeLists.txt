@@ -59,7 +59,8 @@ endif()
 # The graph IR + node contract (ADR-0009). Pure C++; depends on aiudio-io for the
 # AudioBuffer / TimeInfo types. Construction + validation now; execution is G2.
 add_library(aiudio_graph
-    src/graph/graph.cpp)
+    src/graph/graph.cpp
+    src/graph/graph_executor.cpp)  # G2: compile + eager executor
 add_library(aiudio::graph ALIAS aiudio_graph)
 target_include_directories(aiudio_graph PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>

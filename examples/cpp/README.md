@@ -164,8 +164,25 @@ G1 adds the `aiudio-graph` library: the `Node` contract, the typed `Graph` IR wi
    scales and `SumNode` mixes correctly.
 2. **`ex_build_graph`** — builds `GainNode ┐`/`GainNode ┘→ SumNode`, prints the
    graph, runs `validate()` (and shows it rejecting a cycle + a bad port), then
-   runs the nodes on a block **by hand** (there's no executor yet — that's G2).
-   Exits `0` on success.
+   runs the nodes on a block **by hand** (no executor in G1). Exits `0` on success.
+
+## How to test G2 (graph executor — cross-platform, no audio)
+
+G2 adds the **`GraphExecutor`**: `compile()` turns a graph into a static schedule
+with pre-allocated buffers, and `process()` runs it as a `RenderCallback`.
+
+| What | Run |
+|---|---|
+| **Unit tests** | `ctest --test-dir build -R graph_executor` |
+| **`ex_run_graph_offline`** | `./build/examples/cpp/ex_run_graph_offline` |
+
+1. **`test_graph_executor`** — `Source → Gain → Sink` applies gain bit-exact;
+   `Source ─┬─► Gain(0.5) ─► Sum ◄─ Gain(0.8) ◄─┘` (fan-out + fan-in) yields 1.3;
+   `compile()` rejects an invalid (cyclic) graph. Runs clean under ASan/UBSan.
+2. **`ex_run_graph_offline`** — compiles the 5-node fan-out/fan-in graph and drives
+   it block-by-block via the executor (an offline pump); prints `out[0] = 1.300`.
+   The **same executor** is a `RenderCallback`, so in G3 a Core Audio backend will
+   drive it for live audio — no code change to the graph.
 
 ## Notes
 
