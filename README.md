@@ -121,8 +121,8 @@ status — **kept current as we go**.
 ### Phase 0 — Foundations *(in progress)*
 - [x] Deep-research dossier & design docs (`docs/`)
 - [x] I/O layer foundation plan (`docs/71-*`) & macOS capture plan (`docs/70-*`)
-- [ ] **I/O layer** — duplex device capture+playback, full-duplex clock (M0–M4)
-  *(M0 ✅ spikes; M1 ✅ core; M2 ✅ output; M3 ✅ input; M4 🔜 full-duplex/shared clock — in review)*
+- [x] **I/O layer** — duplex device capture+playback, full-duplex clock (M0–M4)
+  *(M0 spikes; M1 core; M2 output; M3 input; M4 full-duplex — all ✅ merged)*
 - [ ] **Graph spine** — typed IR + eager executor + the node contract
 - [ ] First end-to-end: capture → trivial graph (gain/meter) → playback, live
 
@@ -131,7 +131,7 @@ status — **kept current as we go**.
 - [ ] Classic DSP nodes (gain, biquad EQ, reverb) as differentiable peers
 - [ ] First neural node (RAVE-/NAM-class) under the same contract
 - [ ] "Brighten the vocal" slice — EQ node tuned by gradient vs a CLAP objective
-- [ ] Process-tap & offline/file backends (I/O M5–M6)
+- [ ] Process-tap & offline/file backends (I/O M5–M6) *(M5 🔜 system/per-app capture — in review)*
 
 ### Phase 2 — Agent control plane *(the differentiator)*
 - [ ] Typed graph-edit action space (`add_node`/`connect`/`set_param`/…)

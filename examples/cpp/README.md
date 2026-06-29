@@ -127,6 +127,28 @@ device, or a drift-compensated **aggregate device** when they differ; ADR-0008).
    routes the mic to the speakers with a gain. **⚠️ Use headphones** (open
    mic + open speakers = feedback). Confirms low-latency monitoring on one clock.
 
+## How to test M5 (process taps — system / per-app capture, macOS 14.4+)
+
+M5 adds `CoreAudioProcessTapBackend` — capture **output** audio of the whole
+system or one process, with no virtual device (ADR-0007).
+
+| What | Permission | Run |
+|---|---|---|
+| **`ex_list_audio_processes`** — list tappable PIDs | none | `./build/examples/cpp/ex_list_audio_processes` |
+| **`ex_tap_capture --system`** — capture all system audio | **audio-recording (purple dot)** | `./build/examples/cpp/ex_tap_capture --system --seconds 5 system.wav` |
+| **`ex_tap_capture --pid <PID>`** — capture one app | **audio-recording** | `./build/examples/cpp/ex_tap_capture --pid 1234 --seconds 5 app.wav` |
+
+1. **`ex_list_audio_processes`** — lists the process objects Core Audio exposes
+   (PID + bundle id). No permission; safe anytime. Pick a PID from here.
+2. **`ex_tap_capture`** — taps system (`--system`) or one process (`--pid N`),
+   prints a live dBFS meter of the tapped audio, and optionally records a mono WAV
+   (positional path). **Play some audio first.** On first run macOS shows the
+   **audio-recording (purple-dot) permission prompt** — grant it, then re-run.
+   - This binary **embeds `NSAudioCaptureUsageDescription` and is ad-hoc signed**
+     by CMake so the prompt appears. A bare unsigned CLI without that key would
+     silently capture nothing — see `docs/70-macos-audio-capture-plan.md` §6.
+   - Then `afplay system.wav` to verify.
+
 ## Notes
 
 - M1 examples run **without any audio device** (the `OfflineDriver` pump); the M2
