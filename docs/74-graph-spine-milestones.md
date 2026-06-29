@@ -102,7 +102,7 @@ Estimates are rough order-of-magnitude for one developer.
 > `source → gain → sink` graph runs and returns numpy (out == in·gain); a live
 > `set_gain` takes effect; `pip install .` (scikit-build-core) yields an importable
 > `aiudio` package. **The graph spine (G1–G6) is complete.**
-> G7 ✅ in review (PR #13, stacked on the now-merged G6) — **Python control plane** (ADR-0010): a
+> G7 ✅ merged (PR #13) — **Python control plane** (ADR-0010): a
 > lock-free SPSC **command queue** in `GraphExecutor` (`postParam`, drained at the
 > top of each block) + `Node::setParam`; live, RT-safe `set_gain` / `set_cutoff` /
 > `set_q` / `set_param` from Python, plus `render_count` telemetry. The **output

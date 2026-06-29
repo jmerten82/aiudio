@@ -6,12 +6,13 @@ can author and edit that graph from natural language, and the whole thing is
 built ML-first (differentiable, trainable, deployable) for both real-time and
 offline use.
 
-> **Status:** 🌱 Pre-alpha. **Phase 0 foundation in place:** the I/O layer
+> **Status:** 🌱 Pre-alpha. **Phase 0 foundation complete:** the I/O layer
 > (capture / system + per-app taps / full-duplex / file, M0–M6) and the graph spine
 > (typed IR + executor + node library, runs live & offline, live-editable, with
 > **Python bindings** and a **Python control plane** that drives a *running* pipeline
-> as a frontend, G1–G7) are implemented and tested. Remaining I/O: M7
-> (plugin host), M9 (hardening). Next: Phase 1 (differentiable core).
+> as a frontend, G1–G7) are implemented and tested, with a documented C++ + Python
+> [testing strategy](testing/README.md) (CI-green). Remaining I/O — M7 (plugin host),
+> M9 (hardening) — is not a Phase-0 gate. Next: Phase 1 (differentiable core).
 > **Last updated:** 2026-06-29.
 
 ---
@@ -122,7 +123,7 @@ High-level phases (synthesis of
 [I/O milestones](docs/71-io-layer-milestones.md)). Checkboxes are the living
 status — **kept current as we go**.
 
-### Phase 0 — Foundations *(in progress)*
+### Phase 0 — Foundations *(complete — foundation in place; M7/M9 non-gating)*
 - [x] Deep-research dossier & design docs (`docs/`)
 - [x] I/O layer foundation plan (`docs/71-*`) & macOS capture plan (`docs/70-*`)
 - [x] **I/O layer** — duplex device capture+playback, full-duplex clock (M0–M4)
@@ -130,6 +131,7 @@ status — **kept current as we go**.
 - [x] **Graph spine** — typed IR + eager executor + the node contract *(ADR-0009 + `docs/74`; G1 IR · G2 executor · G3 live · G4 nodes+offline · G5 live edits · G6 Python bindings — all ✅)*
 - [x] First end-to-end: capture → trivial graph (gain/meter) → playback, live *(G3 ✅ — graph driven by the Core Audio duplex backend)*
 - [x] **Python control plane** — drive a *running* pipeline as a frontend: lock-free param command queue + atomic telemetry, and the RT output backend exposed control-only *(ADR-0010; G7 ✅ — Python never touches the audio thread)*
+- [x] **Testing strategy** — documented C++ + Python layers (RT-safety/allocation, sanitizers, golden, cross-backend, live-device, packaging, notebooks) + one-command runner + CI *(`testing/README.md` ✅ CI-green)*
 
 ### Phase 1 — Differentiable core
 - [ ] Differentiable end-to-end graph execution
