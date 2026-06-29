@@ -33,6 +33,7 @@ claim of consequence is cited; the consolidated source list lives in
 | [71-io-layer-milestones.md](./71-io-layer-milestones.md) | **Foundation milestone plan** for the full I/O layer (input **and** output) — the unifying duplex-callback/swappable-clock model, core C++ abstractions, M0–M9 milestones with acceptance criteria, dependency graph, and definition of done. |
 | [72-m1-aiudio-io-reference.md](./72-m1-aiudio-io-reference.md) | **M1 reference** — code-grounded description of exactly what the `aiudio-io` library implements: the value types, `RenderCallback`/`AudioBackend` contracts, the lock-free SPSC ring buffer, conversions, build, tests, examples, RT-safety summary, and what M1 deliberately leaves to M2+. |
 | [73-digital-audio-encoding.md](./73-digital-audio-encoding.md) | **Primer:** how audio is encoded in digital systems — sampling/Nyquist, quantization/bit depth, integer vs. float PCM, dBFS, channels/frames, interleaved vs. planar, blocks/latency, data rates, and beyond-PCM codecs — each tied to where aiudio's pipeline implements it. |
+| [74-graph-spine-milestones.md](./74-graph-spine-milestones.md) | **Graph-spine milestone plan** (ADR-0009) — the typed IR + node contract + eager executor that turns the I/O backends into a pipeline: core abstractions, milestones G1–G6 (toward live `capture → graph → playback`), dependency graph, definition of done, and what the spine defers to Phase 1/2. |
 
 ## How this dossier was produced
 
