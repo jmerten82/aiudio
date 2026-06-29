@@ -1,0 +1,3 @@
+# M0 I/O spikes — minimal deps. sounddevice bundles PortAudio (Core Audio on macOS).
+numpy>=1.26
+sounddevice>=0.4.6
