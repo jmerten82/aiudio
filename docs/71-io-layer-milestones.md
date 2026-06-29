@@ -129,13 +129,18 @@ this machine's real devices (default in = **Sennheiser Profile**, default out =
 > into `src/io/coreaudio_hal.hpp`. Verified end-to-end on macOS 26: real mic
 > captured through the IOProc → lock-free `RingBuffer` → WAV (72320 frames, 0
 > dropped, −36 dBFS real audio).
-> M4 🔜 in review (PR) — **full-duplex / shared clock** (`CoreAudioDuplexBackend`,
-> per ADR-0008): one IOProc on a single device, or a private **aggregate device**
-> (drift-compensated) when input ≠ output, delivering both `in` and `out` to a
-> `RenderCallback`. Verified silently on macOS 26: aggregate (Sennheiser-in +
-> Kanto-out) drove one duplex IOProc with in=1/out=2 channels, live input present.
-> Examples: `ex_duplex_probe` (silent, objective) and `ex_duplex_passthrough`
-> (live monitoring — hands-on). M5–M9 pending.
+> M4 ✅ merged — **full-duplex / shared clock** (`CoreAudioDuplexBackend`, ADR-0008):
+> one IOProc on a single device, or a private drift-compensated **aggregate
+> device** when input ≠ output, delivering both `in` and `out`. Verified
+> end-to-end on macOS 26 (silent probe + by-ear passthrough).
+> M5 🔜 in review (PR) — **process taps** (`CoreAudioProcessTapBackend`, macOS
+> 14.4+, ADR-0007): capture system or per-process **output** audio with no virtual
+> device, via `CATapDescription` → process tap → private aggregate → IOProc
+> (Objective-C++). Delivered to a `RenderCallback` as `in`, same as M3. Builds
+> warning-free; process enumeration verified (29 processes listed); the tap
+> example embeds `NSAudioCaptureUsageDescription` + is ad-hoc signed so the
+> audio-capture TCC prompt appears — live capture is the developer's hands-on
+> check. M6–M9 pending.
 
 ### Phase 0 — Prove the plumbing (both directions)
 

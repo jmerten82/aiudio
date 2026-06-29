@@ -41,15 +41,18 @@ target_include_directories(aiudio_io PUBLIC
 target_compile_features(aiudio_io PUBLIC cxx_std_20)
 target_compile_options(aiudio_io PRIVATE -Wall -Wextra -Wpedantic)
 
-# macOS: the Core Audio HAL output backend (M2) and its frameworks.
+# macOS: the Core Audio backends and their frameworks. The process-tap backend
+# (M5) is Objective-C++ (.mm, for CATapDescription) and needs Foundation.
 if(APPLE)
     target_sources(aiudio_io PRIVATE
-        src/io/coreaudio_backend.cpp         # M2 output backend
-        src/io/coreaudio_input_backend.cpp   # M3 input backend
-        src/io/coreaudio_duplex_backend.cpp) # M4 full-duplex backend
+        src/io/coreaudio_backend.cpp            # M2 output backend
+        src/io/coreaudio_input_backend.cpp      # M3 input backend
+        src/io/coreaudio_duplex_backend.cpp     # M4 full-duplex backend
+        src/io/coreaudio_process_tap_backend.mm) # M5 process-tap backend (Obj-C++)
     target_link_libraries(aiudio_io PUBLIC
         "-framework CoreAudio"
-        "-framework CoreFoundation")
+        "-framework CoreFoundation"
+        "-framework Foundation")
 endif()
 
 # ---- Tests ----

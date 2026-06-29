@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleName</key>
+    <string>aiudio-examples</string>
+    <key>CFBundleIdentifier</key>
+    <string>com.aiudio.examples</string>
+    <!-- Required for the Core Audio process-tap (audio-capture) TCC permission.
+         Embedded into the tap example binaries via -sectcreate so macOS shows the
+         capture prompt and tracks the grant. -->
+    <key>NSAudioCaptureUsageDescription</key>
+    <string>aiudio captures system and per-application audio for processing.</string>
+</dict>
+</plist>
