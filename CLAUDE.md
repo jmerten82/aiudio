@@ -4,7 +4,7 @@ Guidance for Claude Code (and humans) working in this repo. Loaded every session
 so it is kept **tight**; depth lives in [`docs/`](docs/). Keep this file and
 [`README.md`](README.md) **current** — see [§9 Living-documents protocol](#9-living-documents-protocol).
 
-> **Last updated:** 2026-06-28 · **Current phase:** Phase 0 — Foundations (I/O
+> **Last updated:** 2026-06-29 · **Current phase:** Phase 0 — Foundations (I/O
 > layer + graph spine). See [README Roadmap](README.md#roadmap).
 
 ---
@@ -164,7 +164,8 @@ a **new** one and mark the old `Superseded by ADR-XXXX` — never rewrite histor
 - **Build & test:** `cmake -S . -B build && cmake --build build -j && ctest
   --test-dir build --output-on-failure`. Sanitizers via
   `-DAIUDIO_SANITIZE=thread` or `=address,undefined`. Python M0 spikes: see
-  `examples/README.md`.
+  `examples/README.md`. **Full strategy + one-shot runner (C++ & Python, headless
+  vs. live): [`testing/README.md`](testing/README.md) / `testing/run.sh`.**
 - **Doc-driven:** the design is written down before code. Read the relevant
   `docs/*` before implementing; reflect real changes back into the docs.
 - **Vertical slices:** prefer the smallest end-to-end slice that proves a claim

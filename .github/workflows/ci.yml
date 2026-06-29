@@ -1,0 +1,75 @@
+# aiudio CI — the headless layers of the Phase-0 testing strategy (testing/README.md).
+# The liveness layer (real audio device) can't run on hosted runners; it's a manual
+# job for a self-hosted macOS box with an output device.
+name: ci
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  cpp:
+    name: C++ build + ctest (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build + test
+        run: |
+          cmake -S . -B build
+          cmake --build build -j
+          ctest --test-dir build --output-on-failure
+
+  sanitizers:
+    name: C++ sanitizers (TSan + ASan/UBSan)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: ThreadSanitizer (control plane + live edit)
+        run: |
+          cmake -S . -B build-tsan -DAIUDIO_SANITIZE=thread
+          cmake --build build-tsan -j --target test_graph_control test_graph_live_edit
+          ctest --test-dir build-tsan -R 'test_graph_control|test_graph_live_edit' --output-on-failure
+      - name: Address/UB Sanitizer (full suite)
+        run: |
+          cmake -S . -B build-asan -DAIUDIO_SANITIZE=address,undefined
+          cmake --build build-asan -j
+          ctest --test-dir build-asan --output-on-failure
+
+  python:
+    # macOS so the Core Audio DeviceBackend compiles; the live device tests self-skip
+    # (no AIUDIO_LIVE), but everything else — including the notebook — runs.
+    name: Python bindings + pytest + lint
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install package + dev deps
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install . -r testing/python/requirements-dev.txt
+          python -m ipykernel install --user --name python3
+      - name: Lint (ruff)
+        run: ruff check python bindings examples testing
+      - name: Headless pytest (live device tests auto-skip)
+        run: python -m pytest testing/python bindings -v
+
+  liveness:
+    # Real audio device required — only on a self-hosted macOS runner, triggered by hand.
+    name: Live RT device layer (manual)
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: [self-hosted, macos, audio]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install
+        run: python -m pip install . -r testing/python/requirements-dev.txt
+      - name: Live device pytest
+        env:
+          AIUDIO_LIVE: "1"
+        run: python -m pytest testing/python/test_live_device.py -v

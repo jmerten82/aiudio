@@ -182,6 +182,7 @@ aiudio/
 ├── bindings/              ← nanobind Python bindings (_aiudio module)
 ├── python/aiudio/         ← Python package
 ├── tests/                 ← C++ unit tests (CTest) + Python binding tests
+├── testing/               ← test strategy (testing/README.md) + cross-cutting tests + run.sh
 ├── pyproject.toml         ← `pip install .` (scikit-build-core + nanobind)
 └── CMakeLists.txt         ← C++ build (aiudio-io + aiudio-graph; -DAIUDIO_BUILD_PYTHON)
 ```
@@ -226,6 +227,11 @@ cmake -S . -B build
 cmake --build build -j
 ctest --test-dir build --output-on-failure
 ```
+
+> **Full test suite, one command:** `testing/run.sh` (C++ build + ctest, sanitizers,
+> `pip install`, ruff, pytest; `--live` adds the real-device layer). The complete
+> testing strategy — C++ + Python, headless vs. live — is in
+> [`testing/README.md`](testing/README.md).
 
 Optionally build with sanitizers (the ring buffer is verified race-free under both):
 

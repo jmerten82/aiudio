@@ -10,6 +10,20 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = ["numpy>=1.26"]
 
+[project.optional-dependencies]
+# `pip install -e ".[test]"` (or `pip install -r testing/python/requirements-dev.txt`).
+test = ["pytest>=8.0", "ruff>=0.5", "nbconvert>=7.0", "jupyter-client>=8.0", "ipykernel>=6.0", "matplotlib>=3.7"]
+
+[tool.pytest.ini_options]
+# Test code lives in a dedicated testing/ folder (the Phase-0 strategy) plus the
+# binding unit tests next to the bindings. See testing/README.md.
+testpaths = ["testing/python", "bindings"]
+markers = [
+    "live: needs a real audio output device — set AIUDIO_LIVE=1 (macOS); skipped otherwise",
+    "slow: slow tests (e.g. executing the tour notebook end to end)",
+]
+addopts = "-ra"
+
 [tool.scikit-build]
 minimum-version = "0.10"
 # Build only the Python module (skip C++ tests/examples) and place _aiudio inside
