@@ -122,7 +122,7 @@ status — **kept current as we go**.
 - [x] Deep-research dossier & design docs (`docs/`)
 - [x] I/O layer foundation plan (`docs/71-*`) & macOS capture plan (`docs/70-*`)
 - [ ] **I/O layer** — duplex device capture+playback, full-duplex clock (M0–M4)
-  *(M0 ✅ spikes; M1 ✅ `aiudio-io` core; M2 ✅ Core Audio output; M3 🔜 Core Audio input — in review; M4 next)*
+  *(M0 ✅ spikes; M1 ✅ core; M2 ✅ output; M3 ✅ input; M4 🔜 full-duplex/shared clock — in review)*
 - [ ] **Graph spine** — typed IR + eager executor + the node contract
 - [ ] First end-to-end: capture → trivial graph (gain/meter) → playback, live
 

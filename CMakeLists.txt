@@ -44,8 +44,9 @@ target_compile_options(aiudio_io PRIVATE -Wall -Wextra -Wpedantic)
 # macOS: the Core Audio HAL output backend (M2) and its frameworks.
 if(APPLE)
     target_sources(aiudio_io PRIVATE
-        src/io/coreaudio_backend.cpp        # M2 output backend
-        src/io/coreaudio_input_backend.cpp) # M3 input backend
+        src/io/coreaudio_backend.cpp         # M2 output backend
+        src/io/coreaudio_input_backend.cpp   # M3 input backend
+        src/io/coreaudio_duplex_backend.cpp) # M4 full-duplex backend
     target_link_libraries(aiudio_io PUBLIC
         "-framework CoreAudio"
         "-framework CoreFoundation")
