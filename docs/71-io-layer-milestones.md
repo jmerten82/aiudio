@@ -118,7 +118,13 @@ this machine's real devices (default in = **Sennheiser Profile**, default out =
 > `StreamConfig`, `RenderCallback`/`AudioBackend` contracts, the lock-free SPSC
 > `RingBuffer`, and sample-format conversions. The SPSC stress test (1M items, one
 > producer/one consumer) is clean under **ThreadSanitizer** and **ASan/UBSan**.
-> Runnable usage examples in `examples/cpp/`. M2–M9 pending.
+> Runnable usage examples in `examples/cpp/`.
+> M2 🔜 in review (PR) — the **Core Audio HAL output backend** (`CoreAudioBackend`,
+> macOS): device `enumerate()`, output IOProc driving a `RenderCallback`, sample
+> rate / buffer-size negotiation, interleaved + non-interleaved output handling.
+> Builds warning-free; `enumerate()` verified on macOS 26 (matches the known
+> devices, finds the default output) via `test_coreaudio_enumerate`; live tone
+> playback (`ex_play_sine_device`) is the developer's on-device check. M3–M9 pending.
 
 ### Phase 0 — Prove the plumbing (both directions)
 

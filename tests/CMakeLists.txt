@@ -11,3 +11,7 @@ endfunction()
 
 aiudio_add_test(test_ring_buffer)
 aiudio_add_test(test_conversions)
+
+if(APPLE)
+    aiudio_add_test(test_coreaudio_enumerate)  # device enumeration, no audio
+endif()

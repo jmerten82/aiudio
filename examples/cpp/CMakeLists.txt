@@ -12,3 +12,7 @@ aiudio_add_example(ex_ring_buffer)
 aiudio_add_example(ex_render_callback)
 aiudio_add_example(ex_conversions)
 aiudio_add_example(ex_offline_render_wav)
+
+if(APPLE)
+    aiudio_add_example(ex_play_sine_device)  # plays to a real device (Core Audio, M2)
+endif()
