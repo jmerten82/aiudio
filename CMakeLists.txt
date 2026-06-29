@@ -55,6 +55,19 @@ if(APPLE)
         "-framework Foundation")
 endif()
 
+# ---- Library: aiudio-graph (G1) ----
+# The graph IR + node contract (ADR-0009). Pure C++; depends on aiudio-io for the
+# AudioBuffer / TimeInfo types. Construction + validation now; execution is G2.
+add_library(aiudio_graph
+    src/graph/graph.cpp)
+add_library(aiudio::graph ALIAS aiudio_graph)
+target_include_directories(aiudio_graph PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>)
+target_link_libraries(aiudio_graph PUBLIC aiudio::io)
+target_compile_features(aiudio_graph PUBLIC cxx_std_20)
+target_compile_options(aiudio_graph PRIVATE -Wall -Wextra -Wpedantic)
+
 # ---- Tests ----
 if(AIUDIO_BUILD_TESTS)
     enable_testing()
