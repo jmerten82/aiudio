@@ -203,6 +203,29 @@ G3 wires a compiled graph to the **Core Audio duplex backend** — the first liv
    speakers through the graph, with a live meter. **⚠️ Use headphones.** Mono mic
    appears on the left channel (channel mapping/upmix is a later refinement).
 
+## How to test G4 + M6 (node library + offline/file backend — cross-platform, no audio)
+
+G4 adds a real DSP node (`BiquadNode`); M6 adds WAV I/O + the `OfflineBackend`
+(renders a graph over a file faster than real time). All offline — no device.
+
+| What | Run |
+|---|---|
+| **Unit tests** | `ctest --test-dir build -R "biquad\|offline\|wav"` |
+| **`ex_render_file_offline`** | `./build/examples/cpp/ex_render_file_offline --cutoff 800` |
+
+1. **`test_wav_file`** — WAV round-trips (float32 bit-exact; int16 within ~1 LSB).
+   **`test_biquad_node`** — RBJ lowpass passes DC, highpass blocks DC.
+   **`test_offline_render`** — the golden test: `file → Source→Gain(0.5)→Sink →
+   file` rendered via `OfflineBackend` is **bit-exact** (float32).
+2. **`ex_render_file_offline`** — generates a 300 Hz + 5 kHz input WAV, renders it
+   through `Source → Biquad(lowpass) → Gain → Sink` to an output WAV (faster than
+   real time), and prints the paths. On macOS, compare by ear:
+   `afplay in.wav` vs `afplay out.wav` — the 5 kHz tone is attenuated (verified
+   numerically: output RMS 0.40 → 0.25).
+
+> The **same** `GraphExecutor` runs **live** (G3, device backend) and **offline**
+> (M6, `OfflineBackend`) unchanged — the ADR-0005 "swappable clock" in action.
+
 ## Notes
 
 - M1 examples run **without any audio device** (the `OfflineDriver` pump); the M2
