@@ -85,7 +85,12 @@ Estimates are rough order-of-magnitude for one developer.
 > aggregate-device backend** (566 blocks executed by the IOProc → PASS) **and** the
 > audible `ex_graph_live_passthrough` (mic → graph → speakers) confirmed on
 > hardware. CTest 7/7. **The Phase-0 first-end-to-end deliverable is done.**
-> G4–G6 pending.
+> G4 ✅ in review (PR, shared with I/O M6) — **node library + offline backend**:
+> added `BiquadNode` (RBJ low-/high-pass) and the M6 `OfflineBackend` + WAV I/O, so
+> a `file → graph → file` render is a deterministic golden test. Verified on
+> macOS 26: CTest 10/10 (incl. biquad DC pass/block + a **bit-exact** offline gain
+> render); `ex_render_file_offline` low-passes a 300 Hz + 5 kHz mix (output RMS
+> 0.40 → 0.25). The same graph runs live (G3) and offline unchanged. G5–G6 pending.
 
 ### G1 — Node & Graph IR types (+ trivial nodes)
 - **Deliverable:** `aiudio-graph` library: `Node`, `Graph` (add/connect/validate),

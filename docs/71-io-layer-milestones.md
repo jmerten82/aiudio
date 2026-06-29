@@ -133,14 +133,17 @@ this machine's real devices (default in = **Sennheiser Profile**, default out =
 > one IOProc on a single device, or a private drift-compensated **aggregate
 > device** when input ≠ output, delivering both `in` and `out`. Verified
 > end-to-end on macOS 26 (silent probe + by-ear passthrough).
-> M5 🔜 in review (PR) — **process taps** (`CoreAudioProcessTapBackend`, macOS
-> 14.4+, ADR-0007): capture system or per-process **output** audio with no virtual
-> device, via `CATapDescription` → process tap → private aggregate → IOProc
-> (Objective-C++). Delivered to a `RenderCallback` as `in`, same as M3. Builds
-> warning-free; process enumeration verified (29 processes listed); the tap
-> example embeds `NSAudioCaptureUsageDescription` + is ad-hoc signed so the
-> audio-capture TCC prompt appears — live capture is the developer's hands-on
-> check. M6–M9 pending.
+> M5 ✅ merged — **process taps** (`CoreAudioProcessTapBackend`, macOS 14.4+,
+> ADR-0007): capture system or per-process output audio with no virtual device,
+> via `CATapDescription` → process tap → private aggregate → IOProc (Objective-C++);
+> delivered to a `RenderCallback` as `in`. Tap example signed with
+> `NSAudioCaptureUsageDescription`; live capture confirmed.
+> M6 🔜 in review (PR) — **file + offline backend**: `WavReader`/`WavWriter`
+> (PCM-16 + float32, planar API) and `OfflineBackend` (the ADR-0005 offline clock)
+> that drives a `RenderCallback` over a WAV **faster than real time** — the same
+> executor runs live (G3) and offline unchanged. Verified: WAV round-trips
+> (float32 bit-exact), and the golden `file → Source→Gain→Sink → file` render is
+> bit-exact. (Done jointly with graph **G4**.) M7–M9 pending.
 
 ### Phase 0 — Prove the plumbing (both directions)
 
