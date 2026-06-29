@@ -28,7 +28,7 @@ From `docs/00-vision-and-scope.md` §3:
 - **Languages:** **C++** real-time core + **Python** research/ML layer.
 
 These — plus the core architecture choices — are formalized as **ADRs** (`adr/`,
-0002–0007). If a change would violate one, stop and flag it — changing a locked
+0002–0008). If a change would violate one, stop and flag it — changing a locked
 decision requires a **new superseding ADR** (§10), never a silent divergence.
 
 ## 3. Where things are

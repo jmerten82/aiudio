@@ -200,6 +200,7 @@ Accepted so far:
 | [0005](adr/0005-io-duplex-callback-swappable-clock.md) | I/O: one duplex callback, swappable clock |
 | [0006](adr/0006-runtime-agnostic-neural-inference.md) | Runtime-agnostic neural inference (inline + off-thread) |
 | [0007](adr/0007-macos-coreaudio-io.md) | macOS audio I/O via Core Audio (HAL + process taps) |
+| [0008](adr/0008-multi-input-and-full-duplex-clocking.md) | Multi-input & full-duplex clocking (shared clock, aggregate devices, per-source ring buffers) |
 
 > **Significant decisions require an ADR.** See `CLAUDE.md` §9 for when to write
 > one and how it ties into keeping the docs current.
