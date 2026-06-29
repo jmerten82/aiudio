@@ -91,6 +91,7 @@ Proposed ──▶ Accepted ──▶ Deprecated
 | [0006](0006-runtime-agnostic-neural-inference.md) | Runtime-agnostic neural inference (inline RTNeural + off-thread ANIRA) | Accepted | 2026-06-28 |
 | [0007](0007-macos-coreaudio-io.md) | macOS audio I/O via Core Audio (HAL + process taps) | Accepted | 2026-06-28 |
 | [0008](0008-multi-input-and-full-duplex-clocking.md) | Multi-input & full-duplex clocking (shared clock, aggregate devices, per-source ring buffers) | Accepted | 2026-06-28 |
+| [0009](0009-graph-spine-architecture.md) | Graph spine — IR, node model, and eager executor | Accepted | 2026-06-28 |
 
 ### Backlog (decisions to record when made)
 - Agent control-plane design (LLM-orchestrates-structure + differentiable param tuning) — currently *research direction* in `docs/40-*`, promote to an ADR when locked.

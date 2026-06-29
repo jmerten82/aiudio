@@ -123,7 +123,7 @@ status — **kept current as we go**.
 - [x] I/O layer foundation plan (`docs/71-*`) & macOS capture plan (`docs/70-*`)
 - [x] **I/O layer** — duplex device capture+playback, full-duplex clock (M0–M4)
   *(M0 spikes; M1 core; M2 output; M3 input; M4 full-duplex — all ✅ merged)*
-- [ ] **Graph spine** — typed IR + eager executor + the node contract
+- [ ] **Graph spine** — typed IR + eager executor + the node contract *(design drafted: ADR-0009 + `docs/74`)*
 - [ ] First end-to-end: capture → trivial graph (gain/meter) → playback, live
 
 ### Phase 1 — Differentiable core
@@ -201,6 +201,7 @@ Accepted so far:
 | [0006](adr/0006-runtime-agnostic-neural-inference.md) | Runtime-agnostic neural inference (inline + off-thread) |
 | [0007](adr/0007-macos-coreaudio-io.md) | macOS audio I/O via Core Audio (HAL + process taps) |
 | [0008](adr/0008-multi-input-and-full-duplex-clocking.md) | Multi-input & full-duplex clocking (shared clock, aggregate devices, per-source ring buffers) |
+| [0009](adr/0009-graph-spine-architecture.md) | Graph spine — IR, node model, and eager executor |
 
 > **Significant decisions require an ADR.** See `CLAUDE.md` §9 for when to write
 > one and how it ties into keeping the docs current.
