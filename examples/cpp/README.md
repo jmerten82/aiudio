@@ -226,6 +226,27 @@ G4 adds a real DSP node (`BiquadNode`); M6 adds WAV I/O + the `OfflineBackend`
 > The **same** `GraphExecutor` runs **live** (G3, device backend) and **offline**
 > (M6, `OfflineBackend`) unchanged — the ADR-0005 "swappable clock" in action.
 
+## How to test G5 (live graph edits — cross-platform, no audio)
+
+G5 makes `GraphExecutor::compile()` install a new schedule with an **atomic swap**
+while `process()` runs — the audio thread never sees a half-edited graph, and the
+old schedule is freed off-thread once released (RCU). This is the hook the agent
+will use to edit a running graph.
+
+| What | Run |
+|---|---|
+| **Unit tests** | `ctest --test-dir build -R live_edit` |
+| **`ex_graph_live_edit`** | `./build/examples/cpp/ex_graph_live_edit` |
+| **Race check (TSan)** | `cmake -S . -B build-tsan -DAIUDIO_SANITIZE=thread && cmake --build build-tsan -j && ctest --test-dir build-tsan -R live_edit` |
+
+1. **`test_graph_live_edit`** — `swap_takes_effect_and_reclaims` (a swapped-in
+   graph is live next block; retired schedules are reclaimed, pending set stays
+   bounded) and `live_swap_is_race_free` (1000 swaps while a thread spins
+   `process()` — no garbage output). **Run it under ThreadSanitizer** to confirm
+   race-freedom (verified clean).
+2. **`ex_graph_live_edit`** — pumps a graph, **swaps `Gain(0.5)` → `Gain(0.25)`
+   mid-stream**, and shows the output change (0.5 → 0.25) with no stop/restart.
+
 ## Notes
 
 - M1 examples run **without any audio device** (the `OfflineDriver` pump); the M2

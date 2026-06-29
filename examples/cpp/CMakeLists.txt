@@ -17,6 +17,7 @@ aiudio_add_example(ex_offline_render_wav aiudio::io)
 aiudio_add_example(ex_build_graph aiudio::graph)       # G1: build + validate a graph
 aiudio_add_example(ex_run_graph_offline aiudio::graph)  # G2: compile + run via executor
 aiudio_add_example(ex_render_file_offline aiudio::graph) # G4+M6: WAV → graph → WAV
+aiudio_add_example(ex_graph_live_edit aiudio::graph)     # G5: live atomic schedule swap
 
 if(APPLE)
     aiudio_add_example(ex_play_sine_device aiudio::io)      # plays to a device (M2)

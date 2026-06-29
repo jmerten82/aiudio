@@ -123,7 +123,7 @@ status — **kept current as we go**.
 - [x] I/O layer foundation plan (`docs/71-*`) & macOS capture plan (`docs/70-*`)
 - [x] **I/O layer** — duplex device capture+playback, full-duplex clock (M0–M4)
   *(M0 spikes; M1 core; M2 output; M3 input; M4 full-duplex — all ✅ merged)*
-- [ ] **Graph spine** — typed IR + eager executor + the node contract *(ADR-0009 + `docs/74`; G1 ✅ IR; G2 ✅ executor; G3 ✅ live; G4 🔜 node library + offline — in review; G5–G6 next)*
+- [ ] **Graph spine** — typed IR + eager executor + the node contract *(ADR-0009 + `docs/74`; G1 ✅ IR; G2 ✅ executor; G3 ✅ live; G4 ✅ nodes+offline; G5 🔜 live edits — in review; G6 next)*
 - [x] First end-to-end: capture → trivial graph (gain/meter) → playback, live *(G3 ✅ — graph driven by the Core Audio duplex backend)*
 
 ### Phase 1 — Differentiable core
