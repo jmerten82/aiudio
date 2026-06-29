@@ -92,9 +92,10 @@ Proposed ──▶ Accepted ──▶ Deprecated
 | [0007](0007-macos-coreaudio-io.md) | macOS audio I/O via Core Audio (HAL + process taps) | Accepted | 2026-06-28 |
 | [0008](0008-multi-input-and-full-duplex-clocking.md) | Multi-input & full-duplex clocking (shared clock, aggregate devices, per-source ring buffers) | Accepted | 2026-06-28 |
 | [0009](0009-graph-spine-architecture.md) | Graph spine — IR, node model, and eager executor | Accepted | 2026-06-28 |
+| [0010](0010-python-control-plane.md) | Python control plane — lock-free command queue, atomic telemetry, RT backend as control-only frontend | Accepted | 2026-06-29 |
 
 ### Backlog (decisions to record when made)
-- Agent control-plane design (LLM-orchestrates-structure + differentiable param tuning) — currently *research direction* in `docs/40-*`, promote to an ADR when locked.
+- Agent control-plane design (LLM-orchestrates-structure + differentiable param tuning) — currently *research direction* in `docs/40-*`, promote to an ADR when locked (it will build on ADR-0010's queue + atomic-swap hooks).
 - Plugin format priority (VST3 vs CLAP vs AU) for first release.
 - Open-source **license** choice.
 - Graph IR serialization format.

@@ -77,6 +77,7 @@ target_compile_options(aiudio_graph PRIVATE -Wall -Wextra -Wpedantic)
 if(AIUDIO_BUILD_TESTS)
     enable_testing()
     add_subdirectory(tests)
+    add_subdirectory(testing/cpp)  # Phase-0 strategy: cross-cutting RT-safety tests
 endif()
 
 # ---- Examples ----

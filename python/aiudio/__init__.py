@@ -9,4 +9,15 @@ edit graphs.
 from ._aiudio import Graph, GraphExecutor, OfflineBackend, WavFormat  # noqa: F401
 
 __all__ = ["Graph", "GraphExecutor", "OfflineBackend", "WavFormat"]
+
+# The live device backend is a Core Audio (macOS) feature — a *control* frontend over
+# the real-time C++ audio thread (the audio thread never runs Python; ADR-0004). It is
+# present only where the extension was built with it.
+try:
+    from ._aiudio import AudioDeviceInfo, DeviceBackend  # noqa: F401
+
+    __all__ += ["DeviceBackend", "AudioDeviceInfo"]
+except ImportError:  # pragma: no cover - non-macOS builds
+    pass
+
 __version__ = "0.0.1"

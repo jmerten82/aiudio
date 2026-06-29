@@ -15,24 +15,44 @@ namespace aiudio::graph {
 
 class BiquadNode final : public Node {
 public:
+    /// `setParam` / `GraphExecutor::postParam` indices for live (RT-safe) control.
+    static constexpr std::uint32_t kCutoffHz = 0;  ///< value = cutoff frequency in Hz
+    static constexpr std::uint32_t kQ = 1;         ///< value = resonance Q (> 0)
+
     explicit BiquadNode(std::uint32_t maxChannels = 2)
         : z1_(maxChannels == 0 ? 1 : maxChannels, 0.0f),
           z2_(maxChannels == 0 ? 1 : maxChannels, 0.0f),
           maxChannels_(maxChannels == 0 ? 1 : maxChannels) {}
 
     void setLowpass(double freqHz, double q, double sampleRate) noexcept {
+        freqHz_ = freqHz; q_ = q; sampleRate_ = sampleRate; lowpass_ = true; designed_ = true;
         design(freqHz, q, sampleRate, /*lowpass*/ true);
     }
     void setHighpass(double freqHz, double q, double sampleRate) noexcept {
+        freqHz_ = freqHz; q_ = q; sampleRate_ = sampleRate; lowpass_ = false; designed_ = true;
         design(freqHz, q, sampleRate, /*lowpass*/ false);
     }
     void setCoefficients(float b0, float b1, float b2, float a1, float a2) noexcept {
-        b0_ = b0; b1_ = b1; b2_ = b2; a1_ = a1; a2_ = a2;
+        b0_ = b0; b1_ = b1; b2_ = b2; a1_ = a1; a2_ = a2; designed_ = false;
     }
 
-    void prepare(double /*sampleRate*/, std::uint32_t /*maxBlock*/) override {
+    // Live control (audio thread, via the executor's command queue): re-run the RBJ
+    // design with the changed cutoff/Q against the stored sample rate + filter shape.
+    // RT-safe — only sin/cos + arithmetic, no allocation. No-op if the filter was set
+    // via raw setCoefficients() (no design parameters to vary).
+    void setParam(std::uint32_t index, float value) noexcept override {
+        if (!designed_) return;
+        if (index == kCutoffHz) freqHz_ = value;
+        else if (index == kQ) q_ = (value > 0.0f) ? value : q_;
+        else return;
+        design(freqHz_, q_, sampleRate_, lowpass_);
+    }
+
+    void prepare(double sampleRate, std::uint32_t /*maxBlock*/) override {
         for (auto& z : z1_) z = 0.0f;
         for (auto& z : z2_) z = 0.0f;
+        sampleRate_ = sampleRate;                              // authoritative (from compile)
+        if (designed_) design(freqHz_, q_, sampleRate_, lowpass_);
     }
 
     void process(const AudioBuffer* inputs, AudioBuffer* outputs, std::uint32_t numFrames,
@@ -91,6 +111,15 @@ private:
     std::vector<float> z1_;
     std::vector<float> z2_;
     std::uint32_t maxChannels_;
+
+    // Remembered design parameters so a live cutoff/Q edit can recompute coefficients.
+    // (Only touched on a single thread at a time: setup, or the audio thread during a
+    // command-queue drain — never concurrently.)
+    double freqHz_ = 1000.0;
+    double q_ = 0.707;
+    double sampleRate_ = 48000.0;
+    bool lowpass_ = true;
+    bool designed_ = false;  // true once setLowpass/setHighpass chose a design to vary
 };
 
 }  // namespace aiudio::graph

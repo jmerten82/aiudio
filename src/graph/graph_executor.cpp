@@ -20,12 +20,14 @@ struct GraphExecutor::CompiledGraph {
     std::vector<std::vector<float*>> ptrs;       // [buffer][channel]
     std::vector<io::AudioBuffer> portBuffers;    // [buffer] view
     std::vector<Entry> schedule;                 // topological order
+    std::vector<Node*> byId;                     // NodeId -> Node* (O(1) command routing)
     std::vector<SourceNode*> sources;
     std::vector<SinkNode*> sinks;
     std::uint32_t maxBlock = 0;
 };
 
-GraphExecutor::GraphExecutor() = default;
+GraphExecutor::GraphExecutor()
+    : commands_(std::make_unique<io::RingBuffer<ParamCommand>>(kCommandCapacity)) {}
 
 GraphExecutor::~GraphExecutor() {
     retired_.clear();
@@ -41,6 +43,7 @@ std::unique_ptr<GraphExecutor::CompiledGraph> GraphExecutor::build(const Graph& 
     auto cg = std::make_unique<CompiledGraph>();
     cg->maxBlock = maxBlock;
     const std::size_t n = g.nodeCount();
+    cg->byId.assign(n, nullptr);  // filled per node below; command drain indexes by NodeId
 
     // 1) A buffer per (node, output port), + one shared zero buffer.
     std::vector<std::vector<std::size_t>> outBuf(n);
@@ -88,6 +91,7 @@ std::unique_ptr<GraphExecutor::CompiledGraph> GraphExecutor::build(const Graph& 
     cg->schedule.reserve(n);
     for (NodeId v : order) {
         Node* node = g.node(v);
+        cg->byId[v] = node;
         CompiledGraph::Entry entry;
         entry.node = node;
 
@@ -148,6 +152,16 @@ void GraphExecutor::process(const io::AudioBuffer& in, io::AudioBuffer& out,
     CompiledGraph* g = active_.load(std::memory_order_acquire);
     if (g == nullptr) return;
     const std::uint32_t frames = (numFrames <= g->maxBlock) ? numFrames : g->maxBlock;
+
+    // Apply queued control-rate edits before rendering, so this block already reflects
+    // them. Bounded by the queue capacity; pop() is wait-free and setParam() is RT-safe.
+    ParamCommand cmd;
+    while (commands_->pop(cmd)) {
+        if (cmd.node < g->byId.size()) {
+            Node* target = g->byId[cmd.node];
+            if (target != nullptr) target->setParam(cmd.param, cmd.value);
+        }
+    }
 
     for (SourceNode* s : g->sources) s->setExternalInput(&in);
     for (SinkNode* k : g->sinks) k->setExternalOutput(&out);

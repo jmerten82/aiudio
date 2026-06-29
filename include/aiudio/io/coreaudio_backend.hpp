@@ -34,6 +34,10 @@ public:
     void stop() override;
     [[nodiscard]] std::uint32_t latencyFrames() const override;
 
+    /// Whether the device IOProc is currently started (control-thread view, for a
+    /// frontend to poll). Set by start()/stop(); not written by the audio thread.
+    [[nodiscard]] bool running() const noexcept { return running_; }
+
     // Invoked by the Core Audio IOProc (implementation detail). Takes the output
     // AudioBufferList as void* to keep CoreAudio out of this header. RT context:
     // must stay allocation-/lock-free.

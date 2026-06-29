@@ -9,6 +9,9 @@ differentiable executor, the agent — attaches to. Decisions: **ADR-0009**.
 > (sources/sinks); the spine is the *middle*. They meet at `SourceNode`/`SinkNode`
 > and at the Python bindings (this plan's G6 = I/O M8). The spine does **not**
 > require the remaining I/O milestones (M6/M7/M9) — it pulls them in when useful.
+> G7 (ADR-0010) extends the spine to the **control plane**: Python drives a *running*
+> pipeline (lock-free command queue + atomic telemetry) and the RT backend is exposed
+> as a control-only frontend — the hook the agent (Phase 2) will use.
 
 ---
 
@@ -92,13 +95,24 @@ Estimates are rough order-of-magnitude for one developer.
 > **atomic swap** (RCU); the audio thread picks it up next block and the old
 > schedule is reclaimed off-thread (renderCount handshake). TSan-clean
 > edit-while-running stress test. The hook the agent uses to edit a running graph.
-> G6 ✅ in review (PR, == I/O M8) — **Python bindings** (nanobind): the `_aiudio`
+> G6 ✅ merged (PR #12, == I/O M8) — **Python bindings** (nanobind): the `_aiudio`
 > module exposes `Graph` (node factories, `connect`, `validate`, `set_gain`,
 > meter), `GraphExecutor` (`compile` + a **numpy `process()`** bridge), and
 > `OfflineBackend`. Verified on macOS 26: `_aiudio` builds clean; from Python a
 > `source → gain → sink` graph runs and returns numpy (out == in·gain); a live
 > `set_gain` takes effect; `pip install .` (scikit-build-core) yields an importable
 > `aiudio` package. **The graph spine (G1–G6) is complete.**
+> G7 ✅ in review (PR #13, stacked on the now-merged G6) — **Python control plane** (ADR-0010): a
+> lock-free SPSC **command queue** in `GraphExecutor` (`postParam`, drained at the
+> top of each block) + `Node::setParam`; live, RT-safe `set_gain` / `set_cutoff` /
+> `set_q` / `set_param` from Python, plus `render_count` telemetry. The **output
+> `DeviceBackend`** (Core Audio) is bound as a **control-only frontend** — Python
+> opens/starts/stops + controls + observes; the audio thread stays pure C++ and the
+> GIL is released on lifecycle calls. Verified on macOS 26: C++ CTest 12/12
+> (incl. the new `test_graph_control`); the command plane is **TSan-clean** under a
+> flood-while-rendering stress test;
+> `ex_live_control.py` ran a live output stream (render_count climbing at ~94
+> blocks/s) driven entirely from Python without touching the audio thread.
 
 ### G1 — Node & Graph IR types (+ trivial nodes)
 - **Deliverable:** `aiudio-graph` library: `Node`, `Graph` (add/connect/validate),
@@ -149,6 +163,19 @@ Estimates are rough order-of-magnitude for one developer.
   read/measure output blocks as numpy.
 - **Est.** 3–4 d.
 
+### G7 — Python control plane + RT backend frontend (ADR-0010)
+- **Deliverable:** a lock-free **command queue** (`GraphExecutor::postParam`, drained
+  at the top of `process()`) + uniform `Node::setParam`; live RT-safe parameter control
+  from Python (`set_gain`/`set_cutoff`/`set_q`/`set_param`); **atomic telemetry**
+  (`render_count`, meter); and the **output `DeviceBackend`** bound as a *control-only
+  frontend* (GIL released on `open`/`start`/`stop`). The audio thread never runs Python.
+- **Acceptance:** from Python, start a live output stream, change parameters while it
+  runs, and read telemetry — all without touching the audio thread; the command plane is
+  TSan-clean under a flood-while-rendering stress test.
+- **Out of scope (follow-ups):** binding the input/duplex/tap backends; an oscillator
+  node for audible output; parameter automation curves.
+- **Est.** 3–4 d.
+
 ---
 
 ## 4. Dependency graph
@@ -156,10 +183,11 @@ Estimates are rough order-of-magnitude for one developer.
 ```
 G1 (IR + node contract) ─▶ G2 (compiler + executor) ─▶ G3 (source/sink, live) ─┬─▶ G4 (node lib + offline)
                                                                                ├─▶ G5 (edit/recompile/swap)
-                                                                               └─▶ G6 (Python = I/O M8)
+                                                                               └─▶ G6 (Python = I/O M8) ─▶ G7 (control plane + RT frontend)
 ```
 G1 gates everything (the contract). G2 before G3 (need an executor before wiring
-to devices). G4/G5/G6 are parallelizable after G3.
+to devices). G4/G5/G6 are parallelizable after G3. G7 builds on G6 (Python) + G5
+(atomic swap) — it adds the live control queue + the device-backend frontend.
 
 ---
 
@@ -170,9 +198,11 @@ to devices). G4/G5/G6 are parallelizable after G3.
 2. The **same graph** runs **live** (G3, via any backend) and **offline**
    (G4, golden-file) through the *same* IR.
 3. Graphs are **editable off-thread** with an atomic swap (G5) — no glitches/races.
-4. Graphs are **buildable and drivable from Python** (G6).
+4. Graphs are **buildable and drivable from Python** (G6), and a **running** pipeline
+   is **controllable + observable from Python** as a frontend, RT-safely (G7).
 5. The node contract has survived a real multi-node consumer — ready for the
-   **differentiable executor** (Phase 1) and the **agent** (Phase 2) to attach.
+   **differentiable executor** (Phase 1) and the **agent** (Phase 2) to attach (the
+   agent drives G7's command queue + G5's atomic swap).
 
 ---
 

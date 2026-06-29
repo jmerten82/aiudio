@@ -9,7 +9,8 @@ offline use.
 > **Status:** 🌱 Pre-alpha. **Phase 0 foundation in place:** the I/O layer
 > (capture / system + per-app taps / full-duplex / file, M0–M6) and the graph spine
 > (typed IR + executor + node library, runs live & offline, live-editable, with
-> **Python bindings**, G1–G6) are implemented and tested. Remaining I/O: M7
+> **Python bindings** and a **Python control plane** that drives a *running* pipeline
+> as a frontend, G1–G7) are implemented and tested. Remaining I/O: M7
 > (plugin host), M9 (hardening). Next: Phase 1 (differentiable core).
 > **Last updated:** 2026-06-29.
 
@@ -128,6 +129,7 @@ status — **kept current as we go**.
   *(M0 spikes; M1 core; M2 output; M3 input; M4 full-duplex — all ✅ merged)*
 - [x] **Graph spine** — typed IR + eager executor + the node contract *(ADR-0009 + `docs/74`; G1 IR · G2 executor · G3 live · G4 nodes+offline · G5 live edits · G6 Python bindings — all ✅)*
 - [x] First end-to-end: capture → trivial graph (gain/meter) → playback, live *(G3 ✅ — graph driven by the Core Audio duplex backend)*
+- [x] **Python control plane** — drive a *running* pipeline as a frontend: lock-free param command queue + atomic telemetry, and the RT output backend exposed control-only *(ADR-0010; G7 ✅ — Python never touches the audio thread)*
 
 ### Phase 1 — Differentiable core
 - [ ] Differentiable end-to-end graph execution
@@ -180,6 +182,7 @@ aiudio/
 ├── bindings/              ← nanobind Python bindings (_aiudio module)
 ├── python/aiudio/         ← Python package
 ├── tests/                 ← C++ unit tests (CTest) + Python binding tests
+├── testing/               ← test strategy (testing/README.md) + cross-cutting tests + run.sh
 ├── pyproject.toml         ← `pip install .` (scikit-build-core + nanobind)
 └── CMakeLists.txt         ← C++ build (aiudio-io + aiudio-graph; -DAIUDIO_BUILD_PYTHON)
 ```
@@ -210,6 +213,7 @@ Accepted so far:
 | [0007](adr/0007-macos-coreaudio-io.md) | macOS audio I/O via Core Audio (HAL + process taps) |
 | [0008](adr/0008-multi-input-and-full-duplex-clocking.md) | Multi-input & full-duplex clocking (shared clock, aggregate devices, per-source ring buffers) |
 | [0009](adr/0009-graph-spine-architecture.md) | Graph spine — IR, node model, and eager executor |
+| [0010](adr/0010-python-control-plane.md) | Python control plane — lock-free command queue, atomic telemetry, RT backend as control-only frontend |
 
 > **Significant decisions require an ADR.** See `CLAUDE.md` §9 for when to write
 > one and how it ties into keeping the docs current.
@@ -223,6 +227,11 @@ cmake -S . -B build
 cmake --build build -j
 ctest --test-dir build --output-on-failure
 ```
+
+> **Full test suite, one command:** `testing/run.sh` (C++ build + ctest, sanitizers,
+> `pip install`, ruff, pytest; `--live` adds the real-device layer). The complete
+> testing strategy — C++ + Python, headless vs. live — is in
+> [`testing/README.md`](testing/README.md).
 
 Optionally build with sanitizers (the ring buffer is verified race-free under both):
 
@@ -251,6 +260,24 @@ src, gain, sink = g.add_source(), g.add_gain(0.5), g.add_sink()
 g.connect(src, 0, gain, 0); g.connect(gain, 0, sink, 0)
 ex = aiudio.GraphExecutor(); ex.compile(g, channels=1, sample_rate=48000, max_block=512)
 out = ex.process(np.ones((1, 256), dtype=np.float32))   # -> numpy (1, 256), all 0.5
+```
+
+**Drive a live device as a control frontend** (macOS; ADR-0010) — Python opens/starts/stops
+the stream, sends RT-safe parameter changes through a lock-free queue, and polls telemetry,
+while the audio thread stays pure C++ (Python never touches it):
+
+```bash
+python examples/python/ex_live_control.py --list-devices
+python examples/python/ex_live_control.py --seconds 3
+```
+```python
+be = aiudio.DeviceBackend()
+be.open(ex, channels=2, sample_rate=48000, block_size=512)  # GIL released
+be.start()                                                  # C++ audio thread runs now
+ex.set_gain(gain, 0.3)      # lock-free; applied at the next block — safe while running
+ex.set_cutoff(lp, 1200.0)   # live filter change
+blocks = ex.render_count    # telemetry: climbs while audio flows
+be.stop()
 ```
 
 **Take the guided tour** — [`notebooks/aiudio_pipeline_tour.ipynb`](notebooks/aiudio_pipeline_tour.ipynb)
