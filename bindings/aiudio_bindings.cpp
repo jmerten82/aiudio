@@ -6,10 +6,12 @@
 #include <nanobind/ndarray.h>
 #include <nanobind/stl/pair.h>
 #include <nanobind/stl/string.h>
+#include <nanobind/stl/vector.h>
 
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <string>
 #include <vector>
 
 #include "aiudio/graph/biquad_node.hpp"
@@ -23,6 +25,12 @@
 #include "aiudio/io/audio_buffer.hpp"
 #include "aiudio/io/offline_backend.hpp"
 #include "aiudio/io/types.hpp"
+
+// The live device backend (Core Audio) is macOS-only; DeviceBackend is exposed only
+// where it exists. Everything else (graph IR, executor, offline) is cross-platform.
+#ifdef __APPLE__
+#include "aiudio/io/coreaudio_backend.hpp"
+#endif
 
 namespace nb = nanobind;
 using namespace nb::literals;
@@ -101,6 +109,25 @@ NB_MODULE(_aiudio, m) {
         }, "graph"_a, "channels"_a, "sample_rate"_a, "max_block"_a, nb::keep_alive<1, 2>())
         .def("process", &executorProcess, "input"_a,
              "Run one block: (channels, frames) float32 in -> (channels, frames) float32 out.")
+        // ---- Live control plane (RT-safe; lock-free SPSC queue into the audio thread) ----
+        // These enqueue a change that the audio thread applies at the top of the next
+        // block. Safe to call while a device backend is running — Python never touches
+        // the audio thread. Return False if the command queue is momentarily full.
+        .def("set_param", [](graph::GraphExecutor& e, graph::NodeId node, std::uint32_t param,
+                             float value) { return e.postParam(node, param, value); },
+             "node"_a, "param"_a, "value"_a,
+             "Queue a control-rate parameter change (applied at the next block).")
+        .def("set_gain", [](graph::GraphExecutor& e, graph::NodeId node, float value) {
+            return e.postParam(node, graph::GainNode::kGain, value);
+        }, "node"_a, "gain"_a, "Live, RT-safe gain change for a GainNode.")
+        .def("set_cutoff", [](graph::GraphExecutor& e, graph::NodeId node, float hz) {
+            return e.postParam(node, graph::BiquadNode::kCutoffHz, hz);
+        }, "node"_a, "hz"_a, "Live, RT-safe cutoff (Hz) change for a BiquadNode.")
+        .def("set_q", [](graph::GraphExecutor& e, graph::NodeId node, float q) {
+            return e.postParam(node, graph::BiquadNode::kQ, q);
+        }, "node"_a, "q"_a, "Live, RT-safe resonance (Q) change for a BiquadNode.")
+        .def_prop_ro("render_count", [](const graph::GraphExecutor& e) { return e.renderCount(); },
+                     "Blocks the audio thread has processed (telemetry; climbs while audio flows).")
         .def_prop_ro("compiled", [](const graph::GraphExecutor& e) { return e.compiled(); });
 
     nb::enum_<io::WavFormat>(m, "WavFormat")
@@ -121,4 +148,47 @@ NB_MODULE(_aiudio, m) {
         }, "executor"_a, "block_size"_a = 512, nb::keep_alive<1, 2>())
         .def("start", &io::OfflineBackend::start)
         .def_prop_ro("frames_rendered", &io::OfflineBackend::framesRendered);
+
+#ifdef __APPLE__
+    // ---- Live device backend (Core Audio, macOS) — a CONTROL frontend only ----
+    // Python opens/starts/stops the stream and observes telemetry; the audio thread
+    // (the device IOProc) is pure C++ and never runs Python (ADR-0004). Control-rate
+    // edits go through GraphExecutor.set_* (the lock-free queue). start()/stop()/open()
+    // release the GIL so the control thread never blocks the engine.
+    nb::class_<io::AudioDeviceInfo>(m, "AudioDeviceInfo")
+        .def_ro("id", &io::AudioDeviceInfo::id)
+        .def_ro("name", &io::AudioDeviceInfo::name)
+        .def_ro("input_channels", &io::AudioDeviceInfo::inputChannels)
+        .def_ro("output_channels", &io::AudioDeviceInfo::outputChannels)
+        .def_ro("sample_rates", &io::AudioDeviceInfo::sampleRates)
+        .def_ro("is_default_input", &io::AudioDeviceInfo::isDefaultInput)
+        .def_ro("is_default_output", &io::AudioDeviceInfo::isDefaultOutput)
+        .def("__repr__", [](const io::AudioDeviceInfo& d) {
+            return "<AudioDeviceInfo '" + d.name + "' in=" + std::to_string(d.inputChannels) +
+                   " out=" + std::to_string(d.outputChannels) + ">";
+        });
+
+    nb::class_<io::CoreAudioBackend>(m, "DeviceBackend")
+        .def(nb::init<>())
+        .def("enumerate", &io::CoreAudioBackend::enumerate,
+             "List the system's audio devices (setup-time; not real-time).")
+        .def("open", [](io::CoreAudioBackend& b, graph::GraphExecutor& e, std::uint32_t channels,
+                        double sampleRate, std::uint32_t block, const std::string& outputDevice) {
+            io::StreamConfig c;
+            c.outputChannels = channels;
+            c.sampleRate = sampleRate;
+            c.blockSize = block;
+            c.outputDeviceId = outputDevice;
+            return b.open(c, &e);
+        }, "executor"_a, "channels"_a = 2, "sample_rate"_a = 48000.0, "block_size"_a = 512,
+           "output_device"_a = std::string{}, nb::keep_alive<1, 2>(),
+           nb::call_guard<nb::gil_scoped_release>(),
+           "Open the output device, routing each RT block to the executor (C++ audio thread).")
+        .def("start", &io::CoreAudioBackend::start, nb::call_guard<nb::gil_scoped_release>(),
+             "Start the device IOProc (real-time C++ audio thread). Releases the GIL.")
+        .def("stop", &io::CoreAudioBackend::stop, nb::call_guard<nb::gil_scoped_release>(),
+             "Stop the device IOProc. Releases the GIL.")
+        .def_prop_ro("running", &io::CoreAudioBackend::running)
+        .def_prop_ro("latency_frames", &io::CoreAudioBackend::latencyFrames);
+#endif  // __APPLE__
 }

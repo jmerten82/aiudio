@@ -58,10 +58,14 @@ def main() -> None:
     print(f"out RMS = {out_rms:.3f} (after LP 1 kHz + gain 0.8)")
     print(f"meter mean-square (last block) = {g.meter_mean_square(meter):.5f}")
 
-    # Live parameter edit from Python.
-    g.set_gain(gain, 0.1)
+    # Live parameter edit — the RT-safe control path. set_gain() enqueues a command on
+    # a lock-free queue; the executor applies it at the top of the next block. This is
+    # the SAME call you'd use while a live device backend is running (see
+    # ex_live_control.py) — Python never touches the audio thread.
+    ex.set_gain(gain, 0.1)
     y = ex.process(np.ones((1, block), dtype=np.float32))
     print(f"after set_gain(0.1): DC-ish out level ~ {float(np.mean(np.abs(y))):.3f}")
+    print(f"render_count (blocks processed) = {ex.render_count}")
 
     print("OK")
 

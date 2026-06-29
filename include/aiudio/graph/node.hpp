@@ -32,6 +32,17 @@ public:
     [[nodiscard]] virtual std::uint32_t numInputs() const noexcept = 0;
     [[nodiscard]] virtual std::uint32_t numOutputs() const noexcept = 0;
     [[nodiscard]] virtual const char* typeName() const noexcept = 0;
+
+    /// Apply a control-rate parameter change (the meaning of `index` is node-defined;
+    /// see each node's `kSomething` constants). Called **on the audio thread** by the
+    /// executor draining its command queue, so it MUST be real-time-safe (no
+    /// allocation/locks/blocking — ADR-0004). Default: no-op (node has no parameters).
+    /// The control thread never calls this directly; it enqueues via
+    /// `GraphExecutor::postParam` (lock-free SPSC), keeping Python off the audio thread.
+    virtual void setParam(std::uint32_t index, float value) noexcept {
+        (void)index;
+        (void)value;
+    }
 };
 
 }  // namespace aiudio::graph
