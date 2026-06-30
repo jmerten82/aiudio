@@ -155,6 +155,12 @@ AIUDIO_TEST(control_plane_is_race_free) {
 
     for (int i = 0; i < 200000; ++i)
         exec.postParam(r.gain, GainNode::kGain, 0.0005f * static_cast<float>(i % 2000));
+    // Ensure the audio thread has actually rendered ≥1 block before we stop it. The flood
+    // above is pure main-thread CPU and can finish before a contended scheduler ever runs the
+    // audio thread, which would leave renderCount()==0 and falsely fail the telemetry check
+    // below (a CI flake). Spinning on the telemetry makes the assertion deterministic without
+    // weakening the concurrency it exercises.
+    while (exec.renderCount() == 0) { /* let the audio thread run at least one block */ }
     stop.store(true, std::memory_order_relaxed);
     audio.join();
 
