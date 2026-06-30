@@ -525,6 +525,77 @@ try:
 except Exception:   # noqa: BLE001
     pass""")
 
+md(r"""## 10. Capstone II — a live, multi-source mixer
+
+The real culmination of Phase 0's I/O work: a **live, callback-driven multi-source backend**.
+An **output device is the master clock** (its IOProc ticks the whole composition); two *distinct*
+sources — a synth tone and an ambience noise bed — are **pushed into the manager's rings**
+off-clock (as a second device, a file, or Python would); the graph **filters, mixes, and
+compresses** them, then **fans the result to two outputs**: stream 0 → the master device, and
+stream 1 → a **recorder tap** we read for plotting/playback.
+
+```
+ push synth → ring(in 0) ─┐                                  ┌─► ring(out 0) ─► master device (clock)
+ push noise → ring(in 1) ─┴─► MultiSourceManager.process ───►│      (MasterClockAdapter pops it)
+                              (lowpass · mixer · compressor)  └─► ring(out 1) ─► recorder tap (we pop)
+```
+
+This runs **headlessly** via a `MockBackend` master clock (CI-safe, deterministic); a real
+`DeviceBackend` swaps in unchanged (guarded cell below).""")
+code(r"""block, N = 256, 200                                    # ~1.07 s at 48 kHz
+g = a.Graph()
+s0 = g.add_source(0); lp = g.add_biquad_lowpass(1500.0, 0.707, SR)   # the synth, shaped
+s1 = g.add_source(1)                                                  # the ambience (noise)
+mxr = g.add_mixer(2, 1.0); cmp = g.add_compressor(-16.0, 3.0, 5.0, 80.0); mtr = g.add_meter()
+k0 = g.add_sink(0)        # → the master output device
+k1 = g.add_sink(1)        # → a recorder/monitor tap
+g.connect(s0, 0, lp, 0); g.connect(lp, 0, mxr, 0)
+g.connect(s1, 0, mxr, 1)
+g.connect(mxr, 0, cmp, 0); g.connect(cmp, 0, mtr, 0)
+g.connect(mtr, 0, k0, 0); g.connect(mtr, 0, k1, 0)        # fan-out to both outputs
+ex = a.GraphExecutor(); ex.compile(g, channels=1, sample_rate=SR, max_block=block)
+ex.set_param(mxr, 1, 0.3)                                 # ambience quieter than the synth (live)
+
+mgr = a.MultiSourceManager(num_inputs=2, num_outputs=2, channels=1, max_block=block, ring_frames=4*block)
+adapter = a.MasterClockAdapter(mgr, ex, in_stream=0, out_stream=0)     # out stream 0 → the device
+master = a.MockBackend()
+master.open(adapter, in_channels=0, out_channels=1, block_size=block)  # output-only: it is the clock
+master.start()
+
+rng = np.random.default_rng(1)
+rec = []
+for i in range(N):
+    n = np.arange(i*block, (i+1)*block)
+    mgr.push_input(0, (0.6*np.sin(2*np.pi*330*n/SR)).astype(np.float32)[None, :])   # synth source
+    mgr.push_input(1, (0.5*rng.standard_normal(block)).astype(np.float32)[None, :])  # ambience source
+    master.tick(block)                       # the LIVE clock: pump (mix+compress) → pop to device
+    rec.append(mgr.pop_output(1, block)[0])  # the recorder tap (output stream 1)
+master.stop()
+mix = np.concatenate(rec)
+print(f"live multi-source mix: render_count={ex.render_count}, device_out_sample={master.captured_output(0):.3f}")
+print(f"telemetry: src0_underruns={mgr.input_underruns(0)} src1_underruns={mgr.input_underruns(1)} "
+      f"out0_overruns={mgr.output_overruns(0)}  meter_ms={g.meter_mean_square(mtr):.4f}")
+
+fig, ax = plt.subplots(1, 2, figsize=(11, 2.8))
+ax[0].plot(mix[:800]); ax[0].set_title("recorded mix (synth + ambience, compressed)"); ax[0].set_xlabel("frame")
+f, db = spectrum_db(mix); ax[1].semilogx(f[1:], db[1:]); ax[1].axvline(330, color="crimson", ls="--", lw=0.8)
+ax[1].set_title("spectrum: 330 Hz synth over the noise bed"); ax[1].set_xlim(20, SR/2); ax[1].set_xlabel("Hz")
+plt.tight_layout(); plt.show()
+try:
+    from IPython.display import Audio, display; display(Audio(mix, rate=int(SR)))
+except Exception:   # noqa: BLE001
+    pass""")
+
+md(r"""**On real hardware — a note.** The run above is a genuine *live* path: a backend clock (the
+`MockBackend`) drives the manager's `process` callback-style, exactly as a device IOProc would,
+on whatever thread the backend ticks from. Driving an **actual Core Audio device** with the
+multi-source manager works in **C++** (the device's `RenderCallback` is the `MasterClockAdapter`),
+but the Python `DeviceBackend.open(...)` currently binds to a `GraphExecutor` only — not the
+adapter — so *from Python today* the live **multi-source** path uses the `MockBackend` (above),
+while a real device drives a **single-stream** graph directly (§4). Exposing
+`DeviceBackend.open(adapter)` to Python is a small, well-scoped follow-up
+([`docs/76`](../docs/76-multi-source-io-roadmap.md)).""")
+
 md(r"""## Recap
 
 You touched every Phase-0 mode and feature:
