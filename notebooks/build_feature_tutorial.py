@@ -586,15 +586,40 @@ try:
 except Exception:   # noqa: BLE001
     pass""")
 
-md(r"""**On real hardware — a note.** The run above is a genuine *live* path: a backend clock (the
-`MockBackend`) drives the manager's `process` callback-style, exactly as a device IOProc would,
-on whatever thread the backend ticks from. Driving an **actual Core Audio device** with the
-multi-source manager works in **C++** (the device's `RenderCallback` is the `MasterClockAdapter`),
-but the Python `DeviceBackend.open(...)` currently binds to a `GraphExecutor` only — not the
-adapter — so *from Python today* the live **multi-source** path uses the `MockBackend` (above),
-while a real device drives a **single-stream** graph directly (§4). Exposing
-`DeviceBackend.open(adapter)` to Python is a small, well-scoped follow-up
-([`docs/76`](../docs/76-multi-source-io-roadmap.md)).""")
+md(r"""**The same thing on real hardware — from Python.** A real `DeviceBackend` can be the
+master clock for the manager: `DeviceBackend.open(adapter, ...)` accepts a `MasterClockAdapter`
+(not just an executor), so the **device's IOProc pumps the whole multi-source composition** on
+its own C++ audio thread — live multi-source on real hardware, driven from Python. (The same
+overload exists on `InputBackend`/`DuplexBackend`/`TapBackend`.) The cell self-guards (skips
+off-macOS / no device): it pre-fills the source rings, lets the device play the live mix for
+~0.3 s, and reports telemetry.""")
+code(r"""ran = False
+if hasattr(a, "DeviceBackend") and [d for d in a.DeviceBackend().enumerate() if d.output_channels > 0]:
+    g2 = a.Graph()
+    i0 = g2.add_source(0); flt = g2.add_biquad_lowpass(1500.0, 0.707, SR)
+    i1 = g2.add_source(1); mx2 = g2.add_mixer(2, 1.0); cp2 = g2.add_compressor(-16.0, 3.0, 5.0, 80.0)
+    o0 = g2.add_sink(0)
+    g2.connect(i0, 0, flt, 0); g2.connect(flt, 0, mx2, 0); g2.connect(i1, 0, mx2, 1)
+    g2.connect(mx2, 0, cp2, 0); g2.connect(cp2, 0, o0, 0)
+    ex2 = a.GraphExecutor(); ex2.compile(g2, channels=1, sample_rate=SR, max_block=512)
+    mgr2 = a.MultiSourceManager(2, 1, 1, 512, 48000)
+    adapter2 = a.MasterClockAdapter(mgr2, ex2, 0, 0)
+    rng2 = np.random.default_rng(2)
+    for i in range(60):                                   # pre-fill ~0.6 s of both sources
+        n = np.arange(i*512, (i+1)*512)
+        mgr2.push_input(0, (0.4*np.sin(2*np.pi*330*n/SR)).astype(np.float32)[None, :])
+        mgr2.push_input(1, (0.3*rng2.standard_normal(512)).astype(np.float32)[None, :])
+    be = a.DeviceBackend()
+    try:
+        if be.open(adapter2, channels=1, sample_rate=SR, block_size=512):   # device drives the manager
+            import time; be.start(); time.sleep(0.3); be.stop()
+            print(f"live device multi-source: render_count={ex2.render_count} "
+                  f"(the device IOProc pumped the manager + graph), running={be.running}")
+            ran = True
+    except Exception as e:   # noqa: BLE001
+        print("live device skipped:", e)
+if not ran:
+    print("(no output device here — the headless MockBackend run above is the live multi-source path)")""")
 
 md(r"""## Recap
 

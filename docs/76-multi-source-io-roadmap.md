@@ -162,10 +162,12 @@ two numpy inputs → two numpy outputs) and live.
   `DuplexBackend`, `TapBackend` (+ `ProcessInfo`, `list_processes`) bound, GIL released on
   lifecycle, `running`/`latency_frames` telemetry. (Previously only the *output* `DeviceBackend`
   + offline were bound.) Live mic capture verified on hardware.
-- **E2:** bind the multi-source manager — open N sources / M sinks, bind them to graph
-  Source/Sink nodes, per-source telemetry (level, xruns, drift) — all via the existing
-  lock-free control plane (ADR-0010).
-- **E3:** a Python API to declare a multi-source topology.
+- **E2:** bind the multi-source manager — ✅ `MultiSourceManager`, `MasterClockAdapter`, and
+  `CrossClockBridge` are bound (push/pop numpy, per-stream xrun telemetry), and every **device
+  backend's `open()` accepts a `MasterClockAdapter`** so a real Core Audio device drives the
+  manager from Python (live multi-source on hardware; live-verified). Per-source level/drift
+  telemetry beyond xruns is still open.
+- **E3:** a Python API to declare a multi-source topology (still open).
 *Acceptance:* from Python, open mic + a tap, mix them, monitor to two outputs, tweak gains
 live — without touching the audio thread; the acceptance walkthrough notebook extended.
 
