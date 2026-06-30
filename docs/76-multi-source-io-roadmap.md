@@ -2,9 +2,11 @@
 
 > **Last updated:** 2026-06-29 · **Goal:** N independent input sources *and* M output
 > sinks — each on its own hardware clock — brought onto **one engine timeline**, composed
-> in **one graph**, controllable from **Python**, all **RT-safe**. · **Status:** planned
-> (post-Phase-0; the I/O parts cluster in Phase 3 productionization, the spine parts are
-> general and can land earlier).
+> in **one graph**, controllable from **Python**, all **RT-safe**. · **Status:** in
+> progress — **G10 ✅ and G8 ✅ merged** (the offline multi-stream + channel-width
+> foundation); see the **[delivery plan / PR chain in §11](#11-delivery-plan--the-pr-chain-live-status)**
+> for live status. (Post-Phase-0; the I/O parts cluster in Phase 3 productionization, the
+> spine parts are general and can land earlier.)
 >
 > This plan **absorbs the M9 robustness/hardening plan** (formerly `docs/75`) as its
 > Phase B, and **aligns** with: ADR-0008 (multi-input model), ADR-0009 (graph spine),
@@ -241,6 +243,42 @@ start first.
 | Hot-plug/drift untestable without hardware | build a **mock Core Audio backend** (inject device-died + drift) — shared with the M9 test plan |
 | Scope creep (in-graph multi-rate, plugin host) | explicitly out of scope: in-graph multi-rate → Phase 1; plugin host → M7 |
 | `prepare()`-signature ripple (G8) touches every node | mechanical; uniform-count graphs are the special case → stays green |
+
+---
+
+## 11. Delivery plan — the PR chain (live status)
+
+The roadmap above is delivered as a chain of stackable PRs, ordered so the offline
+foundation lands first, then a demonstrable single-clock **live MVP**, then the hard
+cross-clock work last. Each PR ships its own tests + docs + (where marked) ADR, and is
+verified green before merge. **Status legend:** ✅ merged · 🟡 in review · ⬜ planned.
+
+| # | Branch | Milestone — delivers | Status | Needs | Test layer |
+|---|---|---|---|---|---|
+| 1 | `feat/g10-multistream-executor` | **G10** — multi-stream executor (N in / M out streams; source/sink stream binding) | ✅ **merged (PR #14)** | main | offline |
+| 2 | `feat/g8-per-port-channels` | **G8** — per-port channel counts + `DownmixNode`/`UpmixNode` (channel-width change) | ✅ **merged (PR #15)** | main | offline (golden) |
+| 3 | `feat/g9-latency-pdc` | **G9** — node/edge latency reporting + delay compensation | ⬜ **next** | main | offline |
+| 4 | `feat/m9-1-xrun-policy` | **M9.1** — xrun/underrun policy + telemetry | ⬜ | main | headless + RT-alloc |
+| 5 | `feat/m11-input-bindings` | **M11a** — bind the input / duplex / tap backends to Python | ⬜ | main | gated live |
+| 6 | `feat/m10-multisource-manager` | **M10 (single-clock) + M11b** — manager (N rings, one clock) + Python multi-source API → ⭐ **live MVP** | ⬜ | 1, 5 (+2, 4) | gated live |
+| 7 | `feat/m9-4-hotplug` | **M9.4** — device hot-plug / fallback **+ a mock Core Audio backend** (reused by 8–9) | ⬜ | 4 | gated live + mock |
+| 8 | `feat/m9-3-resampler` | **M9.3** — boundary sample-rate conversion | ⬜ | 3, 4 | offline + live |
+| 9 | `feat/m9-5-drift-comp` | **M9.5** — adaptive drift compensation | ⬜ | 8 | mock + soak |
+| 10 | `feat/m9-6-cross-clock` | **M9.6 + M10(cross-clock)** — true cross-clock multi-device = the full goal | ⬜ | 9, 6 | mock + live soak |
+
+**MVP cut-line** ⭐ — after **PR 6** you have demonstrable multi-source: N inputs on a
+shared clock → mixed/routed in one graph → M outputs, from Python, RT-safe, *without* drift
+comp. (PRs 1, 5, 6 + optionally 2, 4 — the `~4–6 wk` single-clock MVP of §8.)
+
+**Dependency notes (parallelizable honestly):**
+- Strict chains: `1 → 6 → 10`, `3 → 8 → 9 → 10`, `5 → 6`.
+- Independent (branch off `main`, any order): PRs **1, 2, 3, 4, 5** — none depends on another;
+  the table is a *recommended* linear order.
+- **Done so far:** PR 1 (G10) and PR 2 (G8). *Note:* PR 2 delivered the channel-width engine
+  + the down/up-mix nodes; the **device↔graph channel mapping** slice of M9.2 (mono↔stereo at
+  the I/O boundary) is still open and folds naturally into PR 6 (M10) or a small PR of its own.
+- Test infra: notebook execution now runs in the test interpreter (a throwaway kernelspec on
+  `sys.executable`), so the suite is robust regardless of the global `python3` kernel.
 
 ---
 
