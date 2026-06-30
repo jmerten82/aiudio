@@ -13,6 +13,7 @@ endfunction()
 
 aiudio_add_test(test_ring_buffer aiudio::io)
 aiudio_add_test(test_conversions aiudio::io)
+aiudio_add_test(test_resampler aiudio::io)          # M9.3 boundary sample-rate conversion
 aiudio_add_test(test_wav_file aiudio::io)            # M6
 aiudio_add_test(test_graph aiudio::graph)           # G1
 aiudio_add_test(test_graph_nodes aiudio::graph)     # G1

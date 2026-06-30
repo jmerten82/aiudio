@@ -8,6 +8,7 @@
 #include <nanobind/stl/string.h>
 #include <nanobind/stl/vector.h>
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -30,6 +31,7 @@
 #include "aiudio/io/audio_buffer.hpp"
 #include "aiudio/io/mock_backend.hpp"
 #include "aiudio/io/offline_backend.hpp"
+#include "aiudio/io/resampler.hpp"
 #include "aiudio/io/types.hpp"
 
 // The live device backend (Core Audio) is macOS-only; DeviceBackend is exposed only
@@ -119,6 +121,35 @@ nb::list executorProcessMulti(graph::GraphExecutor& exec, nb::list inputs,
             owner));
     }
     return result;
+}
+
+// Resample one planar (channels, frames) block at the boundary (M9.3). Returns
+// (output (channels, produced), input_frames_consumed). The Resampler is stateful, so feed
+// successive blocks to the same instance for seamless conversion. `out_cap` bounds how many
+// output frames to produce this call.
+nb::object resamplerProcess(io::Resampler& rs, InArray input, std::uint32_t outCap) {
+    const auto channels = static_cast<std::uint32_t>(input.shape(0));
+    const auto inAvail = static_cast<std::uint32_t>(input.shape(1));
+
+    auto* outData = new float[static_cast<std::size_t>(channels) * outCap]();
+    std::vector<const float*> inPtrs(channels);
+    std::vector<float*> outPtrs(channels);
+    for (std::uint32_t c = 0; c < channels; ++c) {
+        inPtrs[c] = input.data() + static_cast<std::size_t>(c) * inAvail;
+        outPtrs[c] = outData + static_cast<std::size_t>(c) * outCap;
+    }
+    const auto r = rs.process(inPtrs.data(), inAvail, outPtrs.data(), outCap);
+
+    // Compact each channel's `produced` frames to be contiguous (channels, produced).
+    if (r.produced != outCap)
+        for (std::uint32_t c = 1; c < channels; ++c)
+            std::copy_n(outData + static_cast<std::size_t>(c) * outCap, r.produced,
+                        outData + static_cast<std::size_t>(c) * r.produced);
+
+    nb::capsule owner(outData, [](void* p) noexcept { delete[] static_cast<float*>(p); });
+    nb::ndarray<nb::numpy, float> arr(
+        outData, {static_cast<std::size_t>(channels), static_cast<std::size_t>(r.produced)}, owner);
+    return nb::make_tuple(arr, r.consumed);
 }
 
 }  // namespace
@@ -296,6 +327,25 @@ NB_MODULE(_aiudio, m) {
         .def_prop_ro("running", &io::MockBackend::running)
         .def_prop_ro("disconnected", [](const io::MockBackend& b) { return b.disconnected(); })
         .def_prop_ro("xrun_count", [](const io::MockBackend& b) { return b.xrunCount(); });
+
+    // ---- Boundary resampler (M9.3) — a CONTROL/offline frontend to the same C++ SRC ----
+    // Convert a numpy block from one rate to another (ratio = inputRate/outputRate). The
+    // instance is stateful: feed consecutive blocks for seamless conversion. `set_ratio`
+    // is the hook the drift-compensation loop (M9.5) drives sample-accurately.
+    nb::class_<io::Resampler>(m, "Resampler")
+        .def("__init__", [](io::Resampler* self, std::uint32_t channels, double ratio) {
+            new (self) io::Resampler();
+            self->prepare(channels, ratio);
+        }, "channels"_a, "ratio"_a, "ratio = input_rate / output_rate (<1 upsamples).")
+        .def("process", &resamplerProcess, "block"_a, "out_cap"_a,
+             "Resample a planar (channels, frames) block → ((channels, produced), consumed).")
+        .def("set_ratio", &io::Resampler::setRatio, "ratio"_a,
+             "Change the conversion ratio live (clamped); the drift loop calls this per block.")
+        .def("reset", &io::Resampler::reset, "Clear the interpolation state (e.g. after reconnect).")
+        .def_prop_ro("ratio", &io::Resampler::ratio)
+        .def_prop_ro("channels", &io::Resampler::channels)
+        .def_prop_ro("latency_frames", &io::Resampler::latencyFrames,
+                     "Kernel group delay in output frames (report to delay compensation).");
 
     nb::enum_<io::WavFormat>(m, "WavFormat")
         .value("Int16", io::WavFormat::Int16)
