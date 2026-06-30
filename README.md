@@ -220,6 +220,7 @@ Accepted so far:
 | [0011](adr/0011-multi-stream-executor.md) | Multi-stream executor — N input/output streams via source/sink binding (extends ADR-0009) |
 | [0012](adr/0012-per-port-channel-counts.md) | Per-port channel counts — channel-width propagation in the executor (extends ADR-0009) |
 | [0013](adr/0013-latency-reporting-and-delay-compensation.md) | Latency reporting + graph-wide delay compensation (PDC) (extends ADR-0009) |
+| [0014](adr/0014-multi-source-manager.md) | Multi-source manager — N sources + M sinks on one clock via per-stream rings (ADR-0008 §5) |
 
 > **Significant decisions require an ADR.** See `CLAUDE.md` §9 for when to write
 > one and how it ties into keeping the docs current.

@@ -147,6 +147,24 @@ print("input_streams:", ex_ms.input_streams, " output_streams:", ex_ms.output_st
 outs = ex_ms.process_multi([np.ones((1, 16), np.float32), 2*np.ones((1, 16), np.float32)])
 print("mix 1·0.5 + 2·0.25 =", float(outs[0][0, 0]), "| #outputs:", len(outs))""")
 
+md(r"""**Multi-source manager (M10).** The `MultiSourceManager` composes **N input sources +
+M output sinks onto one clock**, each (stream, channel) crossing through its own lock-free
+ring (ADR-0008 §5): producers `push_input`, the pump `process`-es the multi-stream graph,
+consumers `pop_output`. Here Python plays all the roles (no device needed); per-stream xrun
+telemetry comes for free.""")
+code(r"""g_msm = aiudio.Graph()
+a0, a1 = g_msm.add_source(0), g_msm.add_source(1)
+mixn, kk = g_msm.add_sum(2), g_msm.add_sink(0)
+g_msm.connect(a0, 0, mixn, 0); g_msm.connect(a1, 0, mixn, 1); g_msm.connect(mixn, 0, kk, 0)
+ex_msm = aiudio.GraphExecutor(); ex_msm.compile(g_msm, channels=1, sample_rate=SR, max_block=64)
+
+mgr = aiudio.MultiSourceManager(num_inputs=2, num_outputs=1, channels=1, max_block=64, ring_frames=256)
+mgr.push_input(0, np.full((1, 32), 0.5, np.float32))   # source A
+mgr.push_input(1, np.full((1, 32), 0.3, np.float32))   # source B
+mgr.process(ex_msm, 32)                                 # the pump (one clock tick)
+print("2 sources -> mix -> 1 sink:", float(mgr.pop_output(0, 32)[0, 0]), "(0.5 + 0.3 = 0.8)")
+print("input underruns:", mgr.input_underruns(0), mgr.input_underruns(1))""")
+
 # ---------------------------------------------------------------- 4. nodes
 md(r"""## 4. The DSP nodes — gain, mix, meter, biquad
 
