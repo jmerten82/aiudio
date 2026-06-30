@@ -28,27 +28,30 @@ def code(s):
     cells.append(nbf.v4.new_code_cell(s))
 
 
-md(r"""# aiudio — Acceptance Walkthrough (every Python feature, and its shortcomings)
+md(r"""# aiudio — Phase 0 End-to-End Walkthrough (every Python feature + its shortcomings)
 
-This notebook is part of the **test suite** (`testing/`). Unlike the teaching tour
-(`notebooks/aiudio_pipeline_tour.ipynb`), it is a **systematic, step-by-step pass over
-all functionality the Python layer exposes today** — every class, method, and property —
-and it **explicitly flags the shortcomings** of each (a ⚠️ callout after each section,
-plus a consolidated matrix at the end).
+This notebook is both the **acceptance test** (part of `testing/`) and a **complete,
+runnable end-to-end tutorial of Phase 0**: a guided pass over *every* function the Python
+layer exposes — building/editing graphs, the full node library, running and controlling the
+engine, the file/device/mock backends, multi-source + cross-clock I/O, and the boundary DSP
+utilities — closing with a capstone pipeline that ties it together. After each topic a ⚠️
+callout flags the **shortcomings**, and a consolidated matrix ends the notebook.
 
-It executes end-to-end with **zero errors** on any machine (the live-device step guards
-itself), so it doubles as a runnable acceptance check. See `testing/README.md`.
+It executes end-to-end with **zero errors** on any machine (the live-device step self-guards),
+so it doubles as a runnable acceptance check. Narrative companion: **`docs/80`** (capabilities
+guide); design rationale: the ADRs (`adr/`). See also `testing/README.md`.
 
 **Contents**
 1. Environment & the exposed API surface
-2. `Graph` — building & validating the IR (every node factory)
-3. `GraphExecutor` — compile, run on numpy, telemetry
-4. The DSP nodes — gain, mix, meter, biquad
-5. The control plane — live, RT-safe parameter edits (G7)
-6. `DeviceBackend` — the live RT device frontend (macOS)
-7. `OfflineBackend` + `WavFormat` — file rendering
+2. `Graph` — build, validate, **introspect & edit** the IR
+3. `GraphExecutor` — compile & run; multi-stream (G10); multi-source manager (M10); the headless live path
+4. The node library — generators, gain/mix/route, the **EQ family**, **dynamics**, time/space, channel & utility nodes
+5. The live control plane — RT-safe parameter edits (G7)
+6. Live device backends (macOS) — output / input / duplex / tap, **xrun policy**, **hot-plug**
+7. File rendering + **boundary DSP** — `OfflineBackend`/`WavFormat`, `Resampler`, drift (`ResamplingSource`), cross-clock (`CrossClockBridge`), channel mapping
 8. Cross-backend determinism (the *one-IR-many-backends* invariant)
-9. **Consolidated shortcomings matrix**
+9. **Capstone** — a complete Phase 0 pipeline, end to end
+10. **Consolidated shortcomings matrix**
 """)
 
 # ---------------------------------------------------------------- 1. environment
@@ -280,6 +283,56 @@ md(r"""> ⚠️ **Shortcoming.** Still missing from the palette: spectral (STFT/
 > those are Tier 2/3 (`docs/78`). Live param control is index-based (`set_param`) rather than
 > named setters, and the EQ has no built-in spectrum analyzer (needs the Tier-2 FFT).""")
 
+md(r"""**The rest of the Tier-1 catalog — each verified.** The remaining nodes, exercised one
+by one: the `noise` generator, the `gate`, the `delay` (feedback), `dc_blocker`, the standalone
+`lowshelf`/`highshelf`, the per-input `mixer`, and the routing `channel_matrix`. (`add_compressor`,
+`add_waveshaper`, `add_oscillator`, `add_pan`, `add_stereo_width` were exercised in the chain above.)""")
+code(r"""def run_node(build, x, channels=1, mb=256, blocks=1):
+    g = aiudio.Graph(); src = g.add_source(); n = build(g); k = g.add_sink()
+    g.connect(src, 0, n, 0); g.connect(n, 0, k, 0)
+    ex = aiudio.GraphExecutor(); ex.compile(g, channels=channels, sample_rate=SR, max_block=mb)
+    for _ in range(blocks): y = ex.process(x)
+    return y
+
+# noise generator (0-in → 1-out)
+gnz = aiudio.Graph(); nz = gnz.add_noise("pink", 0.5); knz = gnz.add_sink(); gnz.connect(nz, 0, knz, 0)
+exnz = aiudio.GraphExecutor(); exnz.compile(gnz, channels=1, sample_rate=SR, max_block=256)
+noise = exnz.process(np.zeros((1, 256), np.float32))
+print(f"noise(pink):     peak {np.max(np.abs(noise)):.3f}, nonzero={bool(np.any(noise != 0))}")
+
+# gate: a quiet -46 dBFS input closes toward the floor (settle the release envelope)
+q = run_node(lambda g: g.add_gate(-30.0), np.full((1, 256), 0.005, np.float32), blocks=300)
+print(f"gate:            quiet 0.005 -> {abs(float(q[0, -1])):.6f} (gated down)")
+
+# delay: an impulse reappears 100 frames later (mix=1, feedback=0)
+imp = np.zeros((1, 256), np.float32); imp[0, 0] = 1.0
+d = run_node(lambda g: g.add_delay(1.0, 100, 0.0, 1.0, 1), imp)
+print(f"delay:           out[100] = {float(d[0, 100]):.3f} (=1.0)")
+
+# dc blocker: a constant settles to ~0
+dcb = run_node(lambda g: g.add_dc_blocker(20.0, 1), np.ones((1, 4096), np.float32), mb=4096)
+print(f"dc_blocker:      DC -> {float(dcb[0, -1]):.4f} (≈0)")
+
+# standalone shelves (the EQ family, used singly)
+ls = run_node(lambda g: g.add_biquad_lowshelf(200.0, 0.707, 6.0, SR), np.ones((1, 4096), np.float32), mb=4096)
+print(f"low_shelf +6dB:  DC -> {float(ls[0, -1]):.3f} (≈1.995)")
+
+# mixer (per-input gains): two inputs → 1·0.5 + 1·0.25
+gmx = aiudio.Graph(); a0 = gmx.add_source(0); a1 = gmx.add_source(1); mx = gmx.add_mixer(2); ko = gmx.add_sink(0)
+gmx.connect(a0, 0, mx, 0); gmx.connect(a1, 0, mx, 1); gmx.connect(mx, 0, ko, 0)
+exmx = aiudio.GraphExecutor(); exmx.compile(gmx, channels=1, sample_rate=SR, max_block=64)
+exmx.set_param(mx, 0, 0.5); exmx.set_param(mx, 1, 0.25)
+for _ in range(40): mo = exmx.process_multi([np.ones((1, 64), np.float32), np.ones((1, 64), np.float32)])[0]
+print(f"mixer:           1·0.5 + 1·0.25 = {float(mo[0, -1]):.3f}")
+
+# channel matrix (routing): swap L<->R
+gcm = aiudio.Graph(); s = gcm.add_source(); cm = gcm.add_channel_matrix(2, 2); k = gcm.add_sink()
+gcm.connect(s, 0, cm, 0); gcm.connect(cm, 0, k, 0)
+excm = aiudio.GraphExecutor(); excm.compile(gcm, channels=2, sample_rate=SR, max_block=16)
+for o, i, v in [(0, 0, 0.0), (0, 1, 1.0), (1, 0, 1.0), (1, 1, 0.0)]: excm.set_param(cm, o * 2 + i, v)
+sw = excm.process(np.stack([np.full(16, 0.2, np.float32), np.full(16, 0.8, np.float32)]))
+print(f"channel_matrix:  swap L={float(sw[0, 0]):.1f} R={float(sw[1, 0]):.1f} (inputs were 0.2, 0.8)")""")
+
 md(r"""**Channel-width nodes (G8) — per-port channel counts.** A node can *change* the channel
 count: `add_downmix()` collapses N channels → 1 (mono average), `add_upmix(channels)` raises
 1 → N (duplicate). The executor sizes each interior port to its own width; the numpy I/O
@@ -381,8 +434,9 @@ else:
 md(r"""**Input / duplex / tap backends (M11a).** Beyond the output `DeviceBackend`, the
 **`InputBackend`** (mic capture), **`DuplexBackend`** (mic → graph → speakers on one clock),
 and **`TapBackend`** (system / per-app *output* capture) are now bound — same control-frontend
-pattern. Enumeration and process listing are permission-free; *capturing* needs mic TCC (and
-taps need a signed binary). Run [`examples/python/ex_live_input.py`](../../examples/python/ex_live_input.py)
+pattern. `TapBackend.list_processes()` returns `ProcessInfo`s (`pid` + `bundle_id`). Enumeration
+and process listing are permission-free; *capturing* needs mic TCC (and taps need a signed
+binary). Run [`examples/python/ex_live_input.py`](../../examples/python/ex_live_input.py)
 for a live mic meter.""")
 code(r"""if hasattr(aiudio, "InputBackend"):
     inputs = [d for d in aiudio.InputBackend().enumerate() if d.input_channels > 0]
@@ -392,25 +446,42 @@ code(r"""if hasattr(aiudio, "InputBackend"):
 else:
     print("input/duplex/tap backends are macOS-only.")""")
 
+md(r"""**Xrun policy + hot-plug telemetry.** Every device `open(...)` accepts an `XrunPolicy`
+(`BestEffort` = count + degrade gracefully, RT-safe; `Strict` = stop on the first xrun —
+enforcement still being wired). Once open, the backends surface the **hot-plug model** from
+Python: `disconnected` / `xrun_count` properties + a `set_disconnect_handler(callback)` fired
+(off the audio thread) when the device dies. The `XrunPolicy` enum is cross-platform:""")
+code(r"""print("XrunPolicy:", aiudio.XrunPolicy.BestEffort, "|", aiudio.XrunPolicy.Strict)
+if hasattr(aiudio, "DeviceBackend"):
+    print("device backends expose:",
+          [a for a in ("disconnected", "xrun_count", "set_disconnect_handler")
+           if hasattr(aiudio.DeviceBackend, a)])""")
+
 md(r"""Starting a stream needs a real output device, so the next cell **guards itself** and
-skips cleanly where there is none (e.g. CI). Where a device exists it runs ~0.4 s of
-**silent** output and reports telemetry.""")
+skips cleanly where there is none (e.g. CI). Where a device exists it runs ~0.4 s of an
+**audible 220 Hz tone** (an `OscillatorNode` generates it — the graph no longer needs an
+external input to make sound), then changes pitch live and reports telemetry.""")
 code(r"""import time
 ran = False
 if hasattr(aiudio, "DeviceBackend"):
     be = aiudio.DeviceBackend()
     outs = [d for d in be.enumerate() if d.output_channels > 0]
     if outs:
-        gD = aiudio.Graph(); s = gD.add_source(); gnD = gD.add_gain(0.5); mD = gD.add_meter(); kD = gD.add_sink()
-        gD.connect(s, 0, gnD, 0); gD.connect(gnD, 0, mD, 0); gD.connect(mD, 0, kD, 0)
+        # An OscillatorNode generates an audible tone — the device output is no longer silent.
+        gD = aiudio.Graph()
+        oscD = gD.add_oscillator("sine", 220.0, 0.2); mD = gD.add_meter(); kD = gD.add_sink()
+        gD.connect(oscD, 0, mD, 0); gD.connect(mD, 0, kD, 0)
         exD = aiudio.GraphExecutor(); exD.compile(gD, channels=2, sample_rate=SR, max_block=512)
+        be.set_disconnect_handler(lambda: print("  (device-died callback fired)"))
         try:
-            if be.open(exD, channels=2, sample_rate=SR, block_size=512):
+            if be.open(exD, channels=2, sample_rate=SR, block_size=512,
+                       xrun_policy=aiudio.XrunPolicy.BestEffort):
                 be.start()
                 time.sleep(0.4)
                 print(f"running={be.running}  latency_frames={be.latency_frames}  "
-                      f"render_count={exD.render_count}  meter_ms={gD.meter_mean_square(mD):.2e}")
-                exD.set_gain(gnD, 0.2); exD.set_cutoff(mD, 1000.0)  # live edits accepted off-thread
+                      f"render_count={exD.render_count}  meter_ms={gD.meter_mean_square(mD):.2e} "
+                      f"(audible)  xrun_count={be.xrun_count}  disconnected={be.disconnected}")
+                exD.set_param(oscD, 0, 440.0)   # live pitch change (osc freq), off-thread
                 be.stop()
                 print("stopped; running =", be.running)
                 ran = True
@@ -420,14 +491,15 @@ if hasattr(aiudio, "DeviceBackend"):
             print("live start skipped:", e)
 if not ran:
     print("(enumerate-only — no live device run on this machine)")""")
-md(r"""> ⚠️ **Shortcomings (the big ones).**
-> - **Live output is silent.** There is no oscillator / file-source node, and an output
->   device hands the graph an *empty* input — so the meter reads ~0. The demo proves the
->   *control + telemetry frontend*, not audible processing.
-> - **Capturing needs permission.** `InputBackend`/`DuplexBackend` now bound (M11a), but a
->   live mic capture needs microphone TCC; `TapBackend` (system/app capture) needs a signed
->   binary + audio-capture TCC. Enumeration / process listing are permission-free.
-> - **macOS only** (these Core Audio backends aren't present on other platforms).""")
+md(r"""> ⚠️ **Shortcomings.**
+> - **macOS only** — these Core Audio backends aren't present on other platforms.
+> - **Capturing needs permission.** `InputBackend`/`DuplexBackend` need microphone TCC; the
+>   `TapBackend` (system/app capture) needs a signed binary + audio-capture TCC. Enumeration /
+>   process listing are permission-free.
+> - The output is **audible only if the graph has a generator** (oscillator/noise) or a live
+>   input (duplex/tap) — an output-only device hands the graph an empty input.
+> - The physical device-died **trigger** is hardware-verified; the listener wiring + the
+>   `disconnected`/`xrun_count`/handler surface are exercised headlessly by the mock (§3).""")
 
 # ---------------------------------------------------------------- 7. offline
 md(r"""## 7. `OfflineBackend` + `WavFormat` — file rendering
@@ -579,8 +651,44 @@ with wave.open(out_wav, "rb") as r:
 n = min(len(ref), len(off))
 print(f"max|numpy - offline| = {np.max(np.abs(ref[:n]-off[:n])):.2e}  (int16 quantum {1/32768:.2e}) -> identical")""")
 
-# ---------------------------------------------------------------- 9. matrix
-md(r"""## 9. Consolidated shortcomings matrix
+# ---------------------------------------------------------------- 9. capstone
+md(r"""## 9. Capstone — a complete Phase 0 pipeline, end to end
+
+Tying the pieces together: **generate → high-pass → 3-band parametric EQ → compress → meter →
+render to a WAV file**. The oscillator makes the signal (no external input needed), the node
+library shapes it, the meter reports level, and the `OfflineBackend` writes the result — all
+from the one compiled graph. The *same* graph would run live on a device (§6) or under the
+multi-source manager (§3), bit-identically (§8).""")
+code(r"""cap_in, cap_out = os.path.join(tmp, "cap_in.wav"), os.path.join(tmp, "cap_out.wav")
+dur = int(0.5 * SR)
+with wave.open(cap_in, "wb") as w:                 # 0.5 s placeholder; the oscillator generates
+    w.setnchannels(1); w.setsampwidth(2); w.setframerate(int(SR))
+    w.writeframes(np.zeros(dur, "<i2").tobytes())
+
+gcap = aiudio.Graph()
+osc = gcap.add_oscillator("saw", 110.0, 0.5)
+hp  = gcap.add_biquad_highpass(80.0, 0.707, SR)
+eq  = gcap.add_parametric_eq([("peaking", 2000.0, 1.0, 4.0), ("highshelf", 8000.0, 0.7, 2.0)], SR)
+cmp = gcap.add_compressor(-18.0, 4.0, 5.0, 80.0)   # threshold/ratio/attack/release
+mtr, kc = gcap.add_meter(), gcap.add_sink()
+for x, y in [(osc, hp), (hp, eq), (eq, cmp), (cmp, mtr), (mtr, kc)]:
+    gcap.connect(x, 0, y, 0)
+ok, err = gcap.validate(); assert ok, err
+
+excap = aiudio.GraphExecutor(); excap.compile(gcap, channels=1, sample_rate=SR, max_block=512)
+obc = aiudio.OfflineBackend(cap_in, cap_out, aiudio.WavFormat.Int16)
+obc.open(excap, block_size=512); obc.start()
+with wave.open(cap_out, "rb") as r:
+    rendered = np.frombuffer(r.readframes(r.getnframes()), "<i2").astype(np.float32) / 32768.0
+print("pipeline:", " -> ".join(t for _, t, _, _ in gcap.nodes()))
+print(f"rendered {obc.frames_rendered} frames -> peak {np.max(np.abs(rendered)):.3f}, "
+      f"meter_ms {gcap.meter_mean_square(mtr):.4f}  (synth + EQ + compression, written to WAV)")""")
+md(r"""That is Phase 0 in one cell: **build → generate → process (EQ + dynamics) → meter →
+render**, with the same IR portable across the numpy / file / device / mock backends, edited
+and monitored live, all real-time-safe in C++ with Python as the frontend.""")
+
+# ---------------------------------------------------------------- 10. matrix
+md(r"""## 10. Consolidated shortcomings matrix
 
 Everything the Python layer **cannot** do yet (or does with a caveat), and why:
 
@@ -588,7 +696,7 @@ Everything the Python layer **cannot** do yet (or does with a caveat), and why:
 |---|---|---|
 | **Node library** | **Tier 1 ✅** — generators (oscillator/noise), EQ family (LP/HP/peaking/shelf/raw), dynamics (compressor+lookahead/gate), delay, waveshaper, pan/width, mixer, channel-matrix, DC blocker (+ source/sink/gain/sum/meter/down/up-mix/latency). Missing: spectral/convolution **reverb**, loudness meters, **neural** nodes (Tier 2/3, `docs/78`) | Tier 1 ✅ |
 | **Graph introspection / editing** | `nodes()`/`edges()`/`node_type()` read-back **✅**; `disconnect()` + `remove_node()` (tombstone, stable ids) **✅**; add/remove only — no in-place node mutation | ✅ |
-| **Signal generation** | no oscillator/file-source node → **live device output is silent** | small follow-up |
+| **Signal generation** | `add_oscillator` (sine/saw/square/tri) + `add_noise` (white/pink) **✅** (Tier 1) — a device with a generator now outputs sound; no file-source *node* yet (use `OfflineBackend`) | ✅ |
 | **Live input** | mic / full-duplex / process-tap backends **✅ bound** (`InputBackend`/`DuplexBackend`/`TapBackend`, M11a) — capture needs mic TCC; taps need a signed binary | ✅ |
 | **Device backends** | output + input + duplex + tap bound (M11a), **macOS-only**; capture/tap need TCC (+ signed binary for taps) | scope / platform |
 | **Control** | only gain/cutoff/Q; **no automation curves**; bounded queue **drops on overflow** (`set_* → False`) | future / RT trade-off |
