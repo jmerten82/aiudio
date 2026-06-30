@@ -9,12 +9,17 @@ edit graphs.
 from ._aiudio import (  # noqa: F401
     Graph,
     GraphExecutor,
+    MasterClockAdapter,
+    MockBackend,
     MultiSourceManager,
     OfflineBackend,
     WavFormat,
 )
 
-__all__ = ["Graph", "GraphExecutor", "OfflineBackend", "WavFormat", "MultiSourceManager"]
+__all__ = [
+    "Graph", "GraphExecutor", "OfflineBackend", "WavFormat",
+    "MultiSourceManager", "MasterClockAdapter", "MockBackend",
+]
 
 # The live device backend is a Core Audio (macOS) feature — a *control* frontend over
 # the real-time C++ audio thread (the audio thread never runs Python; ADR-0004). It is

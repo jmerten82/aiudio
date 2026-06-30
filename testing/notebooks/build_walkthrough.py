@@ -165,6 +165,24 @@ mgr.process(ex_msm, 32)                                 # the pump (one clock ti
 print("2 sources -> mix -> 1 sink:", float(mgr.pop_output(0, 32)[0, 0]), "(0.5 + 0.3 = 0.8)")
 print("input underruns:", mgr.input_underruns(0), mgr.input_underruns(1))""")
 
+md(r"""**The live path, headless — master-clock adapter + a mock backend.** A
+`MasterClockAdapter` lets *any* backend's clock drive the manager (push the device's input →
+pump → pop to its output). The `MockBackend` (M9.4) is a deterministic, manually-ticked
+"device" — so the full live pipeline (device → adapter → manager → graph → device) runs with
+no hardware, and hot-unplug (`inject_disconnect`) and device xruns (`inject_xrun`) can be
+exercised in CI.""")
+code(r"""g_live = aiudio.Graph()
+s = g_live.add_source(0); gn = g_live.add_gain(0.5); k = g_live.add_sink(0)
+g_live.connect(s, 0, gn, 0); g_live.connect(gn, 0, k, 0)
+ex_live2 = aiudio.GraphExecutor(); ex_live2.compile(g_live, channels=1, sample_rate=SR, max_block=64)
+mgr2 = aiudio.MultiSourceManager(1, 1, 1, 64, 256)
+adapter = aiudio.MasterClockAdapter(mgr2, ex_live2, in_stream=0, out_stream=0)
+dev = aiudio.MockBackend(); dev.open(adapter, in_channels=1, out_channels=1, block_size=64)
+dev.set_input_value(0.5); dev.start(); dev.tick(32)              # the device's clock ticks once
+print("device in 0.5 -> graph (gain 0.5) -> device out:", float(dev.captured_output(0)), "(0.25)")
+dev.inject_disconnect()
+print("hot-unplug: disconnected =", dev.disconnected, "| running =", dev.running, "(ticks now no-op)")""")
+
 # ---------------------------------------------------------------- 4. nodes
 md(r"""## 4. The DSP nodes — gain, mix, meter, biquad
 
