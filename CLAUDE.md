@@ -4,8 +4,14 @@ Guidance for Claude Code (and humans) working in this repo. Loaded every session
 so it is kept **tight**; depth lives in [`docs/`](docs/). Keep this file and
 [`README.md`](README.md) **current** — see [§9 Living-documents protocol](#9-living-documents-protocol).
 
-> **Last updated:** 2026-06-29 · **Current phase:** Phase 0 — Foundations (I/O
-> layer + graph spine). See [README Roadmap](README.md#roadmap).
+> **Last updated:** 2026-06-30 · **Current phase:** Phase 1 — Differentiable core
+> (just started). Phase 0 (I/O layer + graph spine) is complete, and the
+> **true multi-source I/O** track (`docs/76`: boundary resampling, off-clock drift
+> compensation, cross-clock multi-device, channel mapping, the Core Audio device-died
+> listener) was **implemented off-schedule** ahead of its planned Phase-3 slot and is now
+> merged to `main` — feature-complete bar the hardware-only physical triggers. Now
+> **further productionizing the pipeline** while moving into Phase 1. See
+> [README Roadmap](README.md#roadmap).
 
 ---
 
