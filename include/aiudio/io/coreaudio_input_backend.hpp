@@ -40,6 +40,9 @@ public:
     // captured AudioBufferList as const void*. RT context: allocation-/lock-free.
     void captureFromIOProc(const void* inputBufferList) noexcept;
 
+    // HAL device-alive listener callback (off the audio thread, M9.4).
+    void handleDeviceAliveChanged() noexcept;
+
 private:
     AudioObjectID deviceId_ = kAudioObjectUnknown;
     AudioDeviceIOProcID ioProcId_ = nullptr;
@@ -49,6 +52,7 @@ private:
     std::uint32_t maxFrames_ = 0;
     std::uint32_t latencyFrames_ = 0;
     bool running_ = false;
+    bool aliveListenerOn_ = false;  // HAL device-died listener registered (M9.4)
     std::uint64_t sampleTime_ = 0;
 
     // Captured audio is copied into planar scratch (mutable, RT-safe) before being

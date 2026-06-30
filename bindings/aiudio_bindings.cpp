@@ -30,6 +30,7 @@
 #include "aiudio/graph/sum_node.hpp"
 #include "aiudio/graph/upmix_node.hpp"
 #include "aiudio/io/audio_buffer.hpp"
+#include "aiudio/io/channel_map.hpp"
 #include "aiudio/io/drift_compensator.hpp"
 #include "aiudio/io/mock_backend.hpp"
 #include "aiudio/io/offline_backend.hpp"
@@ -153,6 +154,29 @@ nb::object resamplerProcess(io::Resampler& rs, InArray input, std::uint32_t outC
     nb::ndarray<nb::numpy, float> arr(
         outData, {static_cast<std::size_t>(channels), static_cast<std::size_t>(r.produced)}, owner);
     return nb::make_tuple(arr, r.consumed);
+}
+
+// Map a planar (channels, frames) block to `outChannels` at the I/O boundary (M9.2):
+// mono↔stereo and N↔M. Returns the mapped (outChannels, frames) array.
+nb::ndarray<nb::numpy, float> mapChannelsBlock(InArray src, std::uint32_t outChannels,
+                                               io::ChannelMapMode mode) {
+    const auto inCh = static_cast<std::uint32_t>(src.shape(0));
+    const auto frames = static_cast<std::uint32_t>(src.shape(1));
+    std::vector<float*> inPtrs(inCh);
+    for (std::uint32_t c = 0; c < inCh; ++c)
+        inPtrs[c] = const_cast<float*>(src.data()) + static_cast<std::size_t>(c) * frames;
+    io::AudioBuffer in{inPtrs.data(), inCh, frames};
+
+    auto* outData = new float[static_cast<std::size_t>(outChannels) * frames]();
+    std::vector<float*> outPtrs(outChannels);
+    for (std::uint32_t c = 0; c < outChannels; ++c)
+        outPtrs[c] = outData + static_cast<std::size_t>(c) * frames;
+    io::AudioBuffer out{outPtrs.data(), outChannels, frames};
+    io::mapChannels(in, out, frames, mode);
+
+    nb::capsule owner(outData, [](void* p) noexcept { delete[] static_cast<float*>(p); });
+    return nb::ndarray<nb::numpy, float>(
+        outData, {static_cast<std::size_t>(outChannels), static_cast<std::size_t>(frames)}, owner);
 }
 
 // Engine-side pull from a ResamplingSource (M9.5): produce `frames` of engine-rate audio
@@ -436,6 +460,16 @@ NB_MODULE(_aiudio, m) {
                      "Source-rate frames buffered ahead of the engine (telemetry).")
         .def_prop_ro("overruns", &io::ResamplingSource::overruns)
         .def_prop_ro("underruns", &io::ResamplingSource::underruns);
+
+    // ---- Boundary channel mapping (M9.2): mono↔stereo / N↔M at the device↔graph edge ----
+    nb::enum_<io::ChannelMapMode>(m, "ChannelMapMode")
+        .value("Auto", io::ChannelMapMode::Auto)
+        .value("Copy", io::ChannelMapMode::Copy)
+        .value("DuplicateMono", io::ChannelMapMode::DuplicateMono)
+        .value("DownmixToMono", io::ChannelMapMode::DownmixToMono);
+    m.def("map_channels", &mapChannelsBlock, "block"_a, "out_channels"_a,
+          "mode"_a = io::ChannelMapMode::Auto,
+          "Map a planar (channels, frames) block to out_channels (mono↔stereo / N↔M).");
 
     nb::enum_<io::WavFormat>(m, "WavFormat")
         .value("Int16", io::WavFormat::Int16)

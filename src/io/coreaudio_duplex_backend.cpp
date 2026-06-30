@@ -90,10 +90,21 @@ OSStatus duplexIOProcTrampoline(AudioObjectID, const AudioTimeStamp*,
     return noErr;
 }
 
+// HAL device-alive listener (device-died / hot-unplug); HAL notification thread (M9.4).
+OSStatus duplexAliveListenerTrampoline(AudioObjectID, UInt32, const AudioObjectPropertyAddress*,
+                                       void* clientData) {
+    static_cast<CoreAudioDuplexBackend*>(clientData)->handleDeviceAliveChanged();
+    return noErr;
+}
+
 }  // namespace
 
 CoreAudioDuplexBackend::~CoreAudioDuplexBackend() {
     stop();
+    if (aliveListenerOn_) {
+        detail::removeAliveListener(deviceId_, duplexAliveListenerTrampoline, this);
+        aliveListenerOn_ = false;
+    }
     if (ioProcId_ != nullptr && deviceId_ != kAudioObjectUnknown) {
         AudioDeviceDestroyIOProcID(deviceId_, ioProcId_);
     }
@@ -107,6 +118,10 @@ std::vector<AudioDeviceInfo> CoreAudioDuplexBackend::enumerate() {
 }
 
 bool CoreAudioDuplexBackend::open(const StreamConfig& config, RenderCallback* callback) {
+    if (aliveListenerOn_) {  // re-open: drop the listener on the previous device
+        detail::removeAliveListener(deviceId_, duplexAliveListenerTrampoline, this);
+        aliveListenerOn_ = false;
+    }
     callback_ = callback;
     if (callback_ == nullptr) return false;
 
@@ -161,7 +176,15 @@ bool CoreAudioDuplexBackend::open(const StreamConfig& config, RenderCallback* ca
     }
     ioProcId_ = procId;
     sampleTime_ = 0;
+
+    disconnected_.store(false, std::memory_order_release);
+    if (detail::addAliveListener(deviceId_, duplexAliveListenerTrampoline, this) == noErr)
+        aliveListenerOn_ = true;
     return true;
+}
+
+void CoreAudioDuplexBackend::handleDeviceAliveChanged() noexcept {
+    if (!detail::deviceIsAlive(deviceId_)) notifyDisconnect();  // off the audio thread
 }
 
 void CoreAudioDuplexBackend::renderFromIOProc(const void* inputBufferList,

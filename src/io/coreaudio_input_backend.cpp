@@ -21,10 +21,21 @@ OSStatus inputIOProcTrampoline(AudioObjectID, const AudioTimeStamp*,
     return noErr;
 }
 
+// HAL device-alive listener (device-died / hot-unplug); HAL notification thread (M9.4).
+OSStatus inputAliveListenerTrampoline(AudioObjectID, UInt32, const AudioObjectPropertyAddress*,
+                                      void* clientData) {
+    static_cast<CoreAudioInputBackend*>(clientData)->handleDeviceAliveChanged();
+    return noErr;
+}
+
 }  // namespace
 
 CoreAudioInputBackend::~CoreAudioInputBackend() {
     stop();
+    if (aliveListenerOn_) {
+        detail::removeAliveListener(deviceId_, inputAliveListenerTrampoline, this);
+        aliveListenerOn_ = false;
+    }
     if (ioProcId_ != nullptr && deviceId_ != kAudioObjectUnknown) {
         AudioDeviceDestroyIOProcID(deviceId_, ioProcId_);
     }
@@ -35,6 +46,10 @@ std::vector<AudioDeviceInfo> CoreAudioInputBackend::enumerate() {
 }
 
 bool CoreAudioInputBackend::open(const StreamConfig& config, RenderCallback* callback) {
+    if (aliveListenerOn_) {  // re-open: drop the listener on the previous device
+        detail::removeAliveListener(deviceId_, inputAliveListenerTrampoline, this);
+        aliveListenerOn_ = false;
+    }
     callback_ = callback;
     deviceId_ = config.inputDeviceId.empty()
                     ? detail::defaultDevice(kAudioHardwarePropertyDefaultInputDevice)
@@ -68,7 +83,15 @@ bool CoreAudioInputBackend::open(const StreamConfig& config, RenderCallback* cal
     }
     ioProcId_ = procId;
     sampleTime_ = 0;
+
+    disconnected_.store(false, std::memory_order_release);
+    if (detail::addAliveListener(deviceId_, inputAliveListenerTrampoline, this) == noErr)
+        aliveListenerOn_ = true;
     return true;
+}
+
+void CoreAudioInputBackend::handleDeviceAliveChanged() noexcept {
+    if (!detail::deviceIsAlive(deviceId_)) notifyDisconnect();  // off the audio thread
 }
 
 void CoreAudioInputBackend::captureFromIOProc(const void* inputBufferList) noexcept {
