@@ -188,6 +188,11 @@ NB_MODULE(_aiudio, m) {
                      "Number of distinct output streams the compiled graph writes.")
         .def_prop_ro("latency_frames", [](const graph::GraphExecutor& e) { return e.latencyFrames(); },
                      "Total graph latency in frames (parallel branches are delay-compensated; G9).")
+        .def_prop_ro("xrun_count", [](const graph::GraphExecutor& e) { return e.xrunCount(); },
+                     "Blocks the executor could not fully render (frames > max_block, or not "
+                     "compiled) — degraded to silence and counted (M9.1).")
+        .def_prop_ro("dropped_commands", [](const graph::GraphExecutor& e) { return e.droppedCommands(); },
+                     "Control commands dropped because the lock-free queue was full (M9.1).")
         // ---- Live control plane (RT-safe; lock-free SPSC queue into the audio thread) ----
         // These enqueue a change that the audio thread applies at the top of the next
         // block. Safe to call while a device backend is running — Python never touches

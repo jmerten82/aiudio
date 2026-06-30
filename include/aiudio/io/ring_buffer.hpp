@@ -9,6 +9,7 @@
 
 #include <atomic>
 #include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <new>
 #include <type_traits>
@@ -32,26 +33,35 @@ public:
     /// Maximum number of elements the buffer can hold.
     [[nodiscard]] std::size_t capacity() const noexcept { return capacity_ - 1; }
 
-    /// Producer: push one element. Returns false if full (no overwrite).
+    /// Producer: push one element. Returns false if full (no overwrite). A failed push
+    /// is an **overrun** — counted (see overrunCount()).
     bool push(const T& value) noexcept {
         const std::size_t w = write_.index.load(std::memory_order_relaxed);
         const std::size_t next = (w + 1) & mask_;
-        if (next == read_.index.load(std::memory_order_acquire)) return false;  // full
+        if (next == read_.index.load(std::memory_order_acquire)) {  // full → drop
+            write_.xruns.fetch_add(1, std::memory_order_relaxed);
+            return false;
+        }
         data_[w] = value;
         write_.index.store(next, std::memory_order_release);
         return true;
     }
 
-    /// Consumer: pop one element into `out`. Returns false if empty.
+    /// Consumer: pop one element into `out`. Returns false if empty. A failed pop is an
+    /// **underrun** — counted (see underrunCount()).
     bool pop(T& out) noexcept {
         const std::size_t r = read_.index.load(std::memory_order_relaxed);
-        if (r == write_.index.load(std::memory_order_acquire)) return false;  // empty
+        if (r == write_.index.load(std::memory_order_acquire)) {  // empty
+            read_.xruns.fetch_add(1, std::memory_order_relaxed);
+            return false;
+        }
         out = data_[r];
         read_.index.store((r + 1) & mask_, std::memory_order_release);
         return true;
     }
 
-    /// Producer: bulk push. Returns the number written (< count if it fills up).
+    /// Producer: bulk push. Returns the number written (< count if it fills up); the
+    /// shortfall is counted as an overrun.
     std::size_t write(const T* src, std::size_t count) noexcept {
         std::size_t w = write_.index.load(std::memory_order_relaxed);
         const std::size_t r = read_.index.load(std::memory_order_acquire);
@@ -63,10 +73,12 @@ public:
             w = next;
         }
         write_.index.store(w, std::memory_order_release);
+        if (n < count) write_.xruns.fetch_add(count - n, std::memory_order_relaxed);
         return n;
     }
 
-    /// Consumer: bulk read. Returns the number read (< count if it empties).
+    /// Consumer: bulk read. Returns the number read (< count if it empties); the
+    /// shortfall is counted as an underrun.
     std::size_t read(T* dst, std::size_t count) noexcept {
         std::size_t r = read_.index.load(std::memory_order_relaxed);
         const std::size_t w = write_.index.load(std::memory_order_acquire);
@@ -77,7 +89,19 @@ public:
             r = (r + 1) & mask_;
         }
         read_.index.store(r, std::memory_order_release);
+        if (n < count) read_.xruns.fetch_add(count - n, std::memory_order_relaxed);
         return n;
+    }
+
+    /// Elements the producer could not write because the buffer was full (xrun telemetry,
+    /// off-thread readable). Written only by the producer.
+    [[nodiscard]] std::uint64_t overrunCount() const noexcept {
+        return write_.xruns.load(std::memory_order_relaxed);
+    }
+    /// Elements the consumer could not read because the buffer was empty (xrun telemetry).
+    /// Written only by the consumer.
+    [[nodiscard]] std::uint64_t underrunCount() const noexcept {
+        return read_.xruns.load(std::memory_order_relaxed);
     }
 
     /// Approximate number of elements available to read (may be stale).
@@ -105,6 +129,7 @@ private:
 #endif
     struct alignas(kCacheLine) Cursor {
         std::atomic<std::size_t> index{0};
+        std::atomic<std::uint64_t> xruns{0};  // producer: overruns; consumer: underruns
     };
 
     const std::size_t capacity_;

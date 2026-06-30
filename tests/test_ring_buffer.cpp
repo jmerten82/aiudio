@@ -53,6 +53,31 @@ AIUDIO_TEST(bulk_write_read_roundtrip) {
     CHECK(rb.empty());
 }
 
+// M9.1: failed pushes/pops are counted as over/underruns (xrun telemetry).
+AIUDIO_TEST(xrun_counters) {
+    RingBuffer<int> rb(3);  // capacity 3
+    CHECK(rb.overrunCount() == 0);
+    CHECK(rb.underrunCount() == 0);
+
+    int v = 0;
+    CHECK(!rb.pop(v));                 // empty → underrun
+    CHECK(rb.underrunCount() == 1);
+
+    for (int i = 0; i < 3; ++i) CHECK(rb.push(i));
+    CHECK(!rb.push(99));               // full → overrun
+    CHECK(!rb.push(98));               // full → overrun
+    CHECK(rb.overrunCount() == 2);
+
+    // Bulk over/underrun count the shortfall in elements.
+    RingBuffer<float> rb2(3);          // capacity 3
+    float in[5] = {0, 1, 2, 3, 4};
+    CHECK(rb2.write(in, 5) == 3);      // wrote 3, dropped 2
+    CHECK(rb2.overrunCount() == 2);
+    float out[5] = {};
+    CHECK(rb2.read(out, 5) == 3);      // read 3, missing 2
+    CHECK(rb2.underrunCount() == 2);
+}
+
 // The acceptance test: one producer, one consumer, a million items, small buffer.
 AIUDIO_TEST(spsc_stress_no_loss_in_order) {
     constexpr std::uint32_t kN = 1'000'000;

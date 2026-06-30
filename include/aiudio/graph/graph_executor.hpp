@@ -102,6 +102,20 @@ public:
     /// phase; this is the residual latency a downstream consumer should account for.
     [[nodiscard]] std::uint32_t latencyFrames() const noexcept;
 
+    /// xrun telemetry (M9.1): blocks the executor could not fully render — requested
+    /// `numFrames` > compiled `maxBlock`, or `process()` called before `compile()` —
+    /// degraded to **silence** (the un-rendered outputs/tail are zeroed). RT-safe.
+    /// (CPU-overload / device-underrun detection is device-side; M9.4.)
+    [[nodiscard]] std::uint64_t xrunCount() const noexcept {
+        return xruns_.load(std::memory_order_acquire);
+    }
+
+    /// Control commands dropped because the lock-free queue was full — an overrun on the
+    /// control→audio path. Telemetry for the control thread.
+    [[nodiscard]] std::uint64_t droppedCommands() const noexcept {
+        return commands_->overrunCount();
+    }
+
     /// Number of swapped-out schedules awaiting safe reclamation (control-thread
     /// view; for tests/introspection).
     [[nodiscard]] std::size_t pendingRetired() const noexcept { return retired_.size(); }
@@ -119,6 +133,7 @@ private:
 
     std::atomic<CompiledGraph*> active_{nullptr};   // current schedule (audio thread reads)
     std::atomic<std::uint64_t> renderCount_{0};     // bumped at the end of each process()
+    std::atomic<std::uint64_t> xruns_{0};           // under-served blocks (M9.1; audio thread writes)
     // Heap-held (control thread → audio thread): the ring is cache-line over-aligned to
     // avoid false sharing, so it lives behind a pointer to keep GraphExecutor's own
     // alignment normal (nanobind can't hold an over-aligned instance). Built in the ctor.

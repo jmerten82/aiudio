@@ -126,7 +126,8 @@ md(r"""> ⚠️ **Shortcoming — the `max_block` contract is a footgun.** `proc
 code(r"""ex_small = aiudio.GraphExecutor()
 ex_small.compile(g2, channels=1, sample_rate=SR, max_block=64)   # compiled for 64
 out = ex_small.process(np.ones((1, 128), np.float32))            # but we pass 128
-print("frames 0..63 (processed):", float(out[0, 0]), "| frames 64..127 (dropped→0):", float(out[0, 100]))""")
+print("frames 0..63 (processed):", float(out[0, 0]), "| frames 64..127 (dropped→0):", float(out[0, 100]))
+print("xrun_count:", ex_small.xrun_count, "— the under-served block is detected, silenced, and counted (M9.1)")""")
 
 md(r"""**Multiple input/output streams (G10).** A single graph can receive **N input
 streams** and drive **M output streams**: `add_source(stream=k)` / `add_sink(stream=k)` bind
@@ -244,12 +245,9 @@ md(r"""> ⚠️ **Shortcoming — the queue is bounded and drops on overflow.** 
 > than the audio thread drains, `set_*` returns `False` and the change is dropped (never
 > blocks — that's the RT-safety trade). Demonstration (flood without processing):""")
 code(r"""exf = aiudio.GraphExecutor(); exf.compile(gg, channels=1, sample_rate=SR, max_block=64)
-accepted = 0
-for _ in range(8192):
-    if not exf.set_gain(gn, 0.5):
-        break
-    accepted += 1
-print(f"accepted {accepted} queued edits before the bounded queue reported full")""")
+accepted = sum(1 for _ in range(8192) if exf.set_gain(gn, 0.5))  # flood without draining
+print(f"accepted {accepted} of 8192 queued edits; the rest were dropped")
+print("dropped_commands telemetry:", exf.dropped_commands, "(M9.1)")""")
 md(r"""> ⚠️ **More shortcomings.** Only `gain` / `cutoff` / `Q` are controllable — there is no
 > parameter **automation/modulation** (time-varying curves), just one-shot setters. And
 > `Graph.set_gain(...)` (editing the IR node directly) still exists but is **only safe while
