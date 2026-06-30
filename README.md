@@ -192,7 +192,11 @@ aiudio/
 
 ## Documentation
 
-Start at [`docs/README.md`](docs/README.md). The dossier is grounded in a
+**New here / want to use it?** Start with the **[Pipeline Capabilities & Usage Guide
+(`docs/80`)](docs/80-pipeline-capabilities.md)** — everything the pipeline does today (end of
+Phase 0) with runnable **C++ and Python** examples.
+
+For the design dossier, start at [`docs/README.md`](docs/README.md). It is grounded in a
 fact-checked research pass; each doc marks provenance: **✓ Verified** (cited) vs
 **○ Background** (confirm before relying).
 
