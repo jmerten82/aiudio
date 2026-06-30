@@ -245,9 +245,30 @@ gi = aiudio.Graph(); s = gi.add_source(); bq = gi.add_biquad_coeffs(1.0, 0.0, 0.
 gi.connect(s, 0, bq, 0); gi.connect(bq, 0, k, 0)
 exi = aiudio.GraphExecutor(); exi.compile(gi, channels=1, sample_rate=SR, max_block=64)
 print("raw-coeff identity out (=0.3):", round(float(exi.process(np.full((1, 64), 0.3, np.float32))[0, -1]), 5))""")
-md(r"""> ⚠️ **Shortcoming.** This is most of the DSP palette today. No parametric EQ, dynamics,
-> delay/reverb, or any neural node, and no general routing/mix-matrix node yet (beyond
-> `SumNode` + the channel-width nodes below).""")
+md(r"""**Tier-1 node library — generators, EQ, dynamics, time/space, routing.** A full
+music-production starter set: `add_oscillator`/`add_noise` (generators), `add_biquad_peaking`/
+`add_biquad_lowshelf`/`add_biquad_highshelf` (parametric-EQ family — chain for multi-band),
+`add_compressor` (look-ahead reports latency, G9) / `add_gate`, `add_delay` (feedback),
+`add_waveshaper` (saturation), `add_pan` (mono→stereo, G8) / `add_stereo_width`, `add_mixer`
+(per-input gains) / `add_channel_matrix` (routing). Continuous params are click-free; live
+control is `ex.set_param(node, index, value)` (indices in each factory's doc). Here a full
+chain — saw osc → tanh drive → 2 kHz peaking boost → compressor → pan → width — renders, and
+the compressor's look-ahead shows up as graph latency:""")
+code(r"""gt = aiudio.Graph()
+osc = gt.add_oscillator("saw", 220.0, 0.6); ws = gt.add_waveshaper("tanh", 2.0, 1.0)
+eq  = gt.add_biquad_peaking(2000.0, 1.0, 6.0, SR); comp = gt.add_compressor(-18.0, 4.0, 5.0, 80.0, 16, 2)
+pan = gt.add_pan(0.2); width = gt.add_stereo_width(1.2); k = gt.add_sink()
+for a, b in [(osc, ws), (ws, eq), (eq, comp), (comp, pan), (pan, width), (width, k)]:
+    gt.connect(a, 0, b, 0)
+ext = aiudio.GraphExecutor(); ext.compile(gt, channels=2, sample_rate=SR, max_block=128)
+out = ext.process_multi([np.zeros((2, 128), np.float32)])[0]   # the oscillator generates
+print("chain:", [t for _, t, _, _ in gt.nodes()])
+print(f"out {out.shape}  peak={np.max(np.abs(out)):.3f}  latency_frames={ext.latency_frames} (comp look-ahead 16)")""")
+md(r"""> ⚠️ **Shortcoming.** Still missing from the palette: spectral (STFT/FFT) effects,
+> convolution / algorithmic **reverb**, loudness/true-peak meters, and any **neural** node —
+> those are Tier 2/3 (`docs/78`). The EQ is built by *chaining* biquad bands (no single
+> N-band convenience node yet), and live param control is index-based (`set_param`) rather
+> than named setters.""")
 
 md(r"""**Channel-width nodes (G8) — per-port channel counts.** A node can *change* the channel
 count: `add_downmix()` collapses N channels → 1 (mono average), `add_upmix(channels)` raises
@@ -555,7 +576,7 @@ Everything the Python layer **cannot** do yet (or does with a caveat), and why:
 
 | Area | Shortcoming | Status / why |
 |---|---|---|
-| **Node library** | `source/sink/gain/sum/meter/biquad_lowpass/biquad_highpass/biquad_coeffs/downmix/upmix/latency`; no EQ/dynamics/delay/reverb, general routing-matrix, or neural nodes | grows in Phase 1+ |
+| **Node library** | **Tier 1 ✅** — generators (oscillator/noise), EQ family (LP/HP/peaking/shelf/raw), dynamics (compressor+lookahead/gate), delay, waveshaper, pan/width, mixer, channel-matrix, DC blocker (+ source/sink/gain/sum/meter/down/up-mix/latency). Missing: spectral/convolution **reverb**, loudness meters, **neural** nodes (Tier 2/3, `docs/78`) | Tier 1 ✅ |
 | **Graph introspection / editing** | `nodes()`/`edges()`/`node_type()` read-back **✅**; `disconnect()` + `remove_node()` (tombstone, stable ids) **✅**; add/remove only — no in-place node mutation | ✅ |
 | **Signal generation** | no oscillator/file-source node → **live device output is silent** | small follow-up |
 | **Live input** | mic / full-duplex / process-tap backends **✅ bound** (`InputBackend`/`DuplexBackend`/`TapBackend`, M11a) — capture needs mic TCC; taps need a signed binary | ✅ |
