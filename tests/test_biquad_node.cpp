@@ -45,4 +45,19 @@ AIUDIO_TEST(raw_coefficients_identity_passthrough) {
     CHECK(std::fabs(settledDcOutput(bq) - 1.0f) < 1e-6f);  // y[n] = x[n]
 }
 
+// A low shelf with +6 dB lifts DC by ~2x (10^(6/20) ≈ 1.995); a peaking band leaves DC ~unity.
+AIUDIO_TEST(low_shelf_boosts_dc) {
+    BiquadNode bq(1);
+    bq.setLowShelf(500.0, 0.707, 6.0, 48000.0);
+    bq.prepare(48000.0, 4096);
+    CHECK(std::fabs(settledDcOutput(bq) - 1.995f) < 0.05f);  // +6 dB at DC
+}
+
+AIUDIO_TEST(peaking_leaves_dc_unity) {
+    BiquadNode bq(1);
+    bq.setPeaking(2000.0, 1.0, 9.0, 48000.0);  // boost centred at 2 kHz
+    bq.prepare(48000.0, 4096);
+    CHECK(std::fabs(settledDcOutput(bq) - 1.0f) < 1e-2f);  // DC far from the band → ~unchanged
+}
+
 AIUDIO_TEST_MAIN()

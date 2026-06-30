@@ -22,7 +22,9 @@ aiudio_add_test(test_graph_edit aiudio::graph)      # graph edits: disconnect + 
 aiudio_add_test(test_graph_nodes aiudio::graph)     # G1
 aiudio_add_test(test_graph_executor aiudio::graph)  # G2
 aiudio_add_test(test_graph_meter aiudio::graph)     # G3
-aiudio_add_test(test_biquad_node aiudio::graph)     # G4
+aiudio_add_test(test_biquad_node aiudio::graph)     # G4 (+ peaking/shelf EQ family)
+aiudio_add_test(test_dsp_nodes aiudio::graph)       # Tier-1 nodes: shaper/osc/noise/pan/mix/route/delay
+aiudio_add_test(test_dynamics aiudio::graph)        # Tier-1 dynamics: compressor + gate
 aiudio_add_test(test_offline_render aiudio::graph)  # G4 + M6 golden file→graph→file
 aiudio_add_test(test_graph_live_edit aiudio::graph) # G5 atomic schedule swap
 aiudio_add_test(test_graph_control aiudio::graph)   # G7 control plane: param command queue

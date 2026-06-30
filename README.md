@@ -135,7 +135,7 @@ status — **kept current as we go**.
 
 ### Phase 1 — Differentiable core
 - [ ] Differentiable end-to-end graph execution
-- [ ] Classic DSP nodes (gain, biquad EQ, reverb) as differentiable peers
+- [~] Classic DSP nodes as peers — **Tier-1 node library landed** (parametric EQ, compressor/gate, delay, waveshaper, oscillator/noise, pan/width, mixer, channel-matrix, DC blocker; plan + tiers in [`docs/78`](docs/78-node-library-roadmap.md)). *Making them differentiable + Tier 2/3 (spectral/convolution reverb, neural) is the remaining work.*
 - [ ] First neural node (RAVE-/NAM-class) under the same contract
 - [ ] "Brighten the vocal" slice — EQ node tuned by gradient vs a CLAP objective
 - [x] Process-tap & offline/file backends (I/O M5–M6) *(M5 ✅ taps; M6 ✅ offline/file backend — both merged)*

@@ -16,19 +16,30 @@
 #include <vector>
 
 #include "aiudio/graph/biquad_node.hpp"
+#include "aiudio/graph/channel_matrix_node.hpp"
+#include "aiudio/graph/compressor_node.hpp"
 #include "aiudio/graph/cross_clock_bridge.hpp"
+#include "aiudio/graph/dc_blocker_node.hpp"
+#include "aiudio/graph/delay_node.hpp"
 #include "aiudio/graph/downmix_node.hpp"
 #include "aiudio/graph/gain_node.hpp"
+#include "aiudio/graph/gate_node.hpp"
 #include "aiudio/graph/graph.hpp"
 #include "aiudio/graph/graph_executor.hpp"
 #include "aiudio/graph/latency_node.hpp"
 #include "aiudio/graph/master_clock_adapter.hpp"
 #include "aiudio/graph/meter_node.hpp"
+#include "aiudio/graph/mixer_node.hpp"
 #include "aiudio/graph/multi_source_manager.hpp"
+#include "aiudio/graph/noise_node.hpp"
+#include "aiudio/graph/oscillator_node.hpp"
+#include "aiudio/graph/pan_node.hpp"
 #include "aiudio/graph/sink_node.hpp"
 #include "aiudio/graph/source_node.hpp"
+#include "aiudio/graph/stereo_width_node.hpp"
 #include "aiudio/graph/sum_node.hpp"
 #include "aiudio/graph/upmix_node.hpp"
+#include "aiudio/graph/waveshaper_node.hpp"
 #include "aiudio/io/audio_buffer.hpp"
 #include "aiudio/io/channel_map.hpp"
 #include "aiudio/io/drift_compensator.hpp"
@@ -245,6 +256,79 @@ NB_MODULE(_aiudio, m) {
         }, "frames"_a, "max_channels"_a = 2,
            "Add a node that delays by `frames` AND reports that latency — models a "
            "lookahead/FFT/resampler; parallel branches are delay-compensated (G9).")
+        // ---- Tier-1 node library. Live control: GraphExecutor.set_param(node, index, value)
+        // with the per-node param indices noted below; set_cutoff/set_q drive any biquad. ----
+        .def("add_biquad_peaking", [](graph::Graph& g, double freq, double q, double gainDb, double sr) {
+            auto n = std::make_unique<graph::BiquadNode>(); n->setPeaking(freq, q, gainDb, sr);
+            return g.addNode(std::move(n));
+        }, "freq"_a, "q"_a, "gain_db"_a, "sample_rate"_a,
+           "Peaking EQ band (chain several for a parametric EQ). params: 0=freq 1=q 2=gain_db.")
+        .def("add_biquad_lowshelf", [](graph::Graph& g, double freq, double q, double gainDb, double sr) {
+            auto n = std::make_unique<graph::BiquadNode>(); n->setLowShelf(freq, q, gainDb, sr);
+            return g.addNode(std::move(n));
+        }, "freq"_a, "q"_a, "gain_db"_a, "sample_rate"_a, "Low-shelf EQ. params: 0=freq 1=q 2=gain_db.")
+        .def("add_biquad_highshelf", [](graph::Graph& g, double freq, double q, double gainDb, double sr) {
+            auto n = std::make_unique<graph::BiquadNode>(); n->setHighShelf(freq, q, gainDb, sr);
+            return g.addNode(std::move(n));
+        }, "freq"_a, "q"_a, "gain_db"_a, "sample_rate"_a, "High-shelf EQ. params: 0=freq 1=q 2=gain_db.")
+        .def("add_waveshaper", [](graph::Graph& g, const std::string& shape, float drive, float mix) {
+            auto s = graph::WaveshaperNode::Shape::Tanh;
+            if (shape == "softclip") s = graph::WaveshaperNode::Shape::SoftClip;
+            else if (shape == "hardclip") s = graph::WaveshaperNode::Shape::HardClip;
+            return g.addNode(std::make_unique<graph::WaveshaperNode>(s, drive, mix));
+        }, "shape"_a = "tanh", "drive"_a = 1.0f, "mix"_a = 1.0f,
+           "Saturation/distortion (tanh|softclip|hardclip). params: 0=drive 1=mix.")
+        .def("add_oscillator", [](graph::Graph& g, const std::string& wave, double freq, float amp) {
+            auto w = graph::OscillatorNode::Waveform::Sine;
+            if (wave == "saw") w = graph::OscillatorNode::Waveform::Saw;
+            else if (wave == "square") w = graph::OscillatorNode::Waveform::Square;
+            else if (wave == "triangle") w = graph::OscillatorNode::Waveform::Triangle;
+            return g.addNode(std::make_unique<graph::OscillatorNode>(w, freq, amp));
+        }, "waveform"_a = "sine", "freq"_a = 440.0, "amplitude"_a = 0.5f,
+           "Signal generator (sine|saw|square|triangle), 0 in → 1 out. params: 0=freq 1=amplitude.")
+        .def("add_noise", [](graph::Graph& g, const std::string& color, float amp, std::uint32_t maxCh) {
+            const auto c = (color == "pink") ? graph::NoiseNode::Color::Pink
+                                             : graph::NoiseNode::Color::White;
+            return g.addNode(std::make_unique<graph::NoiseNode>(c, amp, maxCh));
+        }, "color"_a = "white", "amplitude"_a = 0.5f, "max_channels"_a = 2,
+           "Noise generator (white|pink), 0 in → 1 out. params: 0=amplitude.")
+        .def("add_dc_blocker", [](graph::Graph& g, double corner, std::uint32_t maxCh) {
+            return g.addNode(std::make_unique<graph::DcBlockerNode>(corner, maxCh));
+        }, "corner_hz"_a = 20.0, "max_channels"_a = 2, "One-pole DC/rumble remover.")
+        .def("add_stereo_width", [](graph::Graph& g, float width) {
+            return g.addNode(std::make_unique<graph::StereoWidthNode>(width));
+        }, "width"_a = 1.0f, "Mid/side width (0=mono, 1=unchanged, >1=wide), 2ch. params: 0=width.")
+        .def("add_pan", [](graph::Graph& g, float pan) {
+            return g.addNode(std::make_unique<graph::PanNode>(pan));
+        }, "pan"_a = 0.0f, "Equal-power pan, mono → stereo (G8). params: 0=pan (-1..+1).")
+        .def("add_mixer", [](graph::Graph& g, std::uint32_t numInputs, float gain) {
+            return g.addNode(std::make_unique<graph::MixerNode>(numInputs, gain));
+        }, "num_inputs"_a = 2, "gain"_a = 1.0f,
+           "N in → 1 out weighted mix (per-input gain). params: index i = gain for input i.")
+        .def("add_channel_matrix", [](graph::Graph& g, std::uint32_t inCh, std::uint32_t outCh) {
+            return g.addNode(std::make_unique<graph::ChannelMatrixNode>(inCh, outCh));
+        }, "in_channels"_a, "out_channels"_a,
+           "Routing/mix matrix in→out (G8). params: index = out*in_channels + in → cell gain.")
+        .def("add_delay", [](graph::Graph& g, double maxSec, std::uint32_t delayFrames, float fb,
+                             float mix, std::uint32_t maxCh) {
+            return g.addNode(std::make_unique<graph::DelayNode>(maxSec, delayFrames, fb, mix, maxCh));
+        }, "max_seconds"_a = 2.0, "delay_frames"_a = 24000, "feedback"_a = 0.3f, "mix"_a = 0.3f,
+           "max_channels"_a = 2,
+           "Delay w/ feedback (internal; latency 0). params: 0=delay_frames 1=feedback 2=mix.")
+        .def("add_compressor", [](graph::Graph& g, float threshDb, float ratio, float attackMs,
+                                  float releaseMs, std::uint32_t lookahead, std::uint32_t maxCh) {
+            return g.addNode(std::make_unique<graph::CompressorNode>(threshDb, ratio, attackMs,
+                                                                     releaseMs, lookahead, maxCh));
+        }, "threshold_db"_a = -18.0f, "ratio"_a = 4.0f, "attack_ms"_a = 5.0f, "release_ms"_a = 80.0f,
+           "lookahead_frames"_a = 0, "max_channels"_a = 2,
+           "Compressor/limiter (lookahead reports latency, G9). params: 0=threshold_db 1=ratio "
+           "2=attack_ms 3=release_ms 4=makeup_db.")
+        .def("add_gate", [](graph::Graph& g, float threshDb, float attackMs, float releaseMs,
+                            float rangeDb) {
+            return g.addNode(std::make_unique<graph::GateNode>(threshDb, attackMs, releaseMs, rangeDb));
+        }, "threshold_db"_a = -45.0f, "attack_ms"_a = 1.0f, "release_ms"_a = 120.0f,
+           "range_db"_a = -80.0f,
+           "Noise gate / downward expander. params: 0=threshold_db 1=attack_ms 2=release_ms 3=range_db.")
         .def("connect", [](graph::Graph& g, graph::NodeId s, std::uint32_t sp, graph::NodeId d,
                            std::uint32_t dp) { return g.connect(s, sp, d, dp); },
              "src"_a, "src_port"_a, "dst"_a, "dst_port"_a)
