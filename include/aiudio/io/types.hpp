@@ -26,6 +26,12 @@ struct AudioDeviceInfo {
     bool isDefaultOutput = false;
 };
 
+/// How a backend should respond to an xrun (M9.1). `BestEffort` (default): count it and
+/// keep running (RT-safe degrade — silence on underrun, drop on overrun). `Strict`: a
+/// backend may stop the stream on the first xrun (e.g. mastering). Enforcement of `Strict`
+/// lands with the device-side xrun path (M9.4); the policy is plumbed here.
+enum class XrunPolicy { BestEffort, Strict };
+
 /// Requested stream parameters. An empty device id means "system default".
 /// Either input or output channel count may be 0 (half-duplex).
 struct StreamConfig {
@@ -35,6 +41,7 @@ struct StreamConfig {
     std::uint32_t blockSize = 128;  ///< frames per callback
     std::uint32_t inputChannels = 0;
     std::uint32_t outputChannels = 2;
+    XrunPolicy xrunPolicy = XrunPolicy::BestEffort;
 };
 
 }  // namespace aiudio::io

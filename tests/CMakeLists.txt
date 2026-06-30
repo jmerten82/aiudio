@@ -25,6 +25,7 @@ aiudio_add_test(test_graph_control aiudio::graph)   # G7 control plane: param co
 aiudio_add_test(test_graph_multistream aiudio::graph) # G10 multi-stream executor
 aiudio_add_test(test_graph_channels aiudio::graph)  # G8 per-port channel counts
 aiudio_add_test(test_graph_latency aiudio::graph)   # G9 latency + delay compensation (PDC)
+aiudio_add_test(test_graph_xrun aiudio::graph)      # M9.1 xrun/underrun policy + telemetry
 
 if(APPLE)
     aiudio_add_test(test_coreaudio_enumerate aiudio::io)  # device enumeration, no audio

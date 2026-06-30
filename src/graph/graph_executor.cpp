@@ -249,6 +249,19 @@ void GraphExecutor::reclaim() {
     }
 }
 
+namespace {
+// RT-safe: zero `outputs[*]` for frames [from, to) — the substitution on an under-served
+// block (silence, never garbage). M9.1.
+void silence(io::AudioBuffer* outputs, std::uint32_t numOutputs, std::uint32_t from,
+             std::uint32_t to) noexcept {
+    for (std::uint32_t o = 0; o < numOutputs; ++o)
+        for (std::uint32_t c = 0; c < outputs[o].numChannels; ++c) {
+            float* d = outputs[o].channel(c);
+            for (std::uint32_t f = from; f < to; ++f) d[f] = 0.0f;
+        }
+}
+}  // namespace
+
 void GraphExecutor::process(const io::AudioBuffer& in, io::AudioBuffer& out,
                             std::uint32_t numFrames, const io::TimeInfo& time) noexcept {
     // The 1-stream special case: one input, one output (back-compatible).
@@ -259,7 +272,11 @@ void GraphExecutor::process(const io::AudioBuffer* inputs, std::uint32_t numInpu
                             io::AudioBuffer* outputs, std::uint32_t numOutputs,
                             std::uint32_t numFrames, const io::TimeInfo& time) noexcept {
     CompiledGraph* g = active_.load(std::memory_order_acquire);
-    if (g == nullptr) return;
+    if (g == nullptr) {  // not compiled → produce silence (not stale/garbage), count as xrun
+        silence(outputs, numOutputs, 0, numFrames);
+        xruns_.fetch_add(1, std::memory_order_release);
+        return;
+    }
     const std::uint32_t frames = (numFrames <= g->maxBlock) ? numFrames : g->maxBlock;
 
     // Apply queued control-rate edits before rendering, so this block already reflects
@@ -285,6 +302,11 @@ void GraphExecutor::process(const io::AudioBuffer* inputs, std::uint32_t numInpu
         for (CompiledGraph::Comp& c : e.comps)  // G9: feed under-latent inputs through their delay
             g->compDelays[c.line].process(c.src, c.dst, frames);
         e.node->process(e.inputs.data(), e.outputs.data(), frames, time);
+    }
+
+    if (frames < numFrames) {  // requested more than maxBlock → silence the tail, count (M9.1)
+        silence(outputs, numOutputs, frames, numFrames);
+        xruns_.fetch_add(1, std::memory_order_release);
     }
 
     renderCount_.fetch_add(1, std::memory_order_release);
