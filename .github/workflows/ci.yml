@@ -29,11 +29,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: ThreadSanitizer (control plane + live edit)
+      - name: ThreadSanitizer (control plane + live edit + multi-source + drift)
         run: |
           cmake -S . -B build-tsan -DAIUDIO_SANITIZE=thread
-          cmake --build build-tsan -j --target test_graph_control test_graph_live_edit
-          ctest --test-dir build-tsan -R 'test_graph_control|test_graph_live_edit' --output-on-failure
+          cmake --build build-tsan -j --target test_graph_control test_graph_live_edit test_multi_source_manager test_master_clock test_drift
+          ctest --test-dir build-tsan -R 'test_graph_control|test_graph_live_edit|test_multi_source_manager|test_master_clock|test_drift' --output-on-failure
       - name: Address/UB Sanitizer (full suite)
         run: |
           cmake -S . -B build-asan -DAIUDIO_SANITIZE=address,undefined
