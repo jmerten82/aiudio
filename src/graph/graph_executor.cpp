@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <vector>
 
+#include "aiudio/graph/delay_line.hpp"
 #include "aiudio/graph/sink_node.hpp"
 #include "aiudio/graph/source_node.hpp"
 
@@ -11,10 +12,18 @@ namespace aiudio::graph {
 // A fully self-contained compiled schedule: its own buffer storage + views, the
 // topological run order, and the source/sink nodes. Swapped atomically as a unit.
 struct GraphExecutor::CompiledGraph {
+    // A delay-compensation task on one of a node's input ports (G9): run `line` from the
+    // upstream buffer `src` into the delayed buffer `dst` before the node reads `dst`.
+    struct Comp {
+        std::size_t line = 0;     // index into `compDelays`
+        io::AudioBuffer src;      // upstream output buffer view
+        io::AudioBuffer dst;      // delayed buffer view (== the node's input view)
+    };
     struct Entry {
         Node* node = nullptr;
         std::vector<io::AudioBuffer> inputs;
         std::vector<io::AudioBuffer> outputs;
+        std::vector<Comp> comps;                 // delay compensation for under-latent inputs
     };
     std::vector<std::vector<float>> storage;    // [buffer][channel*maxBlock]
     std::vector<std::vector<float*>> ptrs;       // [buffer][channel]
@@ -23,10 +32,15 @@ struct GraphExecutor::CompiledGraph {
     std::vector<Node*> byId;                     // NodeId -> Node* (O(1) command routing)
     std::vector<SourceNode*> sources;
     std::vector<SinkNode*> sinks;
+    // G9 delay-compensation storage (one delayed buffer + line per compensated input port).
+    std::vector<DelayLine> compDelays;
+    std::vector<std::vector<float>> compStorage;
+    std::vector<std::vector<float*>> compPtrs;
     std::uint32_t maxBlock = 0;
     std::uint32_t numChannels = 0;               // per-port channel count (uniform pre-G8)
     std::uint32_t inputStreams = 0;              // max source streamIndex + 1
     std::uint32_t outputStreams = 0;             // max sink streamIndex + 1
+    std::uint32_t latency = 0;                    // total graph latency (frames)
 };
 
 GraphExecutor::GraphExecutor()
@@ -122,7 +136,36 @@ std::unique_ptr<GraphExecutor::CompiledGraph> GraphExecutor::build(const Graph& 
         cg->portBuffers[b] = io::AudioBuffer{cg->ptrs[b].data(), w, maxBlock};
     }
 
-    // 5) Build the schedule, resolving input/output buffer views.
+    // 4b) Latency propagation (G9): accumulated per-port latency in topological order, and
+    //     the per-input-port compensation needed at fan-ins so branches recombine in phase.
+    std::vector<std::vector<std::uint32_t>> outLat(n);
+    for (std::size_t i = 0; i < n; ++i)
+        outLat[i].assign(g.node(static_cast<NodeId>(i))->numOutputs(), 0);
+    std::vector<std::vector<std::uint32_t>> compFrames(n);  // [node][input port]
+    for (NodeId v : order) {
+        Node* node = g.node(v);
+        const std::uint32_t ins = node->numInputs();
+        std::vector<std::uint32_t> srcLat(ins, 0);
+        std::vector<char> connected(ins, 0);
+        for (std::uint32_t p = 0; p < ins; ++p)
+            for (const Edge& e : g.edges())
+                if (e.dst == v && e.dstPort == p) {
+                    srcLat[p] = outLat[e.src][e.srcPort];
+                    connected[p] = 1;
+                    break;
+                }
+        std::uint32_t inMax = 0;
+        for (std::uint32_t p = 0; p < ins; ++p)
+            if (srcLat[p] > inMax) inMax = srcLat[p];
+        compFrames[v].assign(ins, 0);
+        for (std::uint32_t p = 0; p < ins; ++p)
+            if (connected[p] && srcLat[p] < inMax) compFrames[v][p] = inMax - srcLat[p];
+        const std::uint32_t nodeLat = inMax + node->latencyFrames();
+        for (std::uint32_t p = 0; p < node->numOutputs(); ++p) outLat[v][p] = nodeLat;
+        if (node->numOutputs() == 0 && inMax > cg->latency) cg->latency = inMax;  // sink → output latency
+    }
+
+    // 5) Build the schedule, resolving input/output buffer views (+ delay compensation).
     cg->schedule.reserve(n);
     for (NodeId v : order) {
         Node* node = g.node(v);
@@ -136,7 +179,25 @@ std::unique_ptr<GraphExecutor::CompiledGraph> GraphExecutor::build(const Graph& 
             std::size_t buf = zeroBuf;
             for (const Edge& e : g.edges())
                 if (e.dst == v && e.dstPort == p) { buf = outBuf[e.src][e.srcPort]; break; }
-            entry.inputs[p] = cg->portBuffers[buf];
+            const std::uint32_t comp = (p < compFrames[v].size()) ? compFrames[v][p] : 0;
+            if (comp == 0) {
+                entry.inputs[p] = cg->portBuffers[buf];
+            } else {
+                // Route this under-latent input through a compensating delay line into a
+                // dedicated delayed buffer (moving inner vectors keeps their data() stable).
+                const std::uint32_t w = bufWidth[buf];
+                const std::size_t bi = cg->compStorage.size();
+                cg->compStorage.emplace_back(static_cast<std::size_t>(w) * maxBlock, 0.0f);
+                cg->compPtrs.emplace_back(w, nullptr);
+                for (std::uint32_t c = 0; c < w; ++c)
+                    cg->compPtrs[bi][c] = cg->compStorage[bi].data() + static_cast<std::size_t>(c) * maxBlock;
+                io::AudioBuffer dst{cg->compPtrs[bi].data(), w, maxBlock};
+                const std::size_t li = cg->compDelays.size();
+                cg->compDelays.emplace_back();
+                cg->compDelays[li].prepare(w, comp);
+                entry.inputs[p] = dst;
+                entry.comps.push_back(CompiledGraph::Comp{li, cg->portBuffers[buf], dst});
+            }
         }
         const std::uint32_t outs = node->numOutputs();
         entry.outputs.resize(outs);
@@ -220,8 +281,11 @@ void GraphExecutor::process(const io::AudioBuffer* inputs, std::uint32_t numInpu
         const std::uint32_t si = k->streamIndex();
         k->setExternalOutput(si < numOutputs ? &outputs[si] : nullptr);
     }
-    for (CompiledGraph::Entry& e : g->schedule)
+    for (CompiledGraph::Entry& e : g->schedule) {
+        for (CompiledGraph::Comp& c : e.comps)  // G9: feed under-latent inputs through their delay
+            g->compDelays[c.line].process(c.src, c.dst, frames);
         e.node->process(e.inputs.data(), e.outputs.data(), frames, time);
+    }
 
     renderCount_.fetch_add(1, std::memory_order_release);
 }
@@ -239,6 +303,11 @@ std::uint32_t GraphExecutor::inputStreamCount() const noexcept {
 std::uint32_t GraphExecutor::outputStreamCount() const noexcept {
     CompiledGraph* g = active_.load(std::memory_order_acquire);
     return g ? g->outputStreams : 0;
+}
+
+std::uint32_t GraphExecutor::latencyFrames() const noexcept {
+    CompiledGraph* g = active_.load(std::memory_order_acquire);
+    return g ? g->latency : 0;
 }
 
 }  // namespace aiudio::graph

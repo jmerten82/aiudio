@@ -19,6 +19,7 @@
 #include "aiudio/graph/gain_node.hpp"
 #include "aiudio/graph/graph.hpp"
 #include "aiudio/graph/graph_executor.hpp"
+#include "aiudio/graph/latency_node.hpp"
 #include "aiudio/graph/meter_node.hpp"
 #include "aiudio/graph/sink_node.hpp"
 #include "aiudio/graph/source_node.hpp"
@@ -145,6 +146,11 @@ NB_MODULE(_aiudio, m) {
         .def("add_upmix", [](graph::Graph& g, std::uint32_t channels) {
             return g.addNode(std::make_unique<graph::UpmixNode>(channels));
         }, "channels"_a = 2, "Add an up-mix node: 1 input channel -> `channels` (duplicate). G8.")
+        .def("add_latency", [](graph::Graph& g, std::uint32_t frames, std::uint32_t max_channels) {
+            return g.addNode(std::make_unique<graph::LatencyNode>(frames, max_channels));
+        }, "frames"_a, "max_channels"_a = 2,
+           "Add a node that delays by `frames` AND reports that latency — models a "
+           "lookahead/FFT/resampler; parallel branches are delay-compensated (G9).")
         .def("connect", [](graph::Graph& g, graph::NodeId s, std::uint32_t sp, graph::NodeId d,
                            std::uint32_t dp) { return g.connect(s, sp, d, dp); },
              "src"_a, "src_port"_a, "dst"_a, "dst_port"_a)
@@ -180,6 +186,8 @@ NB_MODULE(_aiudio, m) {
                      "Number of distinct input streams the compiled graph reads.")
         .def_prop_ro("output_streams", [](const graph::GraphExecutor& e) { return e.outputStreamCount(); },
                      "Number of distinct output streams the compiled graph writes.")
+        .def_prop_ro("latency_frames", [](const graph::GraphExecutor& e) { return e.latencyFrames(); },
+                     "Total graph latency in frames (parallel branches are delay-compensated; G9).")
         // ---- Live control plane (RT-safe; lock-free SPSC queue into the audio thread) ----
         // These enqueue a change that the audio thread applies at the top of the next
         // block. Safe to call while a device backend is running — Python never touches

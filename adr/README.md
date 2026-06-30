@@ -95,13 +95,14 @@ Proposed ──▶ Accepted ──▶ Deprecated
 | [0010](0010-python-control-plane.md) | Python control plane — lock-free command queue, atomic telemetry, RT backend as control-only frontend | Accepted | 2026-06-29 |
 | [0011](0011-multi-stream-executor.md) | Multi-stream executor — N input/output streams via source/sink binding (extends ADR-0009) | Accepted | 2026-06-29 |
 | [0012](0012-per-port-channel-counts.md) | Per-port channel counts — channel-width propagation in the executor (extends ADR-0009) | Accepted | 2026-06-29 |
+| [0013](0013-latency-reporting-and-delay-compensation.md) | Latency reporting + graph-wide delay compensation (PDC) (extends ADR-0009) | Accepted | 2026-06-29 |
 
 ### Backlog (decisions to record when made)
 - Agent control-plane design (LLM-orchestrates-structure + differentiable param tuning) — currently *research direction* in `docs/40-*`, promote to an ADR when locked (it will build on ADR-0010's queue + atomic-swap hooks).
 - Plugin format priority (VST3 vs CLAP vs AU) for first release.
 - Open-source **license** choice.
 - Graph IR serialization format.
-- **Node/edge latency reporting + delay compensation** (G9). *(Plan: `docs/76` Phase A.)*
 - **Multi-source manager clocking** (M10) — N backends + N rings + master clock; makes ADR-0008 §5 concrete. *(Plan: `docs/76` Phase C.)*
 - *(G10 multi-stream executor: now **[ADR-0011](0011-multi-stream-executor.md)**, Accepted.)*
 - *(G8 per-port channel counts: now **[ADR-0012](0012-per-port-channel-counts.md)**, Accepted.)*
+- *(G9 latency + delay compensation: now **[ADR-0013](0013-latency-reporting-and-delay-compensation.md)**, Accepted.)*

@@ -96,6 +96,12 @@ public:
     [[nodiscard]] std::uint32_t inputStreamCount() const noexcept;
     [[nodiscard]] std::uint32_t outputStreamCount() const noexcept;
 
+    /// Total processing latency of the compiled graph in frames (G9): the maximum
+    /// accumulated node latency along any path to a sink (0 if not compiled / no latency
+    /// nodes). Parallel branches are delay-compensated internally so they recombine in
+    /// phase; this is the residual latency a downstream consumer should account for.
+    [[nodiscard]] std::uint32_t latencyFrames() const noexcept;
+
     /// Number of swapped-out schedules awaiting safe reclamation (control-thread
     /// view; for tests/introspection).
     [[nodiscard]] std::size_t pendingRetired() const noexcept { return retired_.size(); }

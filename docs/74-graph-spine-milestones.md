@@ -213,12 +213,12 @@ to devices). G4/G5/G6 are parallelizable after G3. G7 builds on G6 (Python) + G5
 - **No feedback cycles** (need unit-delay nodes), **no multi-rate/control-rate**,
   **no off-thread neural-node pooling** (ANIRA pattern, ADR-0006) — later.
 - **No serialization format** yet — designed-for, deferred.
-- **Latency / delay compensation** — **G9** (node/edge latency + delay compensation) is not
-  yet in; planned in the [multi-source I/O roadmap](76-multi-source-io-roadmap.md) (Phase A),
-  extending ADR-0009. *(**G10** — multi-stream executor (N in/out streams) — **✅ merged
-  (PR #14, ADR-0011)**. **G8** — per-port channel counts (a node may change the channel width;
-  down/up-mix) — **✅ merged (PR #15, ADR-0012)**; single in/out + uniform width remain the
-  default special case.)*
+- **Spine extensions for multi-source I/O** ([roadmap](76-multi-source-io-roadmap.md) Phase A/D),
+  each extending ADR-0009: **G10** — multi-stream executor (N in/out streams) **✅ merged
+  (PR #14, ADR-0011)**; **G8** — per-port channel counts (a node may change the channel width;
+  down/up-mix) **✅ merged (PR #15, ADR-0012)**; **G9** — node/edge latency + delay compensation
+  (parallel branches auto-realign in phase) **🟡 in review (PR, ADR-0013)**. Single in/out,
+  uniform width, and zero latency remain the default special cases (back-compatible).
 
 ## 7. Risks
 
