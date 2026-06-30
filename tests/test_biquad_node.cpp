@@ -37,4 +37,12 @@ AIUDIO_TEST(highpass_blocks_dc) {
     CHECK(std::fabs(settledDcOutput(bq)) < 1e-3f);  // highpass blocks DC → ≈ 0
 }
 
+// Raw coefficients (the add_biquad_coeffs path): b0=1, rest 0 → identity passthrough.
+AIUDIO_TEST(raw_coefficients_identity_passthrough) {
+    BiquadNode bq(1);
+    bq.setCoefficients(1.0f, 0.0f, 0.0f, 0.0f, 0.0f);
+    bq.prepare(48000.0, 4096);
+    CHECK(std::fabs(settledDcOutput(bq) - 1.0f) < 1e-6f);  // y[n] = x[n]
+}
+
 AIUDIO_TEST_MAIN()

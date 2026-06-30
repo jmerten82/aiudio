@@ -63,11 +63,13 @@ std::unique_ptr<GraphExecutor::CompiledGraph> GraphExecutor::build(const Graph& 
     const std::size_t n = g.nodeCount();
     cg->byId.assign(n, nullptr);  // filled per node below; command drain indexes by NodeId
 
-    // 1) A buffer per (node, output port), + one shared zero buffer.
+    // 1) A buffer per (node, output port), + one shared zero buffer. Tombstoned (removed)
+    //    slots are null → 0 outputs; their NodeId slot is kept so ids stay stable.
     std::vector<std::vector<std::size_t>> outBuf(n);
     std::size_t bufferCount = 0;
     for (std::size_t i = 0; i < n; ++i) {
-        const std::uint32_t outs = g.node(static_cast<NodeId>(i))->numOutputs();
+        const Node* nd = g.node(static_cast<NodeId>(i));
+        const std::uint32_t outs = (nd != nullptr) ? nd->numOutputs() : 0;
         outBuf[i].resize(outs);
         for (std::uint32_t p = 0; p < outs; ++p) outBuf[i][p] = bufferCount++;
     }
@@ -99,12 +101,15 @@ std::unique_ptr<GraphExecutor::CompiledGraph> GraphExecutor::build(const Graph& 
     //    port widths to its output port widths via channelLayout(). Unconnected inputs
     //    default to the host width; the shared zero buffer is sized to the widest port.
     std::vector<std::vector<std::uint32_t>> outWidth(n);
-    for (std::size_t i = 0; i < n; ++i)
-        outWidth[i].assign(g.node(static_cast<NodeId>(i))->numOutputs(), 0);
+    for (std::size_t i = 0; i < n; ++i) {
+        const Node* nd = g.node(static_cast<NodeId>(i));
+        outWidth[i].assign((nd != nullptr) ? nd->numOutputs() : 0, 0);
+    }
     std::uint32_t maxWidth = numChannels;
     std::vector<std::uint32_t> inW, outW;
     for (NodeId v : order) {
         Node* node = g.node(v);
+        if (node == nullptr) continue;  // tombstoned slot
         const std::uint32_t ins = node->numInputs();
         const std::uint32_t outs = node->numOutputs();
         inW.assign(ins, numChannels);  // unconnected input → host-width zeros
@@ -139,11 +144,14 @@ std::unique_ptr<GraphExecutor::CompiledGraph> GraphExecutor::build(const Graph& 
     // 4b) Latency propagation (G9): accumulated per-port latency in topological order, and
     //     the per-input-port compensation needed at fan-ins so branches recombine in phase.
     std::vector<std::vector<std::uint32_t>> outLat(n);
-    for (std::size_t i = 0; i < n; ++i)
-        outLat[i].assign(g.node(static_cast<NodeId>(i))->numOutputs(), 0);
+    for (std::size_t i = 0; i < n; ++i) {
+        const Node* nd = g.node(static_cast<NodeId>(i));
+        outLat[i].assign((nd != nullptr) ? nd->numOutputs() : 0, 0);
+    }
     std::vector<std::vector<std::uint32_t>> compFrames(n);  // [node][input port]
     for (NodeId v : order) {
         Node* node = g.node(v);
+        if (node == nullptr) continue;  // tombstoned slot
         const std::uint32_t ins = node->numInputs();
         std::vector<std::uint32_t> srcLat(ins, 0);
         std::vector<char> connected(ins, 0);
@@ -169,6 +177,7 @@ std::unique_ptr<GraphExecutor::CompiledGraph> GraphExecutor::build(const Graph& 
     cg->schedule.reserve(n);
     for (NodeId v : order) {
         Node* node = g.node(v);
+        if (node == nullptr) continue;  // tombstoned slot — not scheduled, byId stays null
         cg->byId[v] = node;
         CompiledGraph::Entry entry;
         entry.node = node;

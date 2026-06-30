@@ -18,6 +18,7 @@ aiudio_add_test(test_drift aiudio::io)              # M9.5 drift compensation (s
 aiudio_add_test(test_channel_map aiudio::io)        # M9.2 device<->graph channel mapping
 aiudio_add_test(test_wav_file aiudio::io)            # M6
 aiudio_add_test(test_graph aiudio::graph)           # G1
+aiudio_add_test(test_graph_edit aiudio::graph)      # graph edits: disconnect + removeNode (tombstone)
 aiudio_add_test(test_graph_nodes aiudio::graph)     # G1
 aiudio_add_test(test_graph_executor aiudio::graph)  # G2
 aiudio_add_test(test_graph_meter aiudio::graph)     # G3

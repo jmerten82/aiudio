@@ -65,8 +65,8 @@ print("public API (aiudio.__all__):", aiudio.__all__)
 print("DeviceBackend present:", hasattr(aiudio, "DeviceBackend"), "(macOS-only)")""")
 md(r"""> ⚠️ **Shortcoming.** The whole surface is still small: `Graph`, `GraphExecutor`,
 > `MultiSourceManager`, `MasterClockAdapter`, `MockBackend`, `Resampler`, `ResamplingSource`,
-> `CrossClockBridge`, `OfflineBackend`, `WavFormat`, `map_channels`/`ChannelMapMode`
-> (+ the macOS device backends). There is no Python access to the RT internals
+> `CrossClockBridge`, `OfflineBackend`, `WavFormat`, `XrunPolicy`,
+> `map_channels`/`ChannelMapMode` (+ the macOS device backends). There is no Python access to the RT internals
 > (`RingBuffer`, `AudioBuffer`, `RenderCallback`), no serialization, no differentiable layer,
 > and no agent. Those are deliberate (the audio thread is C++; ADR-0002/0004) or not built yet
 > (Phases 1–2).""")
@@ -104,10 +104,26 @@ gm = aiudio.Graph(); s2, x, y, k2 = gm.add_source(), gm.add_gain(1.0), gm.add_ga
 gm.connect(s2, 0, x, 0); gm.connect(s2, 0, y, 0)
 gm.connect(x, 0, k2, 0); gm.connect(y, 0, k2, 0)   # both drive sink:0
 print("double-drive->", gm.validate())""")
-md(r"""> ⚠️ **Shortcoming.** Only **six** node factories exist. The C++ `BiquadNode` also does
-> *high-pass*, but there's no `add_biquad_highpass`; there's no generic `add_node(...)`, and
-> no EQ/reverb/dynamics/**neural** nodes yet. Growing the node library is Phase 1+. Also:
-> graphs are **DAG-only** (no feedback cycles) and single-rate.""")
+md(r"""**Introspection & editing.** Read the IR back with `nodes()` → `(id, type, n_in, n_out)`
+and `edges()` → `(src, src_port, dst, dst_port)`; edit it with `disconnect(...)` and
+`remove_node(id)`. Removing **tombstones** the slot — the id stays valid-range (`node_type`
+becomes `None`) so other ids never shift — then recompile to apply.""")
+code(r"""ge = aiudio.Graph()
+s, atten, boost, k = ge.add_source(), ge.add_gain(0.5), ge.add_gain(2.0), ge.add_sink()
+ge.connect(s, 0, atten, 0); ge.connect(atten, 0, boost, 0); ge.connect(boost, 0, k, 0)
+print("nodes:", ge.nodes())
+print("edges:", ge.edges())
+ge.remove_node(atten)                     # drop the attenuator (tombstone), then rewire
+ge.connect(s, 0, boost, 0)
+print("after remove+rewire -> node_type(atten):", ge.node_type(atten),
+      "| live_node_count:", ge.live_node_count, "| node_count:", ge.node_count)
+exe = aiudio.GraphExecutor(); exe.compile(ge, channels=1, sample_rate=SR, max_block=16)
+print("recompiled, source→boost(2.0):", float(exe.process(np.ones((1, 16), np.float32))[0, 0]))""")
+md(r"""> ⚠️ **Shortcoming.** The node factory set is still small — `source/sink/gain/sum/meter/
+> biquad_lowpass/biquad_highpass/biquad_coeffs/downmix/upmix/latency`. No EQ/reverb/dynamics/
+> **neural** nodes yet, and no generic `add_node(...)`; growing the library is Phase 1+. Graph
+> **editing is add/remove only** (no in-place node mutation), and graphs stay **DAG-only** (no
+> feedback cycles) and single-rate. There is no graph **serialization** (save/load) yet.""")
 
 # ---------------------------------------------------------------- 3. executor
 md(r"""## 3. `GraphExecutor` — compile, run on numpy, telemetry
@@ -217,9 +233,21 @@ for f in (300.0, 5000.0):
     tone = np.sin(2 * np.pi * f * t).astype(np.float32).reshape(1, 2048)
     out = exb.process(tone)
     print(f"{f:>6.0f} Hz: in RMS {np.sqrt((tone**2).mean()):.3f} -> out RMS {np.sqrt((out**2).mean()):.3f}")""")
-md(r"""> ⚠️ **Shortcoming.** This is most of the DSP palette today. No high-pass factory, no
-> parametric EQ, dynamics, delay/reverb, or any neural node, and no general routing/mix-matrix
-> node yet (beyond `SumNode` + the channel-width nodes below).""")
+md(r"""**Biquad high-pass + raw coefficients.** Beyond `add_biquad_lowpass`, `add_biquad_highpass`
+adds an RBJ high-pass (driven live by the same `set_cutoff`/`set_q`), and `add_biquad_coeffs(b0,
+b1, b2, a1, a2)` realizes an arbitrary biquad from normalized coefficients (e.g. designed in
+`scipy.signal`). Here a high-pass blocks DC and a raw-coefficient identity passes through.""")
+code(r"""gh = aiudio.Graph(); s = gh.add_source(); hp = gh.add_biquad_highpass(1000.0, 0.707, SR); k = gh.add_sink()
+gh.connect(s, 0, hp, 0); gh.connect(hp, 0, k, 0)
+exh = aiudio.GraphExecutor(); exh.compile(gh, channels=1, sample_rate=SR, max_block=4096)
+print("high-pass DC out (≈0):", round(float(exh.process(np.ones((1, 4096), np.float32))[0, -1]), 5))
+gi = aiudio.Graph(); s = gi.add_source(); bq = gi.add_biquad_coeffs(1.0, 0.0, 0.0, 0.0, 0.0); k = gi.add_sink()
+gi.connect(s, 0, bq, 0); gi.connect(bq, 0, k, 0)
+exi = aiudio.GraphExecutor(); exi.compile(gi, channels=1, sample_rate=SR, max_block=64)
+print("raw-coeff identity out (=0.3):", round(float(exi.process(np.full((1, 64), 0.3, np.float32))[0, -1]), 5))""")
+md(r"""> ⚠️ **Shortcoming.** This is most of the DSP palette today. No parametric EQ, dynamics,
+> delay/reverb, or any neural node, and no general routing/mix-matrix node yet (beyond
+> `SumNode` + the channel-width nodes below).""")
 
 md(r"""**Channel-width nodes (G8) — per-port channel counts.** A node can *change* the channel
 count: `add_downmix()` collapses N channels → 1 (mono average), `add_upmix(channels)` raises
@@ -527,7 +555,8 @@ Everything the Python layer **cannot** do yet (or does with a caveat), and why:
 
 | Area | Shortcoming | Status / why |
 |---|---|---|
-| **Node library** | `source/sink/gain/sum/meter/biquad_lowpass/downmix/upmix/latency`; no high-pass factory, EQ, dynamics, delay/reverb, general routing-matrix, or neural nodes | grows in Phase 1+ |
+| **Node library** | `source/sink/gain/sum/meter/biquad_lowpass/biquad_highpass/biquad_coeffs/downmix/upmix/latency`; no EQ/dynamics/delay/reverb, general routing-matrix, or neural nodes | grows in Phase 1+ |
+| **Graph introspection / editing** | `nodes()`/`edges()`/`node_type()` read-back **✅**; `disconnect()` + `remove_node()` (tombstone, stable ids) **✅**; add/remove only — no in-place node mutation | ✅ |
 | **Signal generation** | no oscillator/file-source node → **live device output is silent** | small follow-up |
 | **Live input** | mic / full-duplex / process-tap backends **✅ bound** (`InputBackend`/`DuplexBackend`/`TapBackend`, M11a) — capture needs mic TCC; taps need a signed binary | ✅ |
 | **Device backends** | output + input + duplex + tap bound (M11a), **macOS-only**; capture/tap need TCC (+ signed binary for taps) | scope / platform |
@@ -539,7 +568,8 @@ Everything the Python layer **cannot** do yet (or does with a caveat), and why:
 | **Clock-drift compensation** | `ResamplingSource` **✅ bound** (M9.5, ring + resampler + proportional servo); proportional-only (small steady offset) | ✅ |
 | **Cross-clock multi-device** | `CrossClockBridge` **✅ bound** (M9.6, one input + one output device on separate clocks via the drift path); one-in/one-out (not N sources); clocks simulated via mocks, two-device hardware sync verified on hardware | ✅ |
 | **Channel mapping (boundary)** | `map_channels`/`ChannelMapMode` **✅ bound** (M9.2, device↔graph mono↔stereo / N↔M); not yet auto-applied inside the manager push/pop (call explicitly) | ✅ |
-| **Device hot-plug / disconnect** | model **✅** (M9.4) + real Core Audio **device-died listener wired** on the output/input/duplex backends; the physical-unplug *trigger* is hardware-verified | ✅ |
+| **Device hot-plug / disconnect** | model **✅** (M9.4) + real Core Audio **device-died listener wired** on the output/input/duplex backends; now **observable from Python** (`disconnected`/`xrun_count` props + `set_disconnect_handler` on all live backends); the physical-unplug *trigger* is hardware-verified | ✅ |
+| **Xrun policy** | `XrunPolicy` (BestEffort/Strict) **✅ exposed** + accepted by every device `open(...)`; `Strict` enforcement on the backends is still being wired | ✅ / in progress |
 | **Serialization** | no save/load of a graph | ADR-0009 deferred |
 | **Differentiable / trainable** | not available | Phase 1 |
 | **Agent (NL → graph)** | not available | Phase 2 |
