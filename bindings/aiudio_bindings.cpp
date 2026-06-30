@@ -16,6 +16,7 @@
 #include <vector>
 
 #include "aiudio/graph/biquad_node.hpp"
+#include "aiudio/graph/cross_clock_bridge.hpp"
 #include "aiudio/graph/downmix_node.hpp"
 #include "aiudio/graph/gain_node.hpp"
 #include "aiudio/graph/graph.hpp"
@@ -318,6 +319,40 @@ NB_MODULE(_aiudio, m) {
              nb::keep_alive<1, 2>(), nb::keep_alive<1, 3>(),
              "A RenderCallback that drives `manager` from a backend's clock: this device's "
              "input feeds stream `in_stream`; output stream `out_stream` fills its output.");
+
+    // ---- Cross-clock bridge (M9.6): one input device (master) + one output device on a
+    // SEPARATE clock, kept in sync via a drift-compensated output path (ADR-0015 §4). The
+    // master device drives master(); the output device drives output() on its own clock. ----
+    nb::class_<graph::CrossClockBridge>(m, "CrossClockBridge")
+        .def(nb::init<graph::MultiSourceManager&, graph::GraphExecutor&, std::uint32_t,
+                      std::uint32_t, double, double, std::uint32_t, std::uint32_t, std::uint32_t>(),
+             "manager"_a, "executor"_a, "in_stream"_a, "out_stream"_a, "engine_rate"_a,
+             "out_device_rate"_a, "channels"_a, "ring_frames"_a, "max_block"_a,
+             nb::keep_alive<1, 2>(), nb::keep_alive<1, 3>(),
+             "Engine runs at engine_rate; the output device runs at out_device_rate on its own "
+             "clock and pulls through a drift-compensated resampler.")
+        .def("attach_master", [](graph::CrossClockBridge& br, io::MockBackend& dev,
+                                 std::uint32_t inCh, std::uint32_t outCh, std::uint32_t block) {
+            io::StreamConfig c;
+            c.inputChannels = inCh;
+            c.outputChannels = outCh;
+            c.blockSize = block;
+            return dev.open(c, &br.master());
+        }, "device"_a, "in_channels"_a = 1, "out_channels"_a = 0, "block_size"_a = 64,
+           nb::keep_alive<2, 1>(), "Open `device` as the master clock (drives the engine).")
+        .def("attach_output", [](graph::CrossClockBridge& br, io::MockBackend& dev,
+                                 std::uint32_t inCh, std::uint32_t outCh, std::uint32_t block) {
+            io::StreamConfig c;
+            c.inputChannels = inCh;
+            c.outputChannels = outCh;
+            c.blockSize = block;
+            return dev.open(c, &br.output());
+        }, "device"_a, "in_channels"_a = 0, "out_channels"_a = 1, "block_size"_a = 64,
+           nb::keep_alive<2, 1>(), "Open `device` as the off-clock output (pulls drift-compensated).")
+        .def_prop_ro("output_ratio", &graph::CrossClockBridge::outputRatio)
+        .def_prop_ro("output_fill", &graph::CrossClockBridge::outputFill)
+        .def_prop_ro("output_underruns", &graph::CrossClockBridge::outputUnderruns)
+        .def_prop_ro("output_overruns", &graph::CrossClockBridge::outputOverruns);
 
     // ---- Mock backend (M9.4): a deterministic, manually-ticked backend for the live path ----
     nb::class_<io::MockBackend>(m, "MockBackend")
