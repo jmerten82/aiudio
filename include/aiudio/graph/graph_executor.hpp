@@ -48,10 +48,22 @@ public:
     bool compile(const Graph& g, std::uint32_t numChannels, double sampleRate,
                  std::uint32_t maxBlock);
 
-    /// RenderCallback: drain queued parameter commands, route `in` to SourceNodes, run
-    /// the active schedule in topological order, SinkNodes write `out`. Real-time-safe.
+    /// RenderCallback (the **1-stream** entry point, back-compatible): route `in` to every
+    /// stream-0 SourceNode and `out` to every stream-0 SinkNode. Equivalent to the
+    /// multi-stream form with one input and one output. Real-time-safe.
     void process(const io::AudioBuffer& in, io::AudioBuffer& out, std::uint32_t numFrames,
                  const io::TimeInfo& time) noexcept override;
+
+    /// Multi-stream entry point (G10): drain queued parameter commands, route `inputs[k]`
+    /// to SourceNodes bound to stream `k` and `outputs[k]` to SinkNodes bound to stream `k`,
+    /// run the active schedule in topological order. A SourceNode whose stream index is
+    /// ≥ `numInputs` emits silence; a SinkNode whose stream index is ≥ `numOutputs` writes
+    /// nothing. Real-time-safe (no allocation/locks). `inputs`/`outputs` point to
+    /// `numInputs`/`numOutputs` AudioBuffers. This is the entry the multi-source manager
+    /// (M10) will drive.
+    void process(const io::AudioBuffer* inputs, std::uint32_t numInputs, io::AudioBuffer* outputs,
+                 std::uint32_t numOutputs, std::uint32_t numFrames,
+                 const io::TimeInfo& time) noexcept;
 
     /// Control thread → audio thread: queue a parameter change for `node`'s parameter
     /// `index`, applied at the top of the next process() block (lock-free SPSC,
@@ -73,6 +85,16 @@ public:
     [[nodiscard]] std::uint64_t renderCount() const noexcept {
         return renderCount_.load(std::memory_order_acquire);
     }
+
+    /// Compiled channel count per port (0 if not compiled). Uniform across the graph
+    /// until per-port channel counts (G8) land.
+    [[nodiscard]] std::uint32_t channels() const noexcept;
+
+    /// Number of distinct input / output streams the compiled graph uses (= max bound
+    /// stream index + 1 over Source / Sink nodes; 0 if none). Lets a caller size the
+    /// `inputs`/`outputs` it passes to the multi-stream `process()`.
+    [[nodiscard]] std::uint32_t inputStreamCount() const noexcept;
+    [[nodiscard]] std::uint32_t outputStreamCount() const noexcept;
 
     /// Number of swapped-out schedules awaiting safe reclamation (control-thread
     /// view; for tests/introspection).

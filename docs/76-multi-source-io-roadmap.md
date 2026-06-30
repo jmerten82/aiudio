@@ -132,7 +132,7 @@ on the engine timeline; two outputs receive distinct signals; xrun-clean over a 
 
 ### Phase D — Graph/executor multi-IO (graph spine)
 
-**G10 — Multi-stream executor + source/sink binding** · 🟢 (compile-time) · ~1–1.5 wk · ADR (extends ADR-0009)
+**G10 — Multi-stream executor + source/sink binding** · ✅ in review (PR, first of the chain) · 🟢 (compile-time) · ~1–1.5 wk · ADR-0011 (extends ADR-0009)
 The IR/executor change that lets the graph *receive* N inputs and *drive* M outputs:
 - Extend the executor entry point to take **named input/output streams** (a `stream-id →
   AudioBuffer` set) instead of a single `in`/`out`; **`SourceNode`/`SinkNode` carry a

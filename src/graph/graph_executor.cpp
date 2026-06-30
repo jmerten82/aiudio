@@ -24,6 +24,9 @@ struct GraphExecutor::CompiledGraph {
     std::vector<SourceNode*> sources;
     std::vector<SinkNode*> sinks;
     std::uint32_t maxBlock = 0;
+    std::uint32_t numChannels = 0;               // per-port channel count (uniform pre-G8)
+    std::uint32_t inputStreams = 0;              // max source streamIndex + 1
+    std::uint32_t outputStreams = 0;             // max sink streamIndex + 1
 };
 
 GraphExecutor::GraphExecutor()
@@ -42,6 +45,7 @@ std::unique_ptr<GraphExecutor::CompiledGraph> GraphExecutor::build(const Graph& 
 
     auto cg = std::make_unique<CompiledGraph>();
     cg->maxBlock = maxBlock;
+    cg->numChannels = numChannels;
     const std::size_t n = g.nodeCount();
     cg->byId.assign(n, nullptr);  // filled per node below; command drain indexes by NodeId
 
@@ -107,8 +111,14 @@ std::unique_ptr<GraphExecutor::CompiledGraph> GraphExecutor::build(const Graph& 
         entry.outputs.resize(outs);
         for (std::uint32_t p = 0; p < outs; ++p) entry.outputs[p] = cg->portBuffers[outBuf[v][p]];
 
-        if (auto* src = dynamic_cast<SourceNode*>(node)) cg->sources.push_back(src);
-        if (auto* snk = dynamic_cast<SinkNode*>(node)) cg->sinks.push_back(snk);
+        if (auto* src = dynamic_cast<SourceNode*>(node)) {
+            cg->sources.push_back(src);
+            if (src->streamIndex() + 1 > cg->inputStreams) cg->inputStreams = src->streamIndex() + 1;
+        }
+        if (auto* snk = dynamic_cast<SinkNode*>(node)) {
+            cg->sinks.push_back(snk);
+            if (snk->streamIndex() + 1 > cg->outputStreams) cg->outputStreams = snk->streamIndex() + 1;
+        }
 
         node->prepare(sampleRate, maxBlock);
         cg->schedule.push_back(std::move(entry));
@@ -149,6 +159,13 @@ void GraphExecutor::reclaim() {
 
 void GraphExecutor::process(const io::AudioBuffer& in, io::AudioBuffer& out,
                             std::uint32_t numFrames, const io::TimeInfo& time) noexcept {
+    // The 1-stream special case: one input, one output (back-compatible).
+    process(&in, 1, &out, 1, numFrames, time);
+}
+
+void GraphExecutor::process(const io::AudioBuffer* inputs, std::uint32_t numInputs,
+                            io::AudioBuffer* outputs, std::uint32_t numOutputs,
+                            std::uint32_t numFrames, const io::TimeInfo& time) noexcept {
     CompiledGraph* g = active_.load(std::memory_order_acquire);
     if (g == nullptr) return;
     const std::uint32_t frames = (numFrames <= g->maxBlock) ? numFrames : g->maxBlock;
@@ -163,12 +180,34 @@ void GraphExecutor::process(const io::AudioBuffer& in, io::AudioBuffer& out,
         }
     }
 
-    for (SourceNode* s : g->sources) s->setExternalInput(&in);
-    for (SinkNode* k : g->sinks) k->setExternalOutput(&out);
+    // Route each Source/Sink to its bound stream; out-of-range streams → silence / no-write.
+    for (SourceNode* s : g->sources) {
+        const std::uint32_t si = s->streamIndex();
+        s->setExternalInput(si < numInputs ? &inputs[si] : nullptr);
+    }
+    for (SinkNode* k : g->sinks) {
+        const std::uint32_t si = k->streamIndex();
+        k->setExternalOutput(si < numOutputs ? &outputs[si] : nullptr);
+    }
     for (CompiledGraph::Entry& e : g->schedule)
         e.node->process(e.inputs.data(), e.outputs.data(), frames, time);
 
     renderCount_.fetch_add(1, std::memory_order_release);
+}
+
+std::uint32_t GraphExecutor::channels() const noexcept {
+    CompiledGraph* g = active_.load(std::memory_order_acquire);
+    return g ? g->numChannels : 0;
+}
+
+std::uint32_t GraphExecutor::inputStreamCount() const noexcept {
+    CompiledGraph* g = active_.load(std::memory_order_acquire);
+    return g ? g->inputStreams : 0;
+}
+
+std::uint32_t GraphExecutor::outputStreamCount() const noexcept {
+    CompiledGraph* g = active_.load(std::memory_order_acquire);
+    return g ? g->outputStreams : 0;
 }
 
 }  // namespace aiudio::graph

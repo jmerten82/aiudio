@@ -11,7 +11,15 @@ namespace aiudio::graph {
 
 class SinkNode final : public Node {
 public:
-    /// Set by the executor each block (points at the executor's `out`).
+    /// `stream` selects which executor output stream this sink writes (G10). 0 is the
+    /// default and matches the single-output executor path (back-compatible).
+    explicit SinkNode(std::uint32_t stream = 0) noexcept : streamIndex_(stream) {}
+
+    /// Which output stream this sink binds to (the executor routes outputs[streamIndex]).
+    [[nodiscard]] std::uint32_t streamIndex() const noexcept { return streamIndex_; }
+
+    /// Set by the executor each block (points at the executor's output for this stream;
+    /// nullptr → write nothing, e.g. when that stream isn't provided this block).
     void setExternalOutput(AudioBuffer* out) noexcept { external_ = out; }
 
     void prepare(double /*sampleRate*/, std::uint32_t /*maxBlock*/) override {}
@@ -37,6 +45,7 @@ public:
 
 private:
     AudioBuffer* external_ = nullptr;
+    std::uint32_t streamIndex_ = 0;
 };
 
 }  // namespace aiudio::graph

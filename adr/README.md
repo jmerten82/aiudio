@@ -93,6 +93,7 @@ Proposed ──▶ Accepted ──▶ Deprecated
 | [0008](0008-multi-input-and-full-duplex-clocking.md) | Multi-input & full-duplex clocking (shared clock, aggregate devices, per-source ring buffers) | Accepted | 2026-06-28 |
 | [0009](0009-graph-spine-architecture.md) | Graph spine — IR, node model, and eager executor | Accepted | 2026-06-28 |
 | [0010](0010-python-control-plane.md) | Python control plane — lock-free command queue, atomic telemetry, RT backend as control-only frontend | Accepted | 2026-06-29 |
+| [0011](0011-multi-stream-executor.md) | Multi-stream executor — N input/output streams via source/sink binding (extends ADR-0009) | Accepted | 2026-06-29 |
 
 ### Backlog (decisions to record when made)
 - Agent control-plane design (LLM-orchestrates-structure + differentiable param tuning) — currently *research direction* in `docs/40-*`, promote to an ADR when locked (it will build on ADR-0010's queue + atomic-swap hooks).
@@ -101,5 +102,5 @@ Proposed ──▶ Accepted ──▶ Deprecated
 - Graph IR serialization format.
 - **Per-port channel counts** (G8) — extends ADR-0009's uniform-channel assumption. *(Plan: `docs/76` Phase A.)*
 - **Node/edge latency reporting + delay compensation** (G9). *(Plan: `docs/76` Phase A.)*
-- **Multi-stream executor + source/sink binding** (G10) — extends ADR-0009's single-in/out contract. *(Plan: `docs/76` Phase D.)*
 - **Multi-source manager clocking** (M10) — N backends + N rings + master clock; makes ADR-0008 §5 concrete. *(Plan: `docs/76` Phase C.)*
+- *(G10 multi-stream executor: now **[ADR-0011](0011-multi-stream-executor.md)**, Accepted.)*
