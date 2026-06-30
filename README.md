@@ -221,6 +221,7 @@ Accepted so far:
 | [0012](adr/0012-per-port-channel-counts.md) | Per-port channel counts — channel-width propagation in the executor (extends ADR-0009) |
 | [0013](adr/0013-latency-reporting-and-delay-compensation.md) | Latency reporting + graph-wide delay compensation (PDC) (extends ADR-0009) |
 | [0014](adr/0014-multi-source-manager.md) | Multi-source manager — N sources + M sinks on one clock via per-stream rings (ADR-0008 §5) |
+| [0015](adr/0015-boundary-resampling-and-cross-clock-drift.md) | Boundary sample-rate conversion + cross-clock drift compensation (M9.3/M9.5/M9.6) |
 
 > **Significant decisions require an ADR.** See `CLAUDE.md` §9 for when to write
 > one and how it ties into keeping the docs current.

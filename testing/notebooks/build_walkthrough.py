@@ -63,11 +63,12 @@ SR = 48000.0
 print("aiudio", aiudio.__version__, "| Python", platform.python_version(), "|", platform.system())
 print("public API (aiudio.__all__):", aiudio.__all__)
 print("DeviceBackend present:", hasattr(aiudio, "DeviceBackend"), "(macOS-only)")""")
-md(r"""> ⚠️ **Shortcoming.** The whole surface is six names: `Graph`, `GraphExecutor`,
-> `OfflineBackend`, `WavFormat` (+ macOS `DeviceBackend`, `AudioDeviceInfo`). There is no
-> Python access to the RT internals (`RingBuffer`, `AudioBuffer`, `RenderCallback`), no
-> serialization, no differentiable layer, and no agent. Those are deliberate (the audio
-> thread is C++; ADR-0002/0004) or not built yet (Phases 1–2).""")
+md(r"""> ⚠️ **Shortcoming.** The whole surface is still small: `Graph`, `GraphExecutor`,
+> `MultiSourceManager`, `MasterClockAdapter`, `MockBackend`, `Resampler`, `OfflineBackend`,
+> `WavFormat` (+ the macOS device backends). There is no Python access to the RT internals
+> (`RingBuffer`, `AudioBuffer`, `RenderCallback`), no serialization, no differentiable layer,
+> and no agent. Those are deliberate (the audio thread is C++; ADR-0002/0004) or not built yet
+> (Phases 1–2).""")
 
 # ---------------------------------------------------------------- 2. Graph
 md(r"""## 2. `Graph` — building & validating the IR
@@ -399,6 +400,36 @@ except Exception as e:   # noqa: BLE001
 md(r"""> ⚠️ **Shortcoming.** File I/O is **WAV only** (no FLAC/AIFF/MP3), and there's no streaming
 > file reader from Python beyond the whole-file `OfflineBackend`.""")
 
+# ---------------------------------------------------------------- 7b. resampler
+md(r"""### 7b. `Resampler` — boundary sample-rate conversion (M9.3)
+
+The graph is **single-rate** (ADR-0009): a sample-rate change is an *edge* concern, so it
+lives at the I/O **boundary**, not as a node. `Resampler` is that streaming, RT-safe
+converter (`ratio = input_rate / output_rate`; cubic Catmull-Rom kernel). It is **stateful** —
+feed consecutive blocks for seamless conversion — and reports its `latency_frames` through
+the same delay-compensation contract as the graph (G9). Here a 1 kHz tone at 44.1 kHz is
+converted to 48 kHz: more samples, **same frequency in Hz**.""")
+code(r"""rs = aiudio.Resampler(channels=1, ratio=44100.0 / 48000.0)   # 44.1k -> 48k (upsample)
+n_in = 4410                                                   # 0.1 s @ 44.1k
+t44 = np.arange(n_in)
+x = np.sin(2 * np.pi * 1000.0 / 44100.0 * t44).astype(np.float32)[None, :]
+out, consumed = rs.process(np.ascontiguousarray(x), out_cap=int(n_in / rs.ratio) + 8)
+print(f"in {n_in} @44.1k -> out {out.shape[1]} @48k (expected ~{n_in*48000//44100})  consumed={consumed}")
+print(f"ratio={rs.ratio:.5f}  latency_frames={rs.latency_frames}  channels={rs.channels}")
+# frequency preserved: count zero-crossings (≈ cycles*2) in both
+zc = lambda v: int(np.sum((v[:-1] <= 0) != (v[1:] <= 0)))
+print(f"zero-crossings: in {zc(x[0])}  out {zc(out[0][10:])}  (same -> same Hz)")""")
+md(r"""`set_ratio()` changes the conversion live — that is exactly the hook the **drift
+compensator (M9.5)** drives every block to track an off-clock device, and how
+cross-clock multi-device sync (M9.6) is built on top.""")
+code(r"""rs.set_ratio(1.0)                       # identity rate -> a clean 2-sample passthrough delay
+y, _ = rs.process(np.arange(1, 9, dtype=np.float32)[None, :], out_cap=8)
+print("identity ratio out:", np.round(y[0], 3), "(input delayed by the kernel group delay)")""")
+md(r"""> ⚠️ **Shortcoming.** The kernel is a 4-tap cubic — good, not transparent at extreme
+> ratios; a polyphase-FIR / sinc upgrade can replace it behind the same interface. And the
+> resampler is **not yet auto-wired** into the device→graph path from Python — you drive it
+> explicitly here; the manager-level boundary wiring lands with M9.5/M9.6.""")
+
 # ---------------------------------------------------------------- 8. cross-backend
 md(r"""## 8. Cross-backend determinism (the *one-IR-many-backends* invariant)
 
@@ -432,6 +463,7 @@ Everything the Python layer **cannot** do yet (or does with a caveat), and why:
 | **Direct edits** | `Graph.set_gain` is **not RT-safe on a running stream** — use `ex.set_*` | by design |
 | **`process()`** | silently renders only up to `max_block` frames (tail → 0) | contract footgun |
 | **File I/O** | **WAV only**; `WavFormat.Float32` unreadable by stdlib `wave` (use `Int16`) | format scope |
+| **Sample-rate conversion** | `Resampler` **✅ bound** (M9.3, boundary SRC, cubic kernel); not yet auto-wired into the device→graph path from Python (drive explicitly); drift/cross-clock = M9.5/M9.6 | ✅ / in progress |
 | **Serialization** | no save/load of a graph | ADR-0009 deferred |
 | **Differentiable / trainable** | not available | Phase 1 |
 | **Agent (NL → graph)** | not available | Phase 2 |

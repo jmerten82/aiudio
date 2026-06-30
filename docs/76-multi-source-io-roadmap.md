@@ -115,7 +115,7 @@ RT/est/deps per sub-milestone; **do M9.1 first** (it makes every later live test
 |---|---|---|---|---|
 | **M9.1** xrun/underrun policy — ✅ **merged (PR #17)** | detect (ring over/underrun counters ✓ + executor under-served-block counter ✓); substitute (silence on underrun, drop on overrun ✓); atomic `xrun_count` / `dropped_commands` telemetry ✓; `StreamConfig.XrunPolicy` knob ✓ (enforcement deferred). **Device-side HAL-timestamp gap + `kAudioDeviceProcessorOverload` detection deferred to M9.4** (needs the mock backend to test). | 🟡 | 2–3 d | — |
 | **M9.2** channel mapping/routing | device↔graph mapping incl. **mono↔stereo**; within-graph routing/matrix nodes | 🟢 | 2–4 d | **G8** |
-| **M9.3** boundary sample-rate conversion | fixed-ratio polyphase FIR (or libsamplerate/Speex ○) at the I/O edge; alloc-free; reports latency | 🔴 | 4–6 d | M9.1, **G9** |
+| **M9.3** boundary sample-rate conversion — 🟡 **in review (PR #21)** | `io::Resampler`: a streaming, RT-safe **cubic (Catmull-Rom) fractional SRC** at the I/O edge (ratio = inRate/outRate); alloc-free `process()`; reports kernel `latencyFrames()` (G9); `setRatio()` designed in for the M9.5 drift loop. Bound to Python (numpy in → numpy out). ADR-0015. *(Polyphase-FIR/libsamplerate kernel upgrade can replace the interpolator behind the same interface later.)* | 🔴 | 4–6 d | M9.1, **G9** |
 | **M9.4** device hot-plug/disconnect + fallback — ✅ **merged (PR #20)** | The **model** is built + testable: an `AudioBackend` disconnect-handler + `disconnected()`/`xrunCount()`; a **`MockBackend`** (deterministic, manually-ticked) that injects disconnect + xrun so the live path + hot-plug + device-side xrun (the M9.1 deferral) are exercised headlessly. **Remaining (hardware-verified):** the real Core Audio HAL device-died listener wiring on the device backends. | 🟢 | 4–7 d | M9.1 |
 | **M9.5** drift compensation (separate clocks) | adaptive resampling driven by a ring-fill control loop | 🔴 | 1.5–2.5 wk | M9.3 |
 | **M9.6** multi-**device** (1-in + 1-out, separate clocks) | the stepping-stone to N sources: one input device + one output device, kept in sync | 🔴 | 1–1.5 wk | M9.5 |
@@ -270,7 +270,7 @@ verified green before merge. **Status legend:** ✅ merged · 🟡 in review · 
 | 6 | `feat/m10-multisource-manager` | **M10 (single-clock)** — manager (per-stream rings, one clock) + Python multi-source API → ⭐ **MVP** | ✅ **merged (PR #19)** | 1, 5 (+2, 4) | C++ + TSan + Python |
 | — | `feat/m10-live-and-m9-4` | **Master-clock adapter** — `MasterClockAdapter` lets any backend's clock drive the manager (the live-feeding layer) | ✅ **merged (PR #20)** | M10 | C++ + TSan + Python (mock) |
 | 7 | `feat/m10-live-and-m9-4` | **M9.4 (core)** — `MockBackend` + hot-plug/disconnect + device-xrun model (the M9.1-deferred device xruns) | ✅ **merged (PR #20)** | 4 | C++ + TSan + Python + mock |
-| 8 | `feat/m9-3-resampler` | **M9.3** — boundary sample-rate conversion | ⬜ | 3, 4 | offline + live |
+| 8 | `feat/m9-3-resampler` | **M9.3** — boundary sample-rate conversion (`io::Resampler`, cubic SRC, ADR-0015) | 🟡 **in review (PR #21)** | 3, 4 | C++ + RT-alloc + Python |
 | 9 | `feat/m9-5-drift-comp` | **M9.5** — adaptive drift compensation | ⬜ | 8 | mock + soak |
 | 10 | `feat/m9-6-cross-clock` | **M9.6 + M10(cross-clock)** — true cross-clock multi-device = the full goal | ⬜ | 9, 6 | mock + live soak |
 
