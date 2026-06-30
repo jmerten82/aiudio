@@ -1,5 +1,6 @@
 #include "aiudio/graph/graph.hpp"
 
+#include <algorithm>
 #include <string>
 #include <vector>
 
@@ -11,9 +12,37 @@ NodeId Graph::addNode(std::unique_ptr<Node> node) {
 }
 
 bool Graph::connect(NodeId src, std::uint32_t srcPort, NodeId dst, std::uint32_t dstPort) {
-    if (src >= nodes_.size() || dst >= nodes_.size()) return false;  // unknown node
+    if (src >= nodes_.size() || dst >= nodes_.size()) return false;     // unknown node
+    if (nodes_[src] == nullptr || nodes_[dst] == nullptr) return false;  // removed node
     edges_.push_back(Edge{src, srcPort, dst, dstPort});
     return true;
+}
+
+bool Graph::disconnect(NodeId src, std::uint32_t srcPort, NodeId dst, std::uint32_t dstPort) {
+    const std::size_t before = edges_.size();
+    edges_.erase(std::remove_if(edges_.begin(), edges_.end(),
+                                [&](const Edge& e) {
+                                    return e.src == src && e.srcPort == srcPort &&
+                                           e.dst == dst && e.dstPort == dstPort;
+                                }),
+                 edges_.end());
+    return edges_.size() != before;
+}
+
+bool Graph::removeNode(NodeId id) {
+    if (id >= nodes_.size() || nodes_[id] == nullptr) return false;
+    nodes_[id].reset();  // tombstone — keep the slot so other NodeIds stay stable
+    edges_.erase(std::remove_if(edges_.begin(), edges_.end(),
+                                [&](const Edge& e) { return e.src == id || e.dst == id; }),
+                 edges_.end());
+    return true;
+}
+
+std::size_t Graph::liveNodeCount() const noexcept {
+    std::size_t live = 0;
+    for (const auto& n : nodes_)
+        if (n != nullptr) ++live;
+    return live;
 }
 
 Node* Graph::node(NodeId id) const {

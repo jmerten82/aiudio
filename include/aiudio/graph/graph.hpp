@@ -45,19 +45,33 @@ public:
     /// Take ownership of a node; returns its id (its insertion index).
     NodeId addNode(std::unique_ptr<Node> node);
 
-    /// Record an edge. Returns false only if a node id does not exist; structural
-    /// validity (port ranges, single-driver, acyclicity) is validate()'s job, so
-    /// that an invalid graph can be constructed and then diagnosed.
+    /// Record an edge. Returns false if either node id does not exist or has been
+    /// removed (tombstoned); structural validity (port ranges, single-driver, acyclicity)
+    /// is validate()'s job, so an otherwise-invalid graph can be built and then diagnosed.
     bool connect(NodeId src, std::uint32_t srcPort, NodeId dst, std::uint32_t dstPort);
+
+    /// Remove the edge matching exactly (src:srcPort -> dst:dstPort). Returns true if one
+    /// was removed (false if no such edge existed). A graph edit — recompile to apply.
+    bool disconnect(NodeId src, std::uint32_t srcPort, NodeId dst, std::uint32_t dstPort);
+
+    /// Remove a node and every edge touching it. The slot is **tombstoned**, not compacted:
+    /// `id` stays valid (NodeIds and other nodes' ids never shift or get reused), and
+    /// `node(id)` then returns nullptr. Returns false if `id` is invalid or already removed.
+    /// A graph edit — recompile to apply. (Edits are add/remove only; no in-place mutation.)
+    bool removeNode(NodeId id);
 
     /// Check the graph is well-formed: every edge's ports are in range, each input
     /// port has at most one incoming edge (use a SumNode to mix), and the graph is
-    /// acyclic (a DAG). Returns ok, or the first problem found.
+    /// acyclic (a DAG). Returns ok, or the first problem found. Tombstoned slots are skipped.
     [[nodiscard]] ValidationResult validate() const;
 
+    /// Number of node slots, **including tombstoned (removed) ones** — so it is also the
+    /// upper bound on valid NodeIds. Use `node(id) != nullptr` to test liveness.
     [[nodiscard]] std::size_t nodeCount() const noexcept { return nodes_.size(); }
+    /// Count of live (non-removed) nodes.
+    [[nodiscard]] std::size_t liveNodeCount() const noexcept;
     [[nodiscard]] const std::vector<Edge>& edges() const noexcept { return edges_; }
-    [[nodiscard]] Node* node(NodeId id) const;  // nullptr if id is out of range
+    [[nodiscard]] Node* node(NodeId id) const;  // nullptr if id is out of range or removed
 
 private:
     std::vector<std::unique_ptr<Node>> nodes_;

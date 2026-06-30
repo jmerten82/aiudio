@@ -221,6 +221,19 @@ NB_MODULE(_aiudio, m) {
             n->setLowpass(freq, q, sr);
             return g.addNode(std::move(n));
         }, "freq"_a, "q"_a, "sample_rate"_a)
+        .def("add_biquad_highpass", [](graph::Graph& g, double freq, double q, double sr) {
+            auto n = std::make_unique<graph::BiquadNode>();
+            n->setHighpass(freq, q, sr);
+            return g.addNode(std::move(n));
+        }, "freq"_a, "q"_a, "sample_rate"_a,
+           "Add an RBJ high-pass biquad. set_cutoff/set_q drive it live (re-designs as high-pass).")
+        .def("add_biquad_coeffs", [](graph::Graph& g, float b0, float b1, float b2, float a1,
+                                     float a2) {
+            auto n = std::make_unique<graph::BiquadNode>();
+            n->setCoefficients(b0, b1, b2, a1, a2);
+            return g.addNode(std::move(n));
+        }, "b0"_a, "b1"_a, "b2"_a, "a1"_a, "a2"_a,
+           "Add a biquad from raw normalized coefficients (e.g. designed in scipy). a0 is 1.")
         .def("add_downmix", [](graph::Graph& g) {
             return g.addNode(std::make_unique<graph::DownmixNode>());
         }, "Add a down-mix node: N input channels -> 1 (mono average). Changes channel width (G8).")
@@ -235,10 +248,40 @@ NB_MODULE(_aiudio, m) {
         .def("connect", [](graph::Graph& g, graph::NodeId s, std::uint32_t sp, graph::NodeId d,
                            std::uint32_t dp) { return g.connect(s, sp, d, dp); },
              "src"_a, "src_port"_a, "dst"_a, "dst_port"_a)
+        .def("disconnect", [](graph::Graph& g, graph::NodeId s, std::uint32_t sp, graph::NodeId d,
+                              std::uint32_t dp) { return g.disconnect(s, sp, d, dp); },
+             "src"_a, "src_port"_a, "dst"_a, "dst_port"_a,
+             "Remove the edge src:src_port -> dst:dst_port; returns True if one was removed. "
+             "Recompile to apply.")
+        .def("remove_node", [](graph::Graph& g, graph::NodeId id) { return g.removeNode(id); },
+             "node"_a,
+             "Remove a node + all its edges. The id is tombstoned (stays valid-range, node_type "
+             "becomes None) so other ids never shift. Returns False if already removed/invalid. "
+             "Recompile to apply.")
         .def("validate", [](const graph::Graph& g) {
             const auto r = g.validate();
             return std::make_pair(r.ok, r.error);
         })
+        // ---- Introspection (read the IR back; the agent/serialization use this) ----
+        .def("nodes", [](const graph::Graph& g) {
+            nb::list out;
+            for (std::uint32_t id = 0; id < g.nodeCount(); ++id)
+                if (const graph::Node* n = g.node(id))
+                    out.append(nb::make_tuple(id, n->typeName(), n->numInputs(), n->numOutputs()));
+            return out;  // list of (id, type_name, num_inputs, num_outputs) for live nodes
+        }, "Live nodes as (id, type_name, num_inputs, num_outputs) tuples (removed ids skipped).")
+        .def("edges", [](const graph::Graph& g) {
+            nb::list out;
+            for (const graph::Edge& e : g.edges())
+                out.append(nb::make_tuple(e.src, e.srcPort, e.dst, e.dstPort));
+            return out;  // list of (src, src_port, dst, dst_port) tuples
+        }, "Edges as (src, src_port, dst, dst_port) tuples.")
+        .def("node_type", [](const graph::Graph& g, graph::NodeId id) -> nb::object {
+            const graph::Node* n = g.node(id);
+            return n ? nb::cast(n->typeName()) : nb::none();
+        }, "node"_a, "The node's type name, or None if the id is invalid/removed.")
+        .def_prop_ro("live_node_count", [](const graph::Graph& g) { return g.liveNodeCount(); },
+                     "Number of live (non-removed) nodes.")
         .def("set_gain", [](graph::Graph& g, graph::NodeId id, float v) {
             if (auto* n = dynamic_cast<graph::GainNode*>(g.node(id))) { n->setGain(v); return true; }
             return false;
@@ -471,6 +514,13 @@ NB_MODULE(_aiudio, m) {
           "mode"_a = io::ChannelMapMode::Auto,
           "Map a planar (channels, frames) block to out_channels (mono↔stereo / N↔M).");
 
+    // How a backend should respond to an xrun (M9.1). BestEffort: count + keep running
+    // (RT-safe degrade). Strict: a backend may stop on the first xrun. Plumbed into open();
+    // Strict enforcement on the device backends is still being wired.
+    nb::enum_<io::XrunPolicy>(m, "XrunPolicy")
+        .value("BestEffort", io::XrunPolicy::BestEffort)
+        .value("Strict", io::XrunPolicy::Strict);
+
     nb::enum_<io::WavFormat>(m, "WavFormat")
         .value("Int16", io::WavFormat::Int16)
         .value("Float32", io::WavFormat::Float32);
@@ -514,23 +564,37 @@ NB_MODULE(_aiudio, m) {
         .def("enumerate", &io::CoreAudioBackend::enumerate,
              "List the system's audio devices (setup-time; not real-time).")
         .def("open", [](io::CoreAudioBackend& b, graph::GraphExecutor& e, std::uint32_t channels,
-                        double sampleRate, std::uint32_t block, const std::string& outputDevice) {
+                        double sampleRate, std::uint32_t block, const std::string& outputDevice,
+                        io::XrunPolicy policy) {
             io::StreamConfig c;
             c.outputChannels = channels;
             c.sampleRate = sampleRate;
             c.blockSize = block;
             c.outputDeviceId = outputDevice;
+            c.xrunPolicy = policy;
             return b.open(c, &e);
         }, "executor"_a, "channels"_a = 2, "sample_rate"_a = 48000.0, "block_size"_a = 512,
-           "output_device"_a = std::string{}, nb::keep_alive<1, 2>(),
-           nb::call_guard<nb::gil_scoped_release>(),
+           "output_device"_a = std::string{}, "xrun_policy"_a = io::XrunPolicy::BestEffort,
+           nb::keep_alive<1, 2>(), nb::call_guard<nb::gil_scoped_release>(),
            "Open the output device, routing each RT block to the executor (C++ audio thread).")
         .def("start", &io::CoreAudioBackend::start, nb::call_guard<nb::gil_scoped_release>(),
              "Start the device IOProc (real-time C++ audio thread). Releases the GIL.")
         .def("stop", &io::CoreAudioBackend::stop, nb::call_guard<nb::gil_scoped_release>(),
              "Stop the device IOProc. Releases the GIL.")
+        .def("set_disconnect_handler", [](io::CoreAudioBackend& b, nb::callable cb) {
+            b.setDisconnectHandler([cb = std::move(cb)]() {
+                nb::gil_scoped_acquire gil;  // fired on a HAL thread → take the GIL to call Python
+                cb();
+            });
+        }, "callback"_a,
+           "Register a Python callback fired (off the audio thread) when the device is unplugged "
+           "/ dies (the HAL device-died listener, M9.4).")
         .def_prop_ro("running", &io::CoreAudioBackend::running)
-        .def_prop_ro("latency_frames", &io::CoreAudioBackend::latencyFrames);
+        .def_prop_ro("latency_frames", &io::CoreAudioBackend::latencyFrames)
+        .def_prop_ro("disconnected", [](const io::CoreAudioBackend& b) { return b.disconnected(); },
+                     "True once the device was unplugged / died (M9.4 hot-plug listener).")
+        .def_prop_ro("xrun_count", [](const io::CoreAudioBackend& b) { return b.xrunCount(); },
+                     "Device-side xruns the backend detected (only the device can see these).");
 
     // ---- Input backend (M3) — capture from an input device (needs mic TCC permission) ----
     nb::class_<io::CoreAudioInputBackend>(m, "InputBackend")
@@ -538,21 +602,31 @@ NB_MODULE(_aiudio, m) {
         .def("enumerate", &io::CoreAudioInputBackend::enumerate,
              "List the system's audio devices (setup-time; not real-time).")
         .def("open", [](io::CoreAudioInputBackend& b, graph::GraphExecutor& e, std::uint32_t channels,
-                        double sampleRate, std::uint32_t block, const std::string& inputDevice) {
+                        double sampleRate, std::uint32_t block, const std::string& inputDevice,
+                        io::XrunPolicy policy) {
             io::StreamConfig c;
             c.inputChannels = channels;
             c.sampleRate = sampleRate;
             c.blockSize = block;
             c.inputDeviceId = inputDevice;
+            c.xrunPolicy = policy;
             return b.open(c, &e);
         }, "executor"_a, "channels"_a = 1, "sample_rate"_a = 48000.0, "block_size"_a = 512,
-           "input_device"_a = std::string{}, nb::keep_alive<1, 2>(),
-           nb::call_guard<nb::gil_scoped_release>(),
+           "input_device"_a = std::string{}, "xrun_policy"_a = io::XrunPolicy::BestEffort,
+           nb::keep_alive<1, 2>(), nb::call_guard<nb::gil_scoped_release>(),
            "Open the input device, routing each captured RT block to the executor (in → graph).")
         .def("start", &io::CoreAudioInputBackend::start, nb::call_guard<nb::gil_scoped_release>())
         .def("stop", &io::CoreAudioInputBackend::stop, nb::call_guard<nb::gil_scoped_release>())
+        .def("set_disconnect_handler", [](io::CoreAudioInputBackend& b, nb::callable cb) {
+            b.setDisconnectHandler([cb = std::move(cb)]() {
+                nb::gil_scoped_acquire gil;
+                cb();
+            });
+        }, "callback"_a, "Python callback fired (off the audio thread) on device disconnect (M9.4).")
         .def_prop_ro("running", &io::CoreAudioInputBackend::running)
-        .def_prop_ro("latency_frames", &io::CoreAudioInputBackend::latencyFrames);
+        .def_prop_ro("latency_frames", &io::CoreAudioInputBackend::latencyFrames)
+        .def_prop_ro("disconnected", [](const io::CoreAudioInputBackend& b) { return b.disconnected(); })
+        .def_prop_ro("xrun_count", [](const io::CoreAudioInputBackend& b) { return b.xrunCount(); });
 
     // ---- Duplex backend (M4) — input+output on ONE clock (mic → graph → speakers) ----
     nb::class_<io::CoreAudioDuplexBackend>(m, "DuplexBackend")
@@ -560,7 +634,8 @@ NB_MODULE(_aiudio, m) {
         .def("enumerate", &io::CoreAudioDuplexBackend::enumerate)
         .def("open", [](io::CoreAudioDuplexBackend& b, graph::GraphExecutor& e,
                         std::uint32_t inCh, std::uint32_t outCh, double sampleRate, std::uint32_t block,
-                        const std::string& inputDevice, const std::string& outputDevice) {
+                        const std::string& inputDevice, const std::string& outputDevice,
+                        io::XrunPolicy policy) {
             io::StreamConfig c;
             c.inputChannels = inCh;
             c.outputChannels = outCh;
@@ -568,16 +643,26 @@ NB_MODULE(_aiudio, m) {
             c.blockSize = block;
             c.inputDeviceId = inputDevice;
             c.outputDeviceId = outputDevice;
+            c.xrunPolicy = policy;
             return b.open(c, &e);
         }, "executor"_a, "input_channels"_a = 1, "output_channels"_a = 2, "sample_rate"_a = 48000.0,
            "block_size"_a = 512, "input_device"_a = std::string{}, "output_device"_a = std::string{},
+           "xrun_policy"_a = io::XrunPolicy::BestEffort,
            nb::keep_alive<1, 2>(), nb::call_guard<nb::gil_scoped_release>(),
            "Open input+output on one shared clock (an aggregate device if they differ).")
         .def("start", &io::CoreAudioDuplexBackend::start, nb::call_guard<nb::gil_scoped_release>())
         .def("stop", &io::CoreAudioDuplexBackend::stop, nb::call_guard<nb::gil_scoped_release>())
+        .def("set_disconnect_handler", [](io::CoreAudioDuplexBackend& b, nb::callable cb) {
+            b.setDisconnectHandler([cb = std::move(cb)]() {
+                nb::gil_scoped_acquire gil;
+                cb();
+            });
+        }, "callback"_a, "Python callback fired (off the audio thread) on device disconnect (M9.4).")
         .def_prop_ro("running", &io::CoreAudioDuplexBackend::running)
         .def_prop_ro("latency_frames", &io::CoreAudioDuplexBackend::latencyFrames)
-        .def_prop_ro("uses_aggregate_device", &io::CoreAudioDuplexBackend::usesAggregateDevice);
+        .def_prop_ro("uses_aggregate_device", &io::CoreAudioDuplexBackend::usesAggregateDevice)
+        .def_prop_ro("disconnected", [](const io::CoreAudioDuplexBackend& b) { return b.disconnected(); })
+        .def_prop_ro("xrun_count", [](const io::CoreAudioDuplexBackend& b) { return b.xrunCount(); });
 
     // ---- Process-tap backend (M5) — system / per-app output capture (signed + TCC) ----
     nb::class_<io::ProcessInfo>(m, "ProcessInfo")
@@ -597,18 +682,29 @@ NB_MODULE(_aiudio, m) {
              "Capture a single process's output by PID (call before open()).")
         .def("enumerate", &io::CoreAudioProcessTapBackend::enumerate)
         .def("open", [](io::CoreAudioProcessTapBackend& b, graph::GraphExecutor& e,
-                        std::uint32_t channels, double sampleRate, std::uint32_t block) {
+                        std::uint32_t channels, double sampleRate, std::uint32_t block,
+                        io::XrunPolicy policy) {
             io::StreamConfig c;
             c.inputChannels = channels;
             c.sampleRate = sampleRate;
             c.blockSize = block;
+            c.xrunPolicy = policy;
             return b.open(c, &e);
         }, "executor"_a, "channels"_a = 2, "sample_rate"_a = 48000.0, "block_size"_a = 512,
+           "xrun_policy"_a = io::XrunPolicy::BestEffort,
            nb::keep_alive<1, 2>(), nb::call_guard<nb::gil_scoped_release>(),
            "Open the tap (needs a signed binary w/ NSAudioCaptureUsageDescription + audio-capture TCC).")
         .def("start", &io::CoreAudioProcessTapBackend::start, nb::call_guard<nb::gil_scoped_release>())
         .def("stop", &io::CoreAudioProcessTapBackend::stop, nb::call_guard<nb::gil_scoped_release>())
+        .def("set_disconnect_handler", [](io::CoreAudioProcessTapBackend& b, nb::callable cb) {
+            b.setDisconnectHandler([cb = std::move(cb)]() {
+                nb::gil_scoped_acquire gil;
+                cb();
+            });
+        }, "callback"_a, "Python callback fired (off the audio thread) on tap/device disconnect (M9.4).")
         .def_prop_ro("running", &io::CoreAudioProcessTapBackend::running)
-        .def_prop_ro("latency_frames", &io::CoreAudioProcessTapBackend::latencyFrames);
+        .def_prop_ro("latency_frames", &io::CoreAudioProcessTapBackend::latencyFrames)
+        .def_prop_ro("disconnected", [](const io::CoreAudioProcessTapBackend& b) { return b.disconnected(); })
+        .def_prop_ro("xrun_count", [](const io::CoreAudioProcessTapBackend& b) { return b.xrunCount(); });
 #endif  // __APPLE__
 }

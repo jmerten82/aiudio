@@ -18,11 +18,12 @@ from ._aiudio import (  # noqa: F401
     Resampler,
     ResamplingSource,
     WavFormat,
+    XrunPolicy,
     map_channels,
 )
 
 __all__ = [
-    "Graph", "GraphExecutor", "OfflineBackend", "WavFormat",
+    "Graph", "GraphExecutor", "OfflineBackend", "WavFormat", "XrunPolicy",
     "MultiSourceManager", "MasterClockAdapter", "MockBackend",
     "Resampler", "ResamplingSource", "CrossClockBridge",
     "ChannelMapMode", "map_channels",
