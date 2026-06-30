@@ -213,12 +213,12 @@ to devices). G4/G5/G6 are parallelizable after G3. G7 builds on G6 (Python) + G5
 - **No feedback cycles** (need unit-delay nodes), **no multi-rate/control-rate**,
   **no off-thread neural-node pooling** (ANIRA pattern, ADR-0006) — later.
 - **No serialization format** yet — designed-for, deferred.
-- **Single in/out + uniform channel count** — the executor takes one `in`/`out` and one
-  global channel count. The spine extensions **G8** (per-port channel counts), **G9**
-  (node/edge latency + delay compensation), and **G10** (multi-stream executor +
-  source/sink binding) lift these; they're planned as part of the
-  [true multi-source I/O roadmap](76-multi-source-io-roadmap.md) (Phases A & D) and each
-  extends ADR-0009.
+- **Uniform channel count** — one global channel count per port. The spine extensions
+  **G8** (per-port channel counts) and **G9** (node/edge latency + delay compensation) lift
+  this; planned in the [multi-source I/O roadmap](76-multi-source-io-roadmap.md) (Phase A),
+  each extending ADR-0009. *(**G10** — multi-stream executor (N in/out streams via
+  source/sink binding) — is **✅ in review** (PR, ADR-0011); the executor now takes multiple
+  named input/output streams, with single `in`/`out` as the 1-stream special case.)*
 
 ## 7. Risks
 

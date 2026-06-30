@@ -128,6 +128,24 @@ ex_small.compile(g2, channels=1, sample_rate=SR, max_block=64)   # compiled for 
 out = ex_small.process(np.ones((1, 128), np.float32))            # but we pass 128
 print("frames 0..63 (processed):", float(out[0, 0]), "| frames 64..127 (dropped→0):", float(out[0, 100]))""")
 
+md(r"""**Multiple input/output streams (G10).** A single graph can receive **N input
+streams** and drive **M output streams**: `add_source(stream=k)` / `add_sink(stream=k)` bind
+a node to a stream, and `process_multi([...])` takes one array per input stream and returns
+one per output stream. (`process(arr)` is the back-compatible 1-stream case.) This is the
+graph-side foundation of true multi-source I/O ([`docs/76`](../../docs/76-multi-source-io-roadmap.md)).""")
+code(r"""g_ms = aiudio.Graph()
+a0, a1 = g_ms.add_source(stream=0), g_ms.add_source(stream=1)   # two input streams
+g_a, g_b = g_ms.add_gain(0.5), g_ms.add_gain(0.25)             # asymmetric → proves routing
+mix = g_ms.add_sum(2)
+k0, k1 = g_ms.add_sink(stream=0), g_ms.add_sink(stream=1)       # two output streams
+g_ms.connect(a0, 0, g_a, 0); g_ms.connect(a1, 0, g_b, 0)
+g_ms.connect(g_a, 0, mix, 0); g_ms.connect(g_b, 0, mix, 1)
+g_ms.connect(mix, 0, k0, 0); g_ms.connect(mix, 0, k1, 0)        # mix fans out to both outputs
+ex_ms = aiudio.GraphExecutor(); ex_ms.compile(g_ms, channels=1, sample_rate=SR, max_block=128)
+print("input_streams:", ex_ms.input_streams, " output_streams:", ex_ms.output_streams)
+outs = ex_ms.process_multi([np.ones((1, 16), np.float32), 2*np.ones((1, 16), np.float32)])
+print("mix 1·0.5 + 2·0.25 =", float(outs[0][0, 0]), "| #outputs:", len(outs))""")
+
 # ---------------------------------------------------------------- 4. nodes
 md(r"""## 4. The DSP nodes — gain, mix, meter, biquad
 

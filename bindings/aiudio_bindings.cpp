@@ -63,6 +63,55 @@ nb::ndarray<nb::numpy, float> executorProcess(graph::GraphExecutor& exec, InArra
                                                    static_cast<std::size_t>(frames)}, owner);
 }
 
+// Multi-stream block (G10): a list of (channels, frames) float32 arrays in -> a list of
+// (channels, frames) arrays out (one per output stream). Input k feeds SourceNodes bound
+// to stream k; output k is written by SinkNodes bound to stream k. The graph runs in C++.
+nb::list executorProcessMulti(graph::GraphExecutor& exec, nb::list inputs,
+                              std::uint32_t numOutputs) {
+    const std::uint32_t numIn = static_cast<std::uint32_t>(inputs.size());
+    std::vector<InArray> arrs;
+    arrs.reserve(numIn);
+    for (std::uint32_t i = 0; i < numIn; ++i) arrs.push_back(nb::cast<InArray>(inputs[i]));
+
+    // All inputs share the block's frame count (taken from the first input).
+    const std::uint32_t frames = (numIn > 0) ? static_cast<std::uint32_t>(arrs[0].shape(1)) : 0;
+    const std::uint32_t channels = exec.channels();
+    if (numOutputs == 0) numOutputs = exec.outputStreamCount();
+
+    std::vector<std::vector<float*>> inPtrs(numIn);
+    std::vector<io::AudioBuffer> ins(numIn);
+    for (std::uint32_t i = 0; i < numIn; ++i) {
+        const auto ch = static_cast<std::uint32_t>(arrs[i].shape(0));
+        const auto fr = static_cast<std::uint32_t>(arrs[i].shape(1));
+        inPtrs[i].resize(ch);
+        for (std::uint32_t c = 0; c < ch; ++c)
+            inPtrs[i][c] = const_cast<float*>(arrs[i].data()) + static_cast<std::size_t>(c) * fr;
+        ins[i] = io::AudioBuffer{inPtrs[i].data(), ch, fr};
+    }
+
+    std::vector<float*> outData(numOutputs, nullptr);
+    std::vector<std::vector<float*>> outPtrs(numOutputs);
+    std::vector<io::AudioBuffer> outs(numOutputs);
+    for (std::uint32_t i = 0; i < numOutputs; ++i) {
+        outData[i] = new float[static_cast<std::size_t>(channels) * frames]();
+        outPtrs[i].resize(channels);
+        for (std::uint32_t c = 0; c < channels; ++c)
+            outPtrs[i][c] = outData[i] + static_cast<std::size_t>(c) * frames;
+        outs[i] = io::AudioBuffer{outPtrs[i].data(), channels, frames};
+    }
+
+    exec.process(ins.data(), numIn, outs.data(), numOutputs, frames, io::TimeInfo{});
+
+    nb::list result;
+    for (std::uint32_t i = 0; i < numOutputs; ++i) {
+        nb::capsule owner(outData[i], [](void* p) noexcept { delete[] static_cast<float*>(p); });
+        result.append(nb::ndarray<nb::numpy, float>(
+            outData[i], {static_cast<std::size_t>(channels), static_cast<std::size_t>(frames)},
+            owner));
+    }
+    return result;
+}
+
 }  // namespace
 
 NB_MODULE(_aiudio, m) {
@@ -70,8 +119,12 @@ NB_MODULE(_aiudio, m) {
 
     nb::class_<graph::Graph>(m, "Graph")
         .def(nb::init<>())
-        .def("add_source", [](graph::Graph& g) { return g.addNode(std::make_unique<graph::SourceNode>()); })
-        .def("add_sink", [](graph::Graph& g) { return g.addNode(std::make_unique<graph::SinkNode>()); })
+        .def("add_source", [](graph::Graph& g, std::uint32_t stream) {
+            return g.addNode(std::make_unique<graph::SourceNode>(stream));
+        }, "stream"_a = 0, "Add a source bound to input stream `stream` (default 0).")
+        .def("add_sink", [](graph::Graph& g, std::uint32_t stream) {
+            return g.addNode(std::make_unique<graph::SinkNode>(stream));
+        }, "stream"_a = 0, "Add a sink bound to output stream `stream` (default 0).")
         .def("add_gain", [](graph::Graph& g, float gain) {
             return g.addNode(std::make_unique<graph::GainNode>(gain));
         }, "gain"_a)
@@ -109,6 +162,16 @@ NB_MODULE(_aiudio, m) {
         }, "graph"_a, "channels"_a, "sample_rate"_a, "max_block"_a, nb::keep_alive<1, 2>())
         .def("process", &executorProcess, "input"_a,
              "Run one block: (channels, frames) float32 in -> (channels, frames) float32 out.")
+        .def("process_multi", &executorProcessMulti, "inputs"_a, "num_outputs"_a = 0,
+             "Multi-stream block (G10): list of (channels, frames) float32 arrays in -> list "
+             "out (one per output stream). Input k feeds sources on stream k; output k is "
+             "written by sinks on stream k. num_outputs=0 -> use the graph's output_streams.")
+        .def_prop_ro("channels", [](const graph::GraphExecutor& e) { return e.channels(); },
+                     "Compiled channel count per port (0 if not compiled).")
+        .def_prop_ro("input_streams", [](const graph::GraphExecutor& e) { return e.inputStreamCount(); },
+                     "Number of distinct input streams the compiled graph reads.")
+        .def_prop_ro("output_streams", [](const graph::GraphExecutor& e) { return e.outputStreamCount(); },
+                     "Number of distinct output streams the compiled graph writes.")
         // ---- Live control plane (RT-safe; lock-free SPSC queue into the audio thread) ----
         // These enqueue a change that the audio thread applies at the top of the next
         // block. Safe to call while a device backend is running — Python never touches

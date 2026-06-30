@@ -11,7 +11,15 @@ namespace aiudio::graph {
 
 class SourceNode final : public Node {
 public:
-    /// Set by the executor each block (points at the executor's `in`).
+    /// `stream` selects which executor input stream this source reads (G10). 0 is the
+    /// default and matches the single-input executor path (back-compatible).
+    explicit SourceNode(std::uint32_t stream = 0) noexcept : streamIndex_(stream) {}
+
+    /// Which input stream this source binds to (the executor routes inputs[streamIndex]).
+    [[nodiscard]] std::uint32_t streamIndex() const noexcept { return streamIndex_; }
+
+    /// Set by the executor each block (points at the executor's input for this stream;
+    /// nullptr → emit silence, e.g. when that stream isn't provided this block).
     void setExternalInput(const AudioBuffer* in) noexcept { external_ = in; }
 
     void prepare(double /*sampleRate*/, std::uint32_t /*maxBlock*/) override {}
@@ -36,6 +44,7 @@ public:
 
 private:
     const AudioBuffer* external_ = nullptr;
+    std::uint32_t streamIndex_ = 0;
 };
 
 }  // namespace aiudio::graph
