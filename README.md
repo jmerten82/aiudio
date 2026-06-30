@@ -138,7 +138,7 @@ status — **kept current as we go**.
 - [ ] Classic DSP nodes (gain, biquad EQ, reverb) as differentiable peers
 - [ ] First neural node (RAVE-/NAM-class) under the same contract
 - [ ] "Brighten the vocal" slice — EQ node tuned by gradient vs a CLAP objective
-- [x] Process-tap & offline/file backends (I/O M5–M6) *(M5 ✅ taps; M6 🔜 offline/file backend — in review)*
+- [x] Process-tap & offline/file backends (I/O M5–M6) *(M5 ✅ taps; M6 ✅ offline/file backend — both merged)*
 
 ### Phase 2 — Agent control plane *(the differentiator)*
 - [ ] Typed graph-edit action space (`add_node`/`connect`/`set_param`/…)
@@ -149,7 +149,7 @@ status — **kept current as we go**.
 - [ ] C++ RT executor: inline + off-thread pooled neural nodes
 - [ ] Streaming / cached-conv export (non-causal → causal)
 - [ ] Plugin-host backend + VST3/CLAP packaging (I/O M7)
-- [ ] **True multi-source I/O** — N inputs + M outputs on one clock, one graph, from Python *(plan + PR chain: [`docs/76`](docs/76-multi-source-io-roadmap.md) §11; **spine foundation complete — G10 ✅ multi-stream · G8 ✅ per-port channels · G9 ✅ latency/PDC**; **M9 / M10 / M11** pending)*
+- [ ] **True multi-source I/O** — N inputs + M outputs on one clock, one graph, from Python *(plan + PR chain: [`docs/76`](docs/76-multi-source-io-roadmap.md) §11; **G10 ✅ multi-stream · G8 ✅ per-port channels · G9 ✅ latency/PDC · M9.1 ✅ xrun policy · M11a ✅ input/duplex/tap bindings** — only **M10** (the multi-source manager / live MVP) remains; later: M9.3 resampler, M9.4 hot-plug, M9.5/6 cross-clock)*
 
 ### Phase 4 — Breadth
 - [ ] Source separation, more neural FX, neural-codec node

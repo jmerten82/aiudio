@@ -3,9 +3,10 @@
 > **Last updated:** 2026-06-29 · **Goal:** N independent input sources *and* M output
 > sinks — each on its own hardware clock — brought onto **one engine timeline**, composed
 > in **one graph**, controllable from **Python**, all **RT-safe**. · **Status:** in
-> progress — **Phase A (spine prerequisites) complete: G10 ✅, G8 ✅, G9 ✅ merged**
-> (multi-stream executor + per-port channel widths + latency/delay-compensation); see the
-> **[delivery plan / PR chain in §11](#11-delivery-plan--the-pr-chain-live-status)** for live status. (Post-Phase-0; the I/O parts cluster in Phase 3 productionization, the
+> progress — **G10, G8, G9, M9.1, M11a all merged** (multi-stream executor + per-port channel
+> widths + latency/delay-compensation + xrun policy + input/duplex/tap bindings). Everything the
+> MVP needs is in `main`; **only M10 (the multi-source manager) remains for the live MVP** — see
+> the **[delivery plan / PR chain in §11](#11-delivery-plan--the-pr-chain-live-status)** for live status. (Post-Phase-0; the I/O parts cluster in Phase 3 productionization, the
 > spine parts are general and can land earlier.)
 >
 > This plan **absorbs the M9 robustness/hardening plan** (formerly `docs/75`) as its
@@ -153,7 +154,7 @@ two numpy inputs → two numpy outputs) and live.
 ### Phase E — Control plane / Python (extends ADR-0010)
 
 **M11 — Input-side + multi-source Python bindings** · 🟢 · ~1–1.5 wk · no ADR
-- **E1:** bind the input/duplex/tap backends — ✅ **in review (PR, M11a)**: `InputBackend`,
+- **E1:** bind the input/duplex/tap backends — ✅ **merged (PR #18, M11a)**: `InputBackend`,
   `DuplexBackend`, `TapBackend` (+ `ProcessInfo`, `list_processes`) bound, GIL released on
   lifecycle, `running`/`latency_frames` telemetry. (Previously only the *output* `DeviceBackend`
   + offline were bound.) Live mic capture verified on hardware.
@@ -261,7 +262,7 @@ verified green before merge. **Status legend:** ✅ merged · 🟡 in review · 
 | 2 | `feat/g8-per-port-channels` | **G8** — per-port channel counts + `DownmixNode`/`UpmixNode` (channel-width change) | ✅ **merged (PR #15)** | main | offline (golden) |
 | 3 | `feat/g9-latency-pdc` | **G9** — node/edge latency reporting + delay compensation (ADR-0013) | ✅ **merged (PR #16)** | main | offline |
 | 4 | `feat/m9-1-xrun-policy` | **M9.1** — xrun/underrun policy + telemetry (device-side HAL detection → M9.4) | ✅ **merged (PR #17)** | main | headless + RT-alloc |
-| 5 | `feat/m11-input-bindings` | **M11a** — bind the input / duplex / tap backends to Python | 🟡 **in review (PR)** | main | gated live |
+| 5 | `feat/m11-input-bindings` | **M11a** — bind the input / duplex / tap backends to Python | ✅ **merged (PR #18)** | main | gated live |
 | 6 | `feat/m10-multisource-manager` | **M10 (single-clock) + M11b** — manager (N rings, one clock) + Python multi-source API → ⭐ **live MVP** | ⬜ | 1, 5 (+2, 4) | gated live |
 | 7 | `feat/m9-4-hotplug` | **M9.4** — device hot-plug / fallback **+ a mock Core Audio backend** (reused by 8–9) | ⬜ | 4 | gated live + mock |
 | 8 | `feat/m9-3-resampler` | **M9.3** — boundary sample-rate conversion | ⬜ | 3, 4 | offline + live |
@@ -277,10 +278,11 @@ comp. (PRs 1, 5, 6 + optionally 2, 4 — the `~4–6 wk` single-clock MVP of §8
 - Independent (branch off `main`, any order): PRs **1, 2, 3, 4, 5** — none depends on another;
   the table is a *recommended* linear order.
 - **Done so far:** PR 1 (G10) ✅, PR 2 (G8) ✅, PR 3 (G9 latency/PDC) ✅, PR 4 (M9.1 xrun policy)
-  ✅ — all merged. **All of Phase A (the spine prerequisites) is complete**, plus the M9.1 xrun
-  policy/telemetry — M9.3's resampler can report its latency and rely on auto-compensation, and
-  the xrun primitives are in place. **Next: PR 5 (M11a input bindings) → PR 6 (M10 manager, the
-  live MVP ⭐).** *Note:* PR 2 delivered the channel-width engine
+  ✅, PR 5 (M11a input bindings) ✅ — **all merged**. **All of Phase A (the spine prerequisites)
+  is complete**, plus the M9.1 xrun policy and the input/duplex/tap Python bindings. Everything
+  the MVP needs is now in `main` — multi-stream executor, per-port channel widths, latency/PDC,
+  xrun telemetry, and N device-backed input rings. **Next: PR 6 (M10 — the multi-source manager,
+  the live MVP ⭐)**, which composes them. *Note:* PR 2 delivered the channel-width engine
   + the down/up-mix nodes; the **device↔graph channel mapping** slice of M9.2 (mono↔stereo at
   the I/O boundary) is still open and folds naturally into PR 6 (M10) or a small PR of its own.
 - Test infra: notebook execution now runs in the test interpreter (a throwaway kernelspec on
