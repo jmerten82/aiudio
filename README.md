@@ -292,16 +292,18 @@ blocks = ex.render_count    # telemetry: climbs while audio flows
 be.stop()
 ```
 
-**Take the guided tour** — [`notebooks/aiudio_pipeline_tour.ipynb`](notebooks/aiudio_pipeline_tour.ipynb)
-walks the whole Python-controllable pipeline end to end (data format, building the
-typed graph IR, the executor's numpy bridge, a real biquad low-pass with a spectrum
-plot, fan-out/fan-in mixing, dBFS metering, live edits, and offline WAV rendering),
-and spells out what is **not** yet reachable from Python (live device I/O, process
-taps, the RT internals, control-rate automation, serialization, differentiability):
+**Take the full-feature tutorial** — [`notebooks/aiudio_feature_tutorial.ipynb`](notebooks/aiudio_feature_tutorial.ipynb)
+is a **plotted, end-to-end teaching tour of all of Phase 0**: every mode of operation (numpy /
+offline WAV / live device / headless mock / multi-source / cross-clock) and every feature (the
+full node library with frequency-response & waveform plots, the live control plane, graph
+editing, and the boundary DSP utilities). The shorter [`aiudio_pipeline_tour.ipynb`](notebooks/aiudio_pipeline_tour.ipynb)
+is a gentler first pass; the terse feature+shortcomings checklist (and CI acceptance test) is
+[`testing/notebooks/aiudio_acceptance_walkthrough.ipynb`](testing/notebooks/aiudio_acceptance_walkthrough.ipynb).
+Prose reference: [`docs/80`](docs/80-pipeline-capabilities.md).
 
 ```bash
 pip install . jupyter matplotlib
-jupyter notebook notebooks/aiudio_pipeline_tour.ipynb
+jupyter notebook notebooks/aiudio_feature_tutorial.ipynb
 ```
 
 **Run the M0 I/O spikes** (Python):
