@@ -217,7 +217,7 @@ to devices). G4/G5/G6 are parallelizable after G3. G7 builds on G6 (Python) + G5
   **G8** (per-port channel counts) and **G9** (node/edge latency + delay compensation) lift
   this; planned in the [multi-source I/O roadmap](76-multi-source-io-roadmap.md) (Phase A),
   each extending ADR-0009. *(**G10** — multi-stream executor (N in/out streams via
-  source/sink binding) — is **✅ in review** (PR, ADR-0011); the executor now takes multiple
+  source/sink binding) — is **✅ merged (PR #14, ADR-0011)**; the executor now takes multiple
   named input/output streams, with single `in`/`out` as the 1-stream special case.)*
 
 ## 7. Risks
