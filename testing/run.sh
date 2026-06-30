@@ -52,7 +52,7 @@ section "Python — headless pytest (live device tests auto-skip)"
 
 if [ "$LIVE" = 1 ]; then
     section "Python — LIVE RT device layer (real output device)"
-    AIUDIO_LIVE=1 "$PY" -m pytest testing/python/test_live_device.py -v
+    AIUDIO_LIVE=1 "$PY" -m pytest testing/python -m live -v   # all live-marked tests (device + input)
 fi
 
 section "ALL TESTS PASSED"

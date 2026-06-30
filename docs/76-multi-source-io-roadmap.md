@@ -153,8 +153,10 @@ two numpy inputs → two numpy outputs) and live.
 ### Phase E — Control plane / Python (extends ADR-0010)
 
 **M11 — Input-side + multi-source Python bindings** · 🟢 · ~1–1.5 wk · no ADR
-- **E1:** bind the input/duplex/tap backends (currently ✓ only the *output* `DeviceBackend`
-  + offline are bound).
+- **E1:** bind the input/duplex/tap backends — ✅ **in review (PR, M11a)**: `InputBackend`,
+  `DuplexBackend`, `TapBackend` (+ `ProcessInfo`, `list_processes`) bound, GIL released on
+  lifecycle, `running`/`latency_frames` telemetry. (Previously only the *output* `DeviceBackend`
+  + offline were bound.) Live mic capture verified on hardware.
 - **E2:** bind the multi-source manager — open N sources / M sinks, bind them to graph
   Source/Sink nodes, per-source telemetry (level, xruns, drift) — all via the existing
   lock-free control plane (ADR-0010).
@@ -259,7 +261,7 @@ verified green before merge. **Status legend:** ✅ merged · 🟡 in review · 
 | 2 | `feat/g8-per-port-channels` | **G8** — per-port channel counts + `DownmixNode`/`UpmixNode` (channel-width change) | ✅ **merged (PR #15)** | main | offline (golden) |
 | 3 | `feat/g9-latency-pdc` | **G9** — node/edge latency reporting + delay compensation (ADR-0013) | ✅ **merged (PR #16)** | main | offline |
 | 4 | `feat/m9-1-xrun-policy` | **M9.1** — xrun/underrun policy + telemetry (device-side HAL detection → M9.4) | ✅ **merged (PR #17)** | main | headless + RT-alloc |
-| 5 | `feat/m11-input-bindings` | **M11a** — bind the input / duplex / tap backends to Python | ⬜ | main | gated live |
+| 5 | `feat/m11-input-bindings` | **M11a** — bind the input / duplex / tap backends to Python | 🟡 **in review (PR)** | main | gated live |
 | 6 | `feat/m10-multisource-manager` | **M10 (single-clock) + M11b** — manager (N rings, one clock) + Python multi-source API → ⭐ **live MVP** | ⬜ | 1, 5 (+2, 4) | gated live |
 | 7 | `feat/m9-4-hotplug` | **M9.4** — device hot-plug / fallback **+ a mock Core Audio backend** (reused by 8–9) | ⬜ | 4 | gated live + mock |
 | 8 | `feat/m9-3-resampler` | **M9.3** — boundary sample-rate conversion | ⬜ | 3, 4 | offline + live |
