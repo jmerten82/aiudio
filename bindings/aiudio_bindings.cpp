@@ -15,6 +15,7 @@
 #include <vector>
 
 #include "aiudio/graph/biquad_node.hpp"
+#include "aiudio/graph/downmix_node.hpp"
 #include "aiudio/graph/gain_node.hpp"
 #include "aiudio/graph/graph.hpp"
 #include "aiudio/graph/graph_executor.hpp"
@@ -22,6 +23,7 @@
 #include "aiudio/graph/sink_node.hpp"
 #include "aiudio/graph/source_node.hpp"
 #include "aiudio/graph/sum_node.hpp"
+#include "aiudio/graph/upmix_node.hpp"
 #include "aiudio/io/audio_buffer.hpp"
 #include "aiudio/io/offline_backend.hpp"
 #include "aiudio/io/types.hpp"
@@ -137,6 +139,12 @@ NB_MODULE(_aiudio, m) {
             n->setLowpass(freq, q, sr);
             return g.addNode(std::move(n));
         }, "freq"_a, "q"_a, "sample_rate"_a)
+        .def("add_downmix", [](graph::Graph& g) {
+            return g.addNode(std::make_unique<graph::DownmixNode>());
+        }, "Add a down-mix node: N input channels -> 1 (mono average). Changes channel width (G8).")
+        .def("add_upmix", [](graph::Graph& g, std::uint32_t channels) {
+            return g.addNode(std::make_unique<graph::UpmixNode>(channels));
+        }, "channels"_a = 2, "Add an up-mix node: 1 input channel -> `channels` (duplicate). G8.")
         .def("connect", [](graph::Graph& g, graph::NodeId s, std::uint32_t sp, graph::NodeId d,
                            std::uint32_t dp) { return g.connect(s, sp, d, dp); },
              "src"_a, "src_port"_a, "dst"_a, "dst_port"_a)

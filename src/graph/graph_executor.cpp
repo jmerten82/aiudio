@@ -59,18 +59,8 @@ std::unique_ptr<GraphExecutor::CompiledGraph> GraphExecutor::build(const Graph& 
     }
     const std::size_t zeroBuf = bufferCount++;
 
-    // 2) Allocate all buffers up front (no later resize → stable pointers).
-    cg->storage.assign(bufferCount,
-                       std::vector<float>(static_cast<std::size_t>(numChannels) * maxBlock, 0.0f));
-    cg->ptrs.assign(bufferCount, std::vector<float*>(numChannels, nullptr));
-    cg->portBuffers.resize(bufferCount);
-    for (std::size_t b = 0; b < bufferCount; ++b) {
-        for (std::uint32_t c = 0; c < numChannels; ++c)
-            cg->ptrs[b][c] = cg->storage[b].data() + static_cast<std::size_t>(c) * maxBlock;
-        cg->portBuffers[b] = io::AudioBuffer{cg->ptrs[b].data(), numChannels, maxBlock};
-    }
-
-    // 3) Topological order (Kahn).
+    // 2) Topological order (Kahn) — computed BEFORE sizing buffers, because a node's
+    //    output channel width depends on its (upstream) input widths.
     std::vector<std::vector<NodeId>> adj(n);
     std::vector<int> indeg(n, 0);
     for (const Edge& e : g.edges()) {
@@ -91,7 +81,48 @@ std::unique_ptr<GraphExecutor::CompiledGraph> GraphExecutor::build(const Graph& 
     }
     if (order.size() != n) return nullptr;  // cycle
 
-    // 4) Build the schedule, resolving input/output buffer views.
+    // 3) Channel-width propagation (G8): in topological order, each node maps its input
+    //    port widths to its output port widths via channelLayout(). Unconnected inputs
+    //    default to the host width; the shared zero buffer is sized to the widest port.
+    std::vector<std::vector<std::uint32_t>> outWidth(n);
+    for (std::size_t i = 0; i < n; ++i)
+        outWidth[i].assign(g.node(static_cast<NodeId>(i))->numOutputs(), 0);
+    std::uint32_t maxWidth = numChannels;
+    std::vector<std::uint32_t> inW, outW;
+    for (NodeId v : order) {
+        Node* node = g.node(v);
+        const std::uint32_t ins = node->numInputs();
+        const std::uint32_t outs = node->numOutputs();
+        inW.assign(ins, numChannels);  // unconnected input → host-width zeros
+        for (std::uint32_t p = 0; p < ins; ++p)
+            for (const Edge& e : g.edges())
+                if (e.dst == v && e.dstPort == p) { inW[p] = outWidth[e.src][e.srcPort]; break; }
+        outW.assign(outs, 0);
+        node->channelLayout(inW.data(), ins, outW.data(), outs, numChannels);
+        for (std::uint32_t p = 0; p < outs; ++p) {
+            outWidth[v][p] = outW[p];
+            if (outW[p] > maxWidth) maxWidth = outW[p];
+        }
+    }
+
+    // 4) Allocate each buffer at its own channel width (no later resize → stable pointers).
+    std::vector<std::uint32_t> bufWidth(bufferCount, numChannels);
+    for (std::size_t i = 0; i < n; ++i)
+        for (std::size_t p = 0; p < outBuf[i].size(); ++p) bufWidth[outBuf[i][p]] = outWidth[i][p];
+    bufWidth[zeroBuf] = maxWidth;
+    cg->storage.resize(bufferCount);
+    cg->ptrs.resize(bufferCount);
+    cg->portBuffers.resize(bufferCount);
+    for (std::size_t b = 0; b < bufferCount; ++b) {
+        const std::uint32_t w = bufWidth[b];
+        cg->storage[b].assign(static_cast<std::size_t>(w) * maxBlock, 0.0f);
+        cg->ptrs[b].assign(w, nullptr);
+        for (std::uint32_t c = 0; c < w; ++c)
+            cg->ptrs[b][c] = cg->storage[b].data() + static_cast<std::size_t>(c) * maxBlock;
+        cg->portBuffers[b] = io::AudioBuffer{cg->ptrs[b].data(), w, maxBlock};
+    }
+
+    // 5) Build the schedule, resolving input/output buffer views.
     cg->schedule.reserve(n);
     for (NodeId v : order) {
         Node* node = g.node(v);

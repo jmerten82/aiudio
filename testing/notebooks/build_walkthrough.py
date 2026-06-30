@@ -178,9 +178,22 @@ for f in (300.0, 5000.0):
     tone = np.sin(2 * np.pi * f * t).astype(np.float32).reshape(1, 2048)
     out = exb.process(tone)
     print(f"{f:>6.0f} Hz: in RMS {np.sqrt((tone**2).mean()):.3f} -> out RMS {np.sqrt((out**2).mean()):.3f}")""")
-md(r"""> ⚠️ **Shortcoming.** These four are the *entire* DSP palette today. No high-pass factory,
-> no parametric EQ, dynamics, delay/reverb, or any neural node. Multi-channel is supported
-> but there are no channel-routing/mixer-matrix nodes beyond `SumNode`.""")
+md(r"""> ⚠️ **Shortcoming.** This is most of the DSP palette today. No high-pass factory, no
+> parametric EQ, dynamics, delay/reverb, or any neural node, and no general routing/mix-matrix
+> node yet (beyond `SumNode` + the channel-width nodes below).""")
+
+md(r"""**Channel-width nodes (G8) — per-port channel counts.** A node can *change* the channel
+count: `add_downmix()` collapses N channels → 1 (mono average), `add_upmix(channels)` raises
+1 → N (duplicate). The executor sizes each interior port to its own width; the numpy I/O
+boundary stays at the host width. Here a stereo signal is down-mixed to mono then up-mixed
+back to stereo:""")
+code(r"""g_ch = aiudio.Graph()
+s = g_ch.add_source(); dn = g_ch.add_downmix(); up = g_ch.add_upmix(2); k = g_ch.add_sink()
+g_ch.connect(s, 0, dn, 0); g_ch.connect(dn, 0, up, 0); g_ch.connect(up, 0, k, 0)
+ex_ch = aiudio.GraphExecutor(); ex_ch.compile(g_ch, channels=2, sample_rate=SR, max_block=64)
+stereo = np.zeros((2, 8), np.float32); stereo[0] = 1.0; stereo[1] = 0.5   # L=1.0, R=0.5
+y = ex_ch.process(stereo)
+print("down->up: out[0]=", float(y[0, 0]), " out[1]=", float(y[1, 0]), " (mono (L+R)/2 = 0.75, duplicated)")""")
 
 # ---------------------------------------------------------------- 5. control plane
 md(r"""## 5. The control plane — live, RT-safe parameter edits (G7)
@@ -345,7 +358,7 @@ Everything the Python layer **cannot** do yet (or does with a caveat), and why:
 
 | Area | Shortcoming | Status / why |
 |---|---|---|
-| **Node library** | only `source/sink/gain/sum/meter/biquad_lowpass`; no high-pass factory, EQ, dynamics, delay/reverb, or neural nodes | grows in Phase 1+ |
+| **Node library** | `source/sink/gain/sum/meter/biquad_lowpass/downmix/upmix`; no high-pass factory, EQ, dynamics, delay/reverb, general routing-matrix, or neural nodes | grows in Phase 1+ |
 | **Signal generation** | no oscillator/file-source node → **live device output is silent** | small follow-up |
 | **Live input** | mic / full-duplex / process-tap backends (M3–M5) exist in C++ but **aren't bound** | follow-up |
 | **Device backend** | **output-only**, **macOS-only** | scope / platform |

@@ -23,6 +23,7 @@ aiudio_add_test(test_offline_render aiudio::graph)  # G4 + M6 golden file→grap
 aiudio_add_test(test_graph_live_edit aiudio::graph) # G5 atomic schedule swap
 aiudio_add_test(test_graph_control aiudio::graph)   # G7 control plane: param command queue
 aiudio_add_test(test_graph_multistream aiudio::graph) # G10 multi-stream executor
+aiudio_add_test(test_graph_channels aiudio::graph)  # G8 per-port channel counts
 
 if(APPLE)
     aiudio_add_test(test_coreaudio_enumerate aiudio::io)  # device enumeration, no audio
