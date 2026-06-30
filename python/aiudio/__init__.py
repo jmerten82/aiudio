@@ -14,12 +14,14 @@ from ._aiudio import (  # noqa: F401
     MultiSourceManager,
     OfflineBackend,
     Resampler,
+    ResamplingSource,
     WavFormat,
 )
 
 __all__ = [
     "Graph", "GraphExecutor", "OfflineBackend", "WavFormat",
-    "MultiSourceManager", "MasterClockAdapter", "MockBackend", "Resampler",
+    "MultiSourceManager", "MasterClockAdapter", "MockBackend",
+    "Resampler", "ResamplingSource",
 ]
 
 # The live device backend is a Core Audio (macOS) feature — a *control* frontend over

@@ -29,9 +29,11 @@
 #include "aiudio/graph/sum_node.hpp"
 #include "aiudio/graph/upmix_node.hpp"
 #include "aiudio/io/audio_buffer.hpp"
+#include "aiudio/io/drift_compensator.hpp"
 #include "aiudio/io/mock_backend.hpp"
 #include "aiudio/io/offline_backend.hpp"
 #include "aiudio/io/resampler.hpp"
+#include "aiudio/io/resampling_source.hpp"
 #include "aiudio/io/types.hpp"
 
 // The live device backend (Core Audio) is macOS-only; DeviceBackend is exposed only
@@ -150,6 +152,23 @@ nb::object resamplerProcess(io::Resampler& rs, InArray input, std::uint32_t outC
     nb::ndarray<nb::numpy, float> arr(
         outData, {static_cast<std::size_t>(channels), static_cast<std::size_t>(r.produced)}, owner);
     return nb::make_tuple(arr, r.consumed);
+}
+
+// Engine-side pull from a ResamplingSource (M9.5): produce `frames` of engine-rate audio
+// (silence-padded on underrun) as a (channels, frames) numpy array.
+nb::ndarray<nb::numpy, float> resamplingSourcePull(io::ResamplingSource& src,
+                                                   std::uint32_t frames) {
+    const std::uint32_t channels = src.channels();
+    auto* outData = new float[static_cast<std::size_t>(channels) * frames]();
+    std::vector<float*> outPtrs(channels);
+    for (std::uint32_t c = 0; c < channels; ++c)
+        outPtrs[c] = outData + static_cast<std::size_t>(c) * frames;
+    io::AudioBuffer dst{outPtrs.data(), channels, frames};
+    src.pull(dst, frames);
+
+    nb::capsule owner(outData, [](void* p) noexcept { delete[] static_cast<float*>(p); });
+    return nb::ndarray<nb::numpy, float>(
+        outData, {static_cast<std::size_t>(channels), static_cast<std::size_t>(frames)}, owner);
 }
 
 }  // namespace
@@ -346,6 +365,42 @@ NB_MODULE(_aiudio, m) {
         .def_prop_ro("channels", &io::Resampler::channels)
         .def_prop_ro("latency_frames", &io::Resampler::latencyFrames,
                      "Kernel group delay in output frames (report to delay compensation).");
+
+    // ---- Off-clock source (M9.5) — ring + resampler + drift servo, as a control frontend ----
+    // A producer push()es source-rate audio; the engine pull()s a fixed engine-rate block. The
+    // ring-fill servo nudges the resample ratio so a drifting source stays bounded + aligned
+    // (ADR-0015). push/pull are wait-free in C++; here they cross the numpy boundary.
+    nb::class_<io::ResamplingSource>(m, "ResamplingSource")
+        .def("__init__", [](io::ResamplingSource* self, std::uint32_t channels, double nominalRatio,
+                            std::uint32_t ringFrames, std::uint32_t maxBlock, double gain,
+                            double maxDeviation, double slew) {
+            new (self) io::ResamplingSource();
+            io::DriftCompensator::Config cfg;
+            cfg.gain = gain;
+            cfg.maxDeviation = maxDeviation;
+            cfg.slew = slew;
+            self->prepare(channels, nominalRatio, ringFrames, maxBlock, cfg);
+        }, "channels"_a, "nominal_ratio"_a, "ring_frames"_a, "max_block"_a, "gain"_a = 0.05,
+           "max_deviation"_a = 0.05, "slew"_a = 0.25,
+           "nominal_ratio = source_rate / engine_rate; the servo adapts it from ring fill.")
+        .def("push", [](io::ResamplingSource& s, InArray src) {
+            const auto ch = static_cast<std::uint32_t>(src.shape(0));
+            const auto fr = static_cast<std::uint32_t>(src.shape(1));
+            std::vector<float*> ptrs(ch);
+            for (std::uint32_t c = 0; c < ch; ++c)
+                ptrs[c] = const_cast<float*>(src.data()) + static_cast<std::size_t>(c) * fr;
+            io::AudioBuffer b{ptrs.data(), ch, fr};
+            return s.push(b, fr);
+        }, "block"_a, "Producer: push a (channels, frames) source-rate block; returns frames accepted.")
+        .def("pull", &resamplingSourcePull, "frames"_a,
+             "Engine: pull `frames` of engine-rate audio (silence-padded on underrun).")
+        .def_prop_ro("channels", &io::ResamplingSource::channels)
+        .def_prop_ro("ratio", &io::ResamplingSource::ratio, "Current drift-corrected ratio.")
+        .def_prop_ro("nominal_ratio", &io::ResamplingSource::nominalRatio)
+        .def_prop_ro("fill_frames", &io::ResamplingSource::fillFrames,
+                     "Source-rate frames buffered ahead of the engine (telemetry).")
+        .def_prop_ro("overruns", &io::ResamplingSource::overruns)
+        .def_prop_ro("underruns", &io::ResamplingSource::underruns);
 
     nb::enum_<io::WavFormat>(m, "WavFormat")
         .value("Int16", io::WavFormat::Int16)

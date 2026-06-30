@@ -64,8 +64,8 @@ print("aiudio", aiudio.__version__, "| Python", platform.python_version(), "|", 
 print("public API (aiudio.__all__):", aiudio.__all__)
 print("DeviceBackend present:", hasattr(aiudio, "DeviceBackend"), "(macOS-only)")""")
 md(r"""> ⚠️ **Shortcoming.** The whole surface is still small: `Graph`, `GraphExecutor`,
-> `MultiSourceManager`, `MasterClockAdapter`, `MockBackend`, `Resampler`, `OfflineBackend`,
-> `WavFormat` (+ the macOS device backends). There is no Python access to the RT internals
+> `MultiSourceManager`, `MasterClockAdapter`, `MockBackend`, `Resampler`, `ResamplingSource`,
+> `OfflineBackend`, `WavFormat` (+ the macOS device backends). There is no Python access to the RT internals
 > (`RingBuffer`, `AudioBuffer`, `RenderCallback`), no serialization, no differentiable layer,
 > and no agent. Those are deliberate (the audio thread is C++; ADR-0002/0004) or not built yet
 > (Phases 1–2).""")
@@ -430,6 +430,31 @@ md(r"""> ⚠️ **Shortcoming.** The kernel is a 4-tap cubic — good, not trans
 > resampler is **not yet auto-wired** into the device→graph path from Python — you drive it
 > explicitly here; the manager-level boundary wiring lands with M9.5/M9.6.""")
 
+md(r"""### 7c. `ResamplingSource` — off-clock drift compensation (M9.5)
+
+Two devices on separate physical clocks **drift** (tens of PPM) even at the same nominal
+rate, so a producer feeding a consumer at the "same" rate slowly over- or under-fills the
+ring between them → an eventual xrun. `ResamplingSource` bundles a lock-free ring + the
+`Resampler` + a **ring-fill servo** (`DriftCompensator`): the producer `push()`es at its own
+rate, the engine `pull()`s a fixed block, and the servo nudges the resample ratio so the ring
+stays centered (ADR-0015). Here we simulate a producer **0.3 % fast** and soak it — the ring
+stays bounded and never overflows, and the ratio adapts above 1.0 to consume faster.""")
+code(r"""src = aiudio.ResamplingSource(channels=1, nominal_ratio=1.0, ring_frames=4096, max_block=64)
+true_ratio, acc, ppos, max_fill = 1.003, 0.0, 0, 0          # producer 0.3% fast
+for step in range(20000):
+    acc += 64 * true_ratio; n = int(acc); acc -= n           # producer-rate frames this block
+    src.push(np.sin(0.02 * np.arange(ppos, ppos + n)).astype(np.float32)[None, :]); ppos += n
+    out = src.pull(64)                                        # engine pulls a fixed 64-frame block
+    if step > 3000: max_fill = max(max_fill, src.fill_frames)
+print(f"after 20k blocks: ratio={src.ratio:.5f} (adapted >1.0)  fill≈{src.fill_frames}  "
+      f"max_fill={max_fill} (< 4096)  overruns={src.overruns}  underruns={src.underruns}")""")
+md(r"""> ⚠️ **Shortcomings.** The servo is **proportional** — it leaves a small, bounded steady
+> fill offset (harmless, far inside the ring) rather than driving error to exactly zero; an
+> integral term is a later refinement. Drift is proven here by **simulation**; true two-clock
+> hardware verification is the M9.6 multi-device step. And `ResamplingSource` is a building
+> block — it is not yet auto-attached to a `MockBackend`/device inside the manager (that
+> wiring is M9.6).""")
+
 # ---------------------------------------------------------------- 8. cross-backend
 md(r"""## 8. Cross-backend determinism (the *one-IR-many-backends* invariant)
 
@@ -463,7 +488,8 @@ Everything the Python layer **cannot** do yet (or does with a caveat), and why:
 | **Direct edits** | `Graph.set_gain` is **not RT-safe on a running stream** — use `ex.set_*` | by design |
 | **`process()`** | silently renders only up to `max_block` frames (tail → 0) | contract footgun |
 | **File I/O** | **WAV only**; `WavFormat.Float32` unreadable by stdlib `wave` (use `Int16`) | format scope |
-| **Sample-rate conversion** | `Resampler` **✅ bound** (M9.3, boundary SRC, cubic kernel); not yet auto-wired into the device→graph path from Python (drive explicitly); drift/cross-clock = M9.5/M9.6 | ✅ / in progress |
+| **Sample-rate conversion** | `Resampler` **✅ bound** (M9.3, boundary SRC, cubic kernel); not yet auto-wired into the device→graph path from Python (drive explicitly) | ✅ |
+| **Clock-drift compensation** | `ResamplingSource` **✅ bound** (M9.5, ring + resampler + proportional servo); proportional-only (small steady offset); true two-clock hardware = M9.6; not yet auto-attached to a backend in the manager | ✅ / in progress |
 | **Serialization** | no save/load of a graph | ADR-0009 deferred |
 | **Differentiable / trainable** | not available | Phase 1 |
 | **Agent (NL → graph)** | not available | Phase 2 |

@@ -35,9 +35,10 @@ endif()
 # and the offline (file) backend (M6).
 add_library(aiudio_io
     src/io/conversions.cpp
-    src/io/wav_file.cpp          # M6: WAV reader/writer
-    src/io/offline_backend.cpp   # M6: offline (file) backend
-    src/io/mock_backend.cpp)     # M9.4: deterministic test backend
+    src/io/wav_file.cpp              # M6: WAV reader/writer
+    src/io/offline_backend.cpp       # M6: offline (file) backend
+    src/io/mock_backend.cpp          # M9.4: deterministic test backend
+    src/io/resampling_source.cpp)    # M9.5: off-clock source (ring + resampler + drift servo)
 add_library(aiudio::io ALIAS aiudio_io)
 
 target_include_directories(aiudio_io PUBLIC
