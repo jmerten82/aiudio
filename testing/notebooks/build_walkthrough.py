@@ -119,11 +119,11 @@ print("after remove+rewire -> node_type(atten):", ge.node_type(atten),
       "| live_node_count:", ge.live_node_count, "| node_count:", ge.node_count)
 exe = aiudio.GraphExecutor(); exe.compile(ge, channels=1, sample_rate=SR, max_block=16)
 print("recompiled, source→boost(2.0):", float(exe.process(np.ones((1, 16), np.float32))[0, 0]))""")
-md(r"""> ⚠️ **Shortcoming.** The node factory set is still small — `source/sink/gain/sum/meter/
-> biquad_lowpass/biquad_highpass/biquad_coeffs/downmix/upmix/latency`. No EQ/reverb/dynamics/
-> **neural** nodes yet, and no generic `add_node(...)`; growing the library is Phase 1+. Graph
-> **editing is add/remove only** (no in-place node mutation), and graphs stay **DAG-only** (no
-> feedback cycles) and single-rate. There is no graph **serialization** (save/load) yet.""")
+md(r"""> ⚠️ **Shortcoming.** This cell shows the spine primitives; the **Tier-1 library** (parametric
+> EQ, dynamics, delay, generators, pan/width, mixer, routing — see §4) is also available, but
+> there is still no parametric **reverb**, spectral/FFT, or **neural** node yet, and no generic
+> `add_node(...)` (`docs/78` Tier 2/3). Graph **editing is add/remove only** (no in-place node
+> mutation), graphs stay **DAG-only** and single-rate, and there is no graph **serialization** yet.""")
 
 # ---------------------------------------------------------------- 3. executor
 md(r"""## 3. `GraphExecutor` — compile, run on numpy, telemetry

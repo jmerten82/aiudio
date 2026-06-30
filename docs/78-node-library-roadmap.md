@@ -1,4 +1,4 @@
-# 77 — Node-library roadmap (DSP + neural peers)
+# 78 — Node-library roadmap (DSP + neural peers)
 
 > **Last updated:** 2026-06-30 · **Goal:** grow the graph's node palette from the spine
 > primitives into a real music-production + research library, in three tiers, leaning on the
