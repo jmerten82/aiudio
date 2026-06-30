@@ -1,17 +1,15 @@
 # 76 — True Multi-Source I/O: Project Plan (absorbs M9)
 
-> **Last updated:** 2026-06-29 · **Goal:** N independent input sources *and* M output
+> **Last updated:** 2026-06-30 · **Goal:** N independent input sources *and* M output
 > sinks — each on its own hardware clock — brought onto **one engine timeline**, composed
-> in **one graph**, controllable from **Python**, all **RT-safe**. · **Status:** in
-> progress — **the single-clock multi-source MVP is built and merged** (G10, G8, G9, M9.1, M11a,
-> **M10** all in `main`): N sources → one graph (mix/route) → M sinks via per-stream lock-free
-> rings. The **master-clock adapter** + **M9.4** (mock + hot-plug/xrun model) are **merged**.
-> The **rate/clock tail is now implemented and in review** as a stacked PR chain: **M9.3**
-> boundary resampler (#21), **M9.5** off-clock drift servo (#22), **M9.6** cross-clock
-> multi-device (#23), and **M9.2 + the real HAL device-died listener** (#24) — making the
-> roadmap **feature-complete**, with only the *physical* hardware triggers (a real unplug;
-> two devices on separate clocks) verified on-device (their logic proven headlessly via the
-> mock). See the
+> in **one graph**, controllable from **Python**, all **RT-safe**. · **Status:**
+> **roadmap feature-complete — the full chain is merged to `main`.** The single-clock
+> multi-source MVP (G10, G8, G9, M9.1, M11a, **M10**, master-clock adapter, **M9.4**) plus the
+> entire **rate/clock tail** are now in `main`: **M9.3** boundary resampler (#21), **M9.5**
+> off-clock drift servo (#22), **M9.6** cross-clock multi-device (#23), and **M9.2 + the real
+> HAL device-died listener** (#24). The only work left is the *physical* hardware triggers
+> (a real device unplug; two devices on separate physical clocks), whose logic is already
+> proven headlessly via the `MockBackend`. See the
 > **[delivery plan / PR chain in §11](#11-delivery-plan--the-pr-chain-live-status)** for live status. (Post-Phase-0; the I/O parts cluster in Phase 3 productionization, the
 > spine parts are general and can land earlier.)
 >
@@ -116,11 +114,11 @@ RT/est/deps per sub-milestone; **do M9.1 first** (it makes every later live test
 | ID | Deliverable | RT | Est | Deps |
 |---|---|---|---|---|
 | **M9.1** xrun/underrun policy — ✅ **merged (PR #17)** | detect (ring over/underrun counters ✓ + executor under-served-block counter ✓); substitute (silence on underrun, drop on overrun ✓); atomic `xrun_count` / `dropped_commands` telemetry ✓; `StreamConfig.XrunPolicy` knob ✓ (enforcement deferred). **Device-side HAL-timestamp gap + `kAudioDeviceProcessorOverload` detection deferred to M9.4** (needs the mock backend to test). | 🟡 | 2–3 d | — |
-| **M9.2** channel mapping/routing — 🟡 **in review (PR #24)** | `io::mapChannels` / `ChannelMapMode` (Auto / Copy / DuplicateMono / DownmixToMono): the device↔graph **mono↔stereo / N↔M** boundary mapping — the complement to the within-graph `DownmixNode`/`UpmixNode` (G8). Alloc-free, RT-safe; bound to Python. *(Not yet auto-applied inside the manager push/pop — call explicitly at the boundary; within-graph routing-matrix nodes remain future.)* | 🟢 | 2–4 d | **G8** |
-| **M9.3** boundary sample-rate conversion — 🟡 **in review (PR #21)** | `io::Resampler`: a streaming, RT-safe **cubic (Catmull-Rom) fractional SRC** at the I/O edge (ratio = inRate/outRate); alloc-free `process()`; reports kernel `latencyFrames()` (G9); `setRatio()` designed in for the M9.5 drift loop. Bound to Python (numpy in → numpy out). ADR-0015. *(Polyphase-FIR/libsamplerate kernel upgrade can replace the interpolator behind the same interface later.)* | 🔴 | 4–6 d | M9.1, **G9** |
-| **M9.4** device hot-plug/disconnect + fallback — ✅ **merged (PR #20)** | The **model** is built + testable: an `AudioBackend` disconnect-handler + `disconnected()`/`xrunCount()`; a **`MockBackend`** (deterministic, manually-ticked) that injects disconnect + xrun so the live path + hot-plug + device-side xrun (the M9.1 deferral) are exercised headlessly. **The real Core Audio HAL device-died listener is now wired** on the output/input/duplex backends (🟡 **in review, PR #24**): `kAudioDevicePropertyDeviceIsAlive` → `notifyDisconnect()`; the physical-unplug *trigger* is hardware-verified. | 🟢 | 4–7 d | M9.1 |
-| **M9.5** drift compensation (separate clocks) — 🟡 **in review (PR #22)** | `io::DriftCompensator` (a proportional **ring-fill servo**) drives `Resampler.setRatio()` adaptively; `io::ResamplingSource` bundles ring + resampler + servo into the reusable off-clock boundary unit (producer `push()`s at its rate, engine `pull()`s a fixed block). Stable + bounded under a ±0.3% drift soak (60k blocks); wait-free push/pull. Bound to Python. ADR-0015. *(Proportional-only — small bounded steady offset; integral term is a later refinement.)* | 🔴 | 1.5–2.5 wk | M9.3 |
-| **M9.6** multi-**device** (1-in + 1-out, separate clocks) — 🟡 **in review (PR #23)** | `graph::CrossClockBridge`: the master device defines the engine clock (ADR-0005); the off-clock output device pulls through a drift-compensated `ResamplingSource` (M9.5) whose servo keeps the cross-clock SPSC ring bounded. Verified headlessly with two `MockBackend`s on different tick cadences (DC across clocks; slow/fast-clock soaks bounded; multithreaded TSan-clean). Bound to Python. ADR-0015 §4. **Remaining (hardware-verified):** two real devices on separate physical clocks. | 🔴 | 1–1.5 wk | M9.5 |
+| **M9.2** channel mapping/routing — ✅ **merged (PR #24)** | `io::mapChannels` / `ChannelMapMode` (Auto / Copy / DuplicateMono / DownmixToMono): the device↔graph **mono↔stereo / N↔M** boundary mapping — the complement to the within-graph `DownmixNode`/`UpmixNode` (G8). Alloc-free, RT-safe; bound to Python. *(Not yet auto-applied inside the manager push/pop — call explicitly at the boundary; within-graph routing-matrix nodes remain future.)* | 🟢 | 2–4 d | **G8** |
+| **M9.3** boundary sample-rate conversion — ✅ **merged (PR #21)** | `io::Resampler`: a streaming, RT-safe **cubic (Catmull-Rom) fractional SRC** at the I/O edge (ratio = inRate/outRate); alloc-free `process()`; reports kernel `latencyFrames()` (G9); `setRatio()` designed in for the M9.5 drift loop. Bound to Python (numpy in → numpy out). ADR-0015. *(Polyphase-FIR/libsamplerate kernel upgrade can replace the interpolator behind the same interface later.)* | 🔴 | 4–6 d | M9.1, **G9** |
+| **M9.4** device hot-plug/disconnect + fallback — ✅ **merged (PR #20)** | The **model** is built + testable: an `AudioBackend` disconnect-handler + `disconnected()`/`xrunCount()`; a **`MockBackend`** (deterministic, manually-ticked) that injects disconnect + xrun so the live path + hot-plug + device-side xrun (the M9.1 deferral) are exercised headlessly. **The real Core Audio HAL device-died listener is now wired** on the output/input/duplex backends (✅ **merged, PR #24**): `kAudioDevicePropertyDeviceIsAlive` → `notifyDisconnect()`; the physical-unplug *trigger* is hardware-verified. | 🟢 | 4–7 d | M9.1 |
+| **M9.5** drift compensation (separate clocks) — ✅ **merged (PR #22)** | `io::DriftCompensator` (a proportional **ring-fill servo**) drives `Resampler.setRatio()` adaptively; `io::ResamplingSource` bundles ring + resampler + servo into the reusable off-clock boundary unit (producer `push()`s at its rate, engine `pull()`s a fixed block). Stable + bounded under a ±0.3% drift soak (60k blocks); wait-free push/pull. Bound to Python. ADR-0015. *(Proportional-only — small bounded steady offset; integral term is a later refinement.)* | 🔴 | 1.5–2.5 wk | M9.3 |
+| **M9.6** multi-**device** (1-in + 1-out, separate clocks) — ✅ **merged (PR #23)** | `graph::CrossClockBridge`: the master device defines the engine clock (ADR-0005); the off-clock output device pulls through a drift-compensated `ResamplingSource` (M9.5) whose servo keeps the cross-clock SPSC ring bounded. Verified headlessly with two `MockBackend`s on different tick cadences (DC across clocks; slow/fast-clock soaks bounded; multithreaded TSan-clean). Bound to Python. ADR-0015 §4. **Remaining (hardware-verified):** two real devices on separate physical clocks. | 🔴 | 1–1.5 wk | M9.5 |
 
 > **Naming caution carried over:** M9.6 "multi-device" = *one* input + *one* output on
 > separate clocks. It is **not** N sources — that's Phase C.
@@ -272,10 +270,10 @@ verified green before merge. **Status legend:** ✅ merged · 🟡 in review · 
 | 6 | `feat/m10-multisource-manager` | **M10 (single-clock)** — manager (per-stream rings, one clock) + Python multi-source API → ⭐ **MVP** | ✅ **merged (PR #19)** | 1, 5 (+2, 4) | C++ + TSan + Python |
 | — | `feat/m10-live-and-m9-4` | **Master-clock adapter** — `MasterClockAdapter` lets any backend's clock drive the manager (the live-feeding layer) | ✅ **merged (PR #20)** | M10 | C++ + TSan + Python (mock) |
 | 7 | `feat/m10-live-and-m9-4` | **M9.4 (core)** — `MockBackend` + hot-plug/disconnect + device-xrun model (the M9.1-deferred device xruns) | ✅ **merged (PR #20)** | 4 | C++ + TSan + Python + mock |
-| 8 | `feat/m9-3-resampler` | **M9.3** — boundary sample-rate conversion (`io::Resampler`, cubic SRC, ADR-0015) | 🟡 **in review (PR #21)** | 3, 4 | C++ + RT-alloc + Python |
-| 9 | `feat/m9-5-drift-comp` | **M9.5** — adaptive drift compensation (`DriftCompensator` servo + `ResamplingSource`, ADR-0015) | 🟡 **in review (PR #22)** | 8 | C++ soak + RT-alloc + Python |
-| 10 | `feat/m9-6-cross-clock` | **M9.6** — cross-clock multi-device (`CrossClockBridge`, master clock + off-clock output, ADR-0015 §4) | 🟡 **in review (PR #23)** | 9, 6 | C++ soak + TSan + Python |
-| 11 | `feat/m9-2-channelmap-hal` | **M9.2 + M9.4 tail** — boundary channel mapping (`mapChannels`) + the real Core Audio HAL device-died listener wiring | 🟡 **in review (PR #24)** | 6 (G8) | C++ + macOS HAL + Python |
+| 8 | `feat/m9-3-resampler` | **M9.3** — boundary sample-rate conversion (`io::Resampler`, cubic SRC, ADR-0015) | ✅ **merged (PR #21)** | 3, 4 | C++ + RT-alloc + Python |
+| 9 | `feat/m9-5-drift-comp` | **M9.5** — adaptive drift compensation (`DriftCompensator` servo + `ResamplingSource`, ADR-0015) | ✅ **merged (PR #22)** | 8 | C++ soak + RT-alloc + Python |
+| 10 | `feat/m9-6-cross-clock` | **M9.6** — cross-clock multi-device (`CrossClockBridge`, master clock + off-clock output, ADR-0015 §4) | ✅ **merged (PR #23)** | 9, 6 | C++ soak + TSan + Python |
+| 11 | `feat/m9-2-channelmap-hal` | **M9.2 + M9.4 tail** — boundary channel mapping (`mapChannels`) + the real Core Audio HAL device-died listener wiring | ✅ **merged (PR #24)** | 6 (G8) | C++ + macOS HAL + Python |
 
 **MVP cut-line** ⭐ — after **PR 6** you have demonstrable multi-source: N inputs on a
 shared clock → mixed/routed in one graph → M outputs, from Python, RT-safe, *without* drift
@@ -291,7 +289,7 @@ comp. (PRs 1, 5, 6 + optionally 2, 4 — the `~4–6 wk` single-clock MVP of §8
   *and live-drivable*:** N sources → one graph (mix/route, channel-change, PDC) → M sinks via
   per-stream lock-free rings, driven by any backend's clock (proven headlessly via the mock,
   TSan-clean across threads), with xrun + hot-plug telemetry.
-- **The rate/clock tail is implemented and in review (the stacked chain PRs 8–11):** PR 8 (M9.3
+- **The rate/clock tail is merged (the stacked chain PRs 8–11, all in `main`):** PR 8 (M9.3
   boundary resampler, #21), PR 9 (M9.5 off-clock drift servo, #22), PR 10 (M9.6 cross-clock
   multi-device, #23), PR 11 (M9.2 boundary channel mapping + the real Core Audio HAL device-died
   listener, #24). With these, **the full multi-source I/O roadmap is feature-complete** — the

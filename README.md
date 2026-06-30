@@ -13,7 +13,7 @@ offline use.
 > as a frontend, G1–G7) are implemented and tested, with a documented C++ + Python
 > [testing strategy](testing/README.md) (CI-green). Remaining I/O — M7 (plugin host),
 > M9 (hardening) — is not a Phase-0 gate. Next: Phase 1 (differentiable core).
-> **Last updated:** 2026-06-29.
+> **Last updated:** 2026-06-30.
 
 ---
 
@@ -149,7 +149,7 @@ status — **kept current as we go**.
 - [ ] C++ RT executor: inline + off-thread pooled neural nodes
 - [ ] Streaming / cached-conv export (non-causal → causal)
 - [ ] Plugin-host backend + VST3/CLAP packaging (I/O M7)
-- [ ] **True multi-source I/O** — N inputs + M outputs, one graph, from Python *(plan + PR chain: [`docs/76`](docs/76-multi-source-io-roadmap.md) §11; **single-clock MVP built + live-drivable — G10 · G8 · G9 · M9.1 · M11a · M10 · master-clock adapter · M9.4 (mock + hot-plug) ✅ all merged**. The **rate/clock tail is implemented + in review** as a stacked chain: M9.3 resampler (#21) · M9.5 off-clock drift servo (#22) · M9.6 cross-clock multi-device (#23) · M9.2 boundary channel mapping + real HAL device-died listener (#24) — **feature-complete**, only the physical hardware triggers verified on-device)*
+- [x] **True multi-source I/O** — N inputs + M outputs, one graph, from Python *(plan: [`docs/76`](docs/76-multi-source-io-roadmap.md) §11; **feature-complete — the full chain is merged**: G10 · G8 · G9 · M9.1 · M11a · M10 · master-clock adapter · M9.4 · M9.3 resampler (#21) · M9.5 off-clock drift servo (#22) · M9.6 cross-clock multi-device (#23) · M9.2 boundary channel mapping + real HAL device-died listener (#24). N sources → mix/route → M sinks via per-stream rings, on one or separate clocks. Only the physical hardware triggers (a real unplug; two devices on separate clocks) remain on-device, their logic proven headlessly via the mock)*
 
 ### Phase 4 — Breadth
 - [ ] Source separation, more neural FX, neural-codec node
