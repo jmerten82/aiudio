@@ -34,6 +34,7 @@
 #include "aiudio/graph/noise_node.hpp"
 #include "aiudio/graph/oscillator_node.hpp"
 #include "aiudio/graph/pan_node.hpp"
+#include "aiudio/graph/parametric_eq_node.hpp"
 #include "aiudio/graph/sink_node.hpp"
 #include "aiudio/graph/source_node.hpp"
 #include "aiudio/graph/stereo_width_node.hpp"
@@ -271,6 +272,26 @@ NB_MODULE(_aiudio, m) {
             auto n = std::make_unique<graph::BiquadNode>(); n->setHighShelf(freq, q, gainDb, sr);
             return g.addNode(std::move(n));
         }, "freq"_a, "q"_a, "gain_db"_a, "sample_rate"_a, "High-shelf EQ. params: 0=freq 1=q 2=gain_db.")
+        .def("add_parametric_eq", [](graph::Graph& g, nb::list bands, double sr,
+                                     std::uint32_t maxCh) {
+            std::vector<graph::ParametricEqNode::Band> specs;
+            specs.reserve(bands.size());
+            for (std::size_t i = 0; i < bands.size(); ++i) {
+                nb::tuple t = nb::cast<nb::tuple>(bands[i]);  // (type, freq, q, gain_db)
+                const std::string ty = nb::cast<std::string>(t[0]);
+                auto type = graph::BiquadNode::Type::Peaking;
+                if (ty == "lowshelf") type = graph::BiquadNode::Type::LowShelf;
+                else if (ty == "highshelf") type = graph::BiquadNode::Type::HighShelf;
+                else if (ty == "lowpass") type = graph::BiquadNode::Type::Lowpass;
+                else if (ty == "highpass") type = graph::BiquadNode::Type::Highpass;
+                const double gainDb = (t.size() > 3) ? nb::cast<double>(t[3]) : 0.0;
+                specs.push_back({type, nb::cast<double>(t[1]), nb::cast<double>(t[2]), gainDb});
+            }
+            return g.addNode(std::make_unique<graph::ParametricEqNode>(specs, sr, maxCh));
+        }, "bands"_a, "sample_rate"_a, "max_channels"_a = 2,
+           "Multi-band EQ from a list of (type, freq, q, gain_db) bands — type ∈ "
+           "{peaking, lowshelf, highshelf, lowpass, highpass}. Cascaded biquads in one node. "
+           "Live: set_param(band*3 + {0:freq,1:q,2:gain_db}, value).")
         .def("add_waveshaper", [](graph::Graph& g, const std::string& shape, float drive, float mix) {
             auto s = graph::WaveshaperNode::Shape::Tanh;
             if (shape == "softclip") s = graph::WaveshaperNode::Shape::SoftClip;

@@ -34,7 +34,8 @@ drums / pan it" agent gestures. All bound to Python (`Graph.add_*`).
 |---|---|---|---|---|
 | `OscillatorNode` | 0→1 | sine/saw/square/triangle generator | — | 0=freq 1=amplitude |
 | `NoiseNode` | 0→1 | white / pink noise | — | 0=amplitude |
-| `BiquadNode` (peaking, low/high shelf) | 1→1 | parametric-EQ family — **chain for multi-band** | live queue | 0=freq 1=q 2=gain_db |
+| `BiquadNode` (peaking, low/high shelf) | 1→1 | parametric-EQ family (one band) | live queue | 0=freq 1=q 2=gain_db |
+| `ParametricEqNode` | 1→1 | **multi-band EQ in one node** — cascaded bands from a `(type,freq,q,gain_db)` list | live queue | band·3 + {0=freq,1=q,2=gain_db} |
 | `CompressorNode` | 1→1 | compressor / limiter, **look-ahead → reports latency** | **G9 PDC** | 0=threshold_db 1=ratio 2=attack 3=release 4=makeup |
 | `GateNode` | 1→1 | noise gate / downward expander | — | 0=threshold 1=attack 2=release 3=range_db |
 | `DelayNode` | 1→1 | delay + feedback + mix (internal feedback) | — | 0=delay_frames 1=feedback 2=mix |

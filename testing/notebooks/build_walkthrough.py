@@ -264,11 +264,21 @@ ext = aiudio.GraphExecutor(); ext.compile(gt, channels=2, sample_rate=SR, max_bl
 out = ext.process_multi([np.zeros((2, 128), np.float32)])[0]   # the oscillator generates
 print("chain:", [t for _, t, _, _ in gt.nodes()])
 print(f"out {out.shape}  peak={np.max(np.abs(out)):.3f}  latency_frames={ext.latency_frames} (comp look-ahead 16)")""")
+md(r"""**Multi-band parametric EQ in one node** — `add_parametric_eq([(type, freq, q, gain_db), …])`
+cascades biquad bands (type ∈ peaking/lowshelf/highshelf/lowpass/highpass) into a single node
+(one id — a clean agent/serialization target). Per-band live control:
+`set_param(eq, band*3 + {0:freq, 1:q, 2:gain_db}, value)`.""")
+code(r"""ge2 = aiudio.Graph()
+s = ge2.add_source()
+eqn = ge2.add_parametric_eq([("lowshelf", 200.0, 0.707, 6.0), ("peaking", 2000.0, 1.0, 0.0),
+                            ("highshelf", 8000.0, 0.707, 0.0)], SR)
+k = ge2.add_sink(); ge2.connect(s, 0, eqn, 0); ge2.connect(eqn, 0, k, 0)
+exq2 = aiudio.GraphExecutor(); exq2.compile(ge2, channels=1, sample_rate=SR, max_block=4096)
+print("3-band EQ, +6 dB low shelf → DC gain:", round(float(exq2.process(np.ones((1, 4096), np.float32))[0, -1]), 4))""")
 md(r"""> ⚠️ **Shortcoming.** Still missing from the palette: spectral (STFT/FFT) effects,
 > convolution / algorithmic **reverb**, loudness/true-peak meters, and any **neural** node —
-> those are Tier 2/3 (`docs/78`). The EQ is built by *chaining* biquad bands (no single
-> N-band convenience node yet), and live param control is index-based (`set_param`) rather
-> than named setters.""")
+> those are Tier 2/3 (`docs/78`). Live param control is index-based (`set_param`) rather than
+> named setters, and the EQ has no built-in spectrum analyzer (needs the Tier-2 FFT).""")
 
 md(r"""**Channel-width nodes (G8) — per-port channel counts.** A node can *change* the channel
 count: `add_downmix()` collapses N channels → 1 (mono average), `add_upmix(channels)` raises
