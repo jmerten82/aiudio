@@ -217,7 +217,7 @@ to devices). G4/G5/G6 are parallelizable after G3. G7 builds on G6 (Python) + G5
   yet in; planned in the [multi-source I/O roadmap](76-multi-source-io-roadmap.md) (Phase A),
   extending ADR-0009. *(**G10** — multi-stream executor (N in/out streams) — **✅ merged
   (PR #14, ADR-0011)**. **G8** — per-port channel counts (a node may change the channel width;
-  down/up-mix) — is **✅ in review (PR, ADR-0012)**; single in/out + uniform width remain the
+  down/up-mix) — **✅ merged (PR #15, ADR-0012)**; single in/out + uniform width remain the
   default special case.)*
 
 ## 7. Risks

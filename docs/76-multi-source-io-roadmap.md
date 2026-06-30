@@ -83,7 +83,7 @@ thread. **New milestone IDs** extend the existing M/G numbering.
 
 ### Phase A — Engine prerequisites (graph spine; reusable beyond multi-source)
 
-**G8 — Per-port channel counts** · ✅ in review (PR) · 🟢 · ADR-0012 (extends ADR-0009)
+**G8 — Per-port channel counts** · ✅ **merged (PR #15)** · 🟢 · ADR-0012 (extends ADR-0009)
 Each port declares/infers its own channel width; a **channel-count propagation pass** in
 `GraphExecutor::build()` sizes buffers per output port (✓ rides the existing per-port
 allocation + topo walk); `Node::channelLayout(inCounts)→outCounts` (default: inherit/
