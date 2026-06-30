@@ -112,3 +112,43 @@ def test_restart_same_backend(aud):
 def test_latency_reported(aud):
     be, *_ = _opened(aud)
     assert be.latency_frames >= 0
+
+
+def test_device_drives_multisource_manager_via_adapter(aud):
+    """A real output device, as the master clock for a MultiSourceManager via a
+    MasterClockAdapter: its IOProc pumps the multi-stream graph and mixes two pushed sources —
+    live multi-source on real hardware (the binding follow-up). Live-gated."""
+    import numpy as np
+
+    g = aud.Graph()
+    i0 = g.add_source(0)
+    lp = g.add_biquad_lowpass(1500.0, 0.707, SR)
+    i1 = g.add_source(1)
+    mx = g.add_mixer(2, 1.0)
+    cp = g.add_compressor(-16.0, 3.0, 5.0, 80.0)
+    o0 = g.add_sink(0)
+    g.connect(i0, 0, lp, 0)
+    g.connect(lp, 0, mx, 0)     # synth → mixer input 0
+    g.connect(i1, 0, mx, 1)     # noise → mixer input 1
+    g.connect(mx, 0, cp, 0)
+    g.connect(cp, 0, o0, 0)
+    ex = aud.GraphExecutor()
+    assert ex.compile(g, channels=1, sample_rate=SR, max_block=BLOCK)
+    mgr = aud.MultiSourceManager(2, 1, 1, BLOCK, 48000)
+    adapter = aud.MasterClockAdapter(mgr, ex, in_stream=0, out_stream=0)
+
+    rng = np.random.default_rng(0)
+    for i in range(int(0.5 * SR) // BLOCK):                 # pre-fill ~0.5 s of two sources
+        n = np.arange(i * BLOCK, (i + 1) * BLOCK)
+        mgr.push_input(0, (0.3 * np.sin(2 * np.pi * 330 * n / SR)).astype(np.float32)[None, :])
+        mgr.push_input(1, (0.2 * rng.standard_normal(BLOCK)).astype(np.float32)[None, :])
+
+    be = aud.DeviceBackend()
+    assert be.open(adapter, channels=1, sample_rate=SR, block_size=BLOCK)  # the adapter overload
+    try:
+        assert be.start()
+        time.sleep(0.4)
+        assert ex.render_count > 0          # the device IOProc pumped the manager + graph live
+    finally:
+        be.stop()
+    assert not be.running

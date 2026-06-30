@@ -682,6 +682,24 @@ NB_MODULE(_aiudio, m) {
            "output_device"_a = std::string{}, "xrun_policy"_a = io::XrunPolicy::BestEffort,
            nb::keep_alive<1, 2>(), nb::call_guard<nb::gil_scoped_release>(),
            "Open the output device, routing each RT block to the executor (C++ audio thread).")
+        .def("open", [](io::CoreAudioBackend& b, graph::MasterClockAdapter& adapter,
+                        std::uint32_t channels, double sampleRate, std::uint32_t block,
+                        const std::string& outputDevice, io::XrunPolicy policy) {
+            io::StreamConfig c;
+            c.outputChannels = channels;
+            c.sampleRate = sampleRate;
+            c.blockSize = block;
+            c.outputDeviceId = outputDevice;
+            c.xrunPolicy = policy;
+            return b.open(c, &adapter);
+        }, "adapter"_a, "channels"_a = 2, "sample_rate"_a = 48000.0, "block_size"_a = 512,
+           "output_device"_a = std::string{}, "xrun_policy"_a = io::XrunPolicy::BestEffort,
+           nb::keep_alive<1, 2>(), nb::call_guard<nb::gil_scoped_release>(),
+           "Open this output device as the **master clock for a MultiSourceManager** (pass a "
+           "MasterClockAdapter instead of an executor): its IOProc pumps the manager + multi-"
+           "stream graph each block; other sources push into the manager's input rings off-"
+           "thread, and the adapter's output stream drives this device — live multi-source on "
+           "real hardware.")
         .def("start", &io::CoreAudioBackend::start, nb::call_guard<nb::gil_scoped_release>(),
              "Start the device IOProc (real-time C++ audio thread). Releases the GIL.")
         .def("stop", &io::CoreAudioBackend::stop, nb::call_guard<nb::gil_scoped_release>(),
@@ -720,6 +738,21 @@ NB_MODULE(_aiudio, m) {
            "input_device"_a = std::string{}, "xrun_policy"_a = io::XrunPolicy::BestEffort,
            nb::keep_alive<1, 2>(), nb::call_guard<nb::gil_scoped_release>(),
            "Open the input device, routing each captured RT block to the executor (in → graph).")
+        .def("open", [](io::CoreAudioInputBackend& b, graph::MasterClockAdapter& adapter,
+                        std::uint32_t channels, double sampleRate, std::uint32_t block,
+                        const std::string& inputDevice, io::XrunPolicy policy) {
+            io::StreamConfig c;
+            c.inputChannels = channels;
+            c.sampleRate = sampleRate;
+            c.blockSize = block;
+            c.inputDeviceId = inputDevice;
+            c.xrunPolicy = policy;
+            return b.open(c, &adapter);
+        }, "adapter"_a, "channels"_a = 1, "sample_rate"_a = 48000.0, "block_size"_a = 512,
+           "input_device"_a = std::string{}, "xrun_policy"_a = io::XrunPolicy::BestEffort,
+           nb::keep_alive<1, 2>(), nb::call_guard<nb::gil_scoped_release>(),
+           "Open this mic as the master clock for a MultiSourceManager (pass a MasterClockAdapter): "
+           "its capture feeds the adapter's input stream while its IOProc pumps the composition.")
         .def("start", &io::CoreAudioInputBackend::start, nb::call_guard<nb::gil_scoped_release>())
         .def("stop", &io::CoreAudioInputBackend::stop, nb::call_guard<nb::gil_scoped_release>())
         .def("set_disconnect_handler", [](io::CoreAudioInputBackend& b, nb::callable cb) {
@@ -755,6 +788,26 @@ NB_MODULE(_aiudio, m) {
            "xrun_policy"_a = io::XrunPolicy::BestEffort,
            nb::keep_alive<1, 2>(), nb::call_guard<nb::gil_scoped_release>(),
            "Open input+output on one shared clock (an aggregate device if they differ).")
+        .def("open", [](io::CoreAudioDuplexBackend& b, graph::MasterClockAdapter& adapter,
+                        std::uint32_t inCh, std::uint32_t outCh, double sampleRate, std::uint32_t block,
+                        const std::string& inputDevice, const std::string& outputDevice,
+                        io::XrunPolicy policy) {
+            io::StreamConfig c;
+            c.inputChannels = inCh;
+            c.outputChannels = outCh;
+            c.sampleRate = sampleRate;
+            c.blockSize = block;
+            c.inputDeviceId = inputDevice;
+            c.outputDeviceId = outputDevice;
+            c.xrunPolicy = policy;
+            return b.open(c, &adapter);
+        }, "adapter"_a, "input_channels"_a = 1, "output_channels"_a = 2, "sample_rate"_a = 48000.0,
+           "block_size"_a = 512, "input_device"_a = std::string{}, "output_device"_a = std::string{},
+           "xrun_policy"_a = io::XrunPolicy::BestEffort,
+           nb::keep_alive<1, 2>(), nb::call_guard<nb::gil_scoped_release>(),
+           "Open this full-duplex device as the master clock for a MultiSourceManager (pass a "
+           "MasterClockAdapter): its capture feeds the adapter's input stream and its output is "
+           "driven by the adapter's output stream — it is both a source/sink and the clock.")
         .def("start", &io::CoreAudioDuplexBackend::start, nb::call_guard<nb::gil_scoped_release>())
         .def("stop", &io::CoreAudioDuplexBackend::stop, nb::call_guard<nb::gil_scoped_release>())
         .def("set_disconnect_handler", [](io::CoreAudioDuplexBackend& b, nb::callable cb) {
@@ -799,6 +852,20 @@ NB_MODULE(_aiudio, m) {
            "xrun_policy"_a = io::XrunPolicy::BestEffort,
            nb::keep_alive<1, 2>(), nb::call_guard<nb::gil_scoped_release>(),
            "Open the tap (needs a signed binary w/ NSAudioCaptureUsageDescription + audio-capture TCC).")
+        .def("open", [](io::CoreAudioProcessTapBackend& b, graph::MasterClockAdapter& adapter,
+                        std::uint32_t channels, double sampleRate, std::uint32_t block,
+                        io::XrunPolicy policy) {
+            io::StreamConfig c;
+            c.inputChannels = channels;
+            c.sampleRate = sampleRate;
+            c.blockSize = block;
+            c.xrunPolicy = policy;
+            return b.open(c, &adapter);
+        }, "adapter"_a, "channels"_a = 2, "sample_rate"_a = 48000.0, "block_size"_a = 512,
+           "xrun_policy"_a = io::XrunPolicy::BestEffort,
+           nb::keep_alive<1, 2>(), nb::call_guard<nb::gil_scoped_release>(),
+           "Open the tap as the master clock for a MultiSourceManager (pass a MasterClockAdapter): "
+           "the captured system/app audio feeds the adapter's input stream as one source.")
         .def("start", &io::CoreAudioProcessTapBackend::start, nb::call_guard<nb::gil_scoped_release>())
         .def("stop", &io::CoreAudioProcessTapBackend::stop, nb::call_guard<nb::gil_scoped_release>())
         .def("set_disconnect_handler", [](io::CoreAudioProcessTapBackend& b, nb::callable cb) {

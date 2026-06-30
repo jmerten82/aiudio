@@ -59,3 +59,21 @@ def test_device_xruns_counted(aud):
     dev.inject_xrun(64)
     dev.inject_xrun(32)
     assert dev.xrun_count == 96
+
+
+def test_real_device_open_accepts_adapter(aud):
+    """The device backends' open() accepts a MasterClockAdapter (not just an executor), so a
+    real Core Audio device can drive the MultiSourceManager. macOS-only; needs no hardware to
+    *start* — open() returns a bool either way, proving the overload is bound (no TypeError)."""
+    import pytest
+
+    if not hasattr(aud, "DeviceBackend"):
+        pytest.skip("Core Audio device backends are macOS-only")
+    ex = _gain_graph(aud, 0.5)
+    mgr = aud.MultiSourceManager(1, 1, 1, 64, 256)
+    adapter = aud.MasterClockAdapter(mgr, ex, in_stream=0, out_stream=0)
+    # output / input / duplex: open() now accepts a MasterClockAdapter. (TapBackend's overload
+    # exists too but needs a configured tap target + entitlements, so it's left to a live run.)
+    for cls in (aud.DeviceBackend, aud.InputBackend, aud.DuplexBackend):
+        opened = cls().open(adapter, block_size=64)   # the MasterClockAdapter open overload
+        assert isinstance(opened, bool)               # dispatched (False if no such device present)

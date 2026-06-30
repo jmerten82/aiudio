@@ -299,6 +299,20 @@ dup.open(c, &exec);
 dup.start();   // … later … dup.stop();
 ```
 
+**A device as the master clock for the multi-source manager.** Every device backend's `open()`
+also accepts a `MasterClockAdapter` instead of an executor — then the device's IOProc pumps the
+whole `MultiSourceManager` + multi-stream graph (§9), so other sources push into the manager's
+rings off-thread while this device drives the clock. This is **live multi-source on real
+hardware**, from Python:
+```python
+mgr = a.MultiSourceManager(2, 1, 1, 512, 48000)
+ex.compile(graph_with_two_input_streams, channels=1, sample_rate=48000.0, max_block=512)
+adapter = a.MasterClockAdapter(mgr, ex, in_stream=0, out_stream=0)
+be.open(adapter, channels=1, sample_rate=48000.0, block_size=512)   # device → pumps the manager
+be.start()
+# … a producer thread keeps mgr.push_input(0/1, …) fed …
+```
+
 System / per-app capture:
 ```python
 tap = a.TapBackend()
