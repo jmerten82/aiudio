@@ -5,8 +5,11 @@
 > in **one graph**, controllable from **Python**, all **RT-safe**. · **Status:** in
 > progress — **the single-clock multi-source MVP is built and merged** (G10, G8, G9, M9.1, M11a,
 > **M10** all in `main`): N sources → one graph (mix/route) → M sinks via per-stream lock-free
-> rings. Remaining = the live device-master-clock feeding adapter and the productionization tail
-> (M9.4 hot-plug, M9.3 resampling, **M9.5 off-clock drift**, M9.6 cross-clock). See the
+> rings. The **master-clock adapter** (live-feed the manager from any backend) and **M9.4**
+> (mock backend + hot-plug/disconnect + device-xrun model) are 🟡 in review — the full live
+> path now runs headlessly via the mock. Remaining = the **real Core Audio HAL hot-plug
+> listener** (hardware-verified) and the productionization tail (M9.3 resampling, **M9.5
+> off-clock drift**, M9.6 cross-clock). See the
 > **[delivery plan / PR chain in §11](#11-delivery-plan--the-pr-chain-live-status)** for live status. (Post-Phase-0; the I/O parts cluster in Phase 3 productionization, the
 > spine parts are general and can land earlier.)
 >
@@ -113,7 +116,7 @@ RT/est/deps per sub-milestone; **do M9.1 first** (it makes every later live test
 | **M9.1** xrun/underrun policy — ✅ **merged (PR #17)** | detect (ring over/underrun counters ✓ + executor under-served-block counter ✓); substitute (silence on underrun, drop on overrun ✓); atomic `xrun_count` / `dropped_commands` telemetry ✓; `StreamConfig.XrunPolicy` knob ✓ (enforcement deferred). **Device-side HAL-timestamp gap + `kAudioDeviceProcessorOverload` detection deferred to M9.4** (needs the mock backend to test). | 🟡 | 2–3 d | — |
 | **M9.2** channel mapping/routing | device↔graph mapping incl. **mono↔stereo**; within-graph routing/matrix nodes | 🟢 | 2–4 d | **G8** |
 | **M9.3** boundary sample-rate conversion | fixed-ratio polyphase FIR (or libsamplerate/Speex ○) at the I/O edge; alloc-free; reports latency | 🔴 | 4–6 d | M9.1, **G9** |
-| **M9.4** device hot-plug/disconnect + fallback | HAL listeners (○) + off-thread state machine: clean stop → fallback/notify → re-open | 🟢 | 4–7 d | M9.1 |
+| **M9.4** device hot-plug/disconnect + fallback — ✅ **in review (PR)** | The **model** is built + testable: an `AudioBackend` disconnect-handler + `disconnected()`/`xrunCount()`; a **`MockBackend`** (deterministic, manually-ticked) that injects disconnect + xrun so the live path + hot-plug + device-side xrun (the M9.1 deferral) are exercised headlessly. **Remaining (hardware-verified):** the real Core Audio HAL device-died listener wiring on the device backends. | 🟢 | 4–7 d | M9.1 |
 | **M9.5** drift compensation (separate clocks) | adaptive resampling driven by a ring-fill control loop | 🔴 | 1.5–2.5 wk | M9.3 |
 | **M9.6** multi-**device** (1-in + 1-out, separate clocks) | the stepping-stone to N sources: one input device + one output device, kept in sync | 🔴 | 1–1.5 wk | M9.5 |
 
@@ -265,7 +268,8 @@ verified green before merge. **Status legend:** ✅ merged · 🟡 in review · 
 | 4 | `feat/m9-1-xrun-policy` | **M9.1** — xrun/underrun policy + telemetry (device-side HAL detection → M9.4) | ✅ **merged (PR #17)** | main | headless + RT-alloc |
 | 5 | `feat/m11-input-bindings` | **M11a** — bind the input / duplex / tap backends to Python | ✅ **merged (PR #18)** | main | gated live |
 | 6 | `feat/m10-multisource-manager` | **M10 (single-clock)** — manager (per-stream rings, one clock) + Python multi-source API → ⭐ **MVP** | ✅ **merged (PR #19)** | 1, 5 (+2, 4) | C++ + TSan + Python |
-| 7 | `feat/m9-4-hotplug` | **M9.4** — device hot-plug / fallback **+ a mock Core Audio backend** (reused by 8–9) | ⬜ | 4 | gated live + mock |
+| — | `feat/m10-live-and-m9-4` | **Master-clock adapter** — `MasterClockAdapter` lets any backend's clock drive the manager (the live-feeding layer) | 🟡 **in review (PR)** | M10 | C++ + TSan + Python (mock) |
+| 7 | `feat/m10-live-and-m9-4` | **M9.4 (core)** — `MockBackend` + hot-plug/disconnect + device-xrun model (the M9.1-deferred device xruns) | 🟡 **in review (PR)** | 4 | C++ + TSan + Python + mock |
 | 8 | `feat/m9-3-resampler` | **M9.3** — boundary sample-rate conversion | ⬜ | 3, 4 | offline + live |
 | 9 | `feat/m9-5-drift-comp` | **M9.5** — adaptive drift compensation | ⬜ | 8 | mock + soak |
 | 10 | `feat/m9-6-cross-clock` | **M9.6 + M10(cross-clock)** — true cross-clock multi-device = the full goal | ⬜ | 9, 6 | mock + live soak |

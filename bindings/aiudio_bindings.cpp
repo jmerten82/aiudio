@@ -20,6 +20,7 @@
 #include "aiudio/graph/graph.hpp"
 #include "aiudio/graph/graph_executor.hpp"
 #include "aiudio/graph/latency_node.hpp"
+#include "aiudio/graph/master_clock_adapter.hpp"
 #include "aiudio/graph/meter_node.hpp"
 #include "aiudio/graph/multi_source_manager.hpp"
 #include "aiudio/graph/sink_node.hpp"
@@ -27,6 +28,7 @@
 #include "aiudio/graph/sum_node.hpp"
 #include "aiudio/graph/upmix_node.hpp"
 #include "aiudio/io/audio_buffer.hpp"
+#include "aiudio/io/mock_backend.hpp"
 #include "aiudio/io/offline_backend.hpp"
 #include "aiudio/io/types.hpp"
 
@@ -258,6 +260,42 @@ NB_MODULE(_aiudio, m) {
         .def("output_overruns", [](const graph::MultiSourceManager& mm, std::uint32_t s) {
             return mm.outputOverruns(s);
         }, "stream"_a);
+
+    // ---- Master clock adapter: make any backend the manager's clock (live-feed M10) ----
+    nb::class_<graph::MasterClockAdapter>(m, "MasterClockAdapter")
+        .def(nb::init<graph::MultiSourceManager&, graph::GraphExecutor&, std::uint32_t, std::uint32_t>(),
+             "manager"_a, "executor"_a, "in_stream"_a = 0, "out_stream"_a = 0,
+             nb::keep_alive<1, 2>(), nb::keep_alive<1, 3>(),
+             "A RenderCallback that drives `manager` from a backend's clock: this device's "
+             "input feeds stream `in_stream`; output stream `out_stream` fills its output.");
+
+    // ---- Mock backend (M9.4): a deterministic, manually-ticked backend for the live path ----
+    nb::class_<io::MockBackend>(m, "MockBackend")
+        .def(nb::init<>())
+        .def("enumerate", &io::MockBackend::enumerate)
+        .def("open", [](io::MockBackend& b, graph::MasterClockAdapter& adapter, std::uint32_t inCh,
+                        std::uint32_t outCh, std::uint32_t block) {
+            io::StreamConfig c;
+            c.inputChannels = inCh;
+            c.outputChannels = outCh;
+            c.blockSize = block;
+            return b.open(c, &adapter);
+        }, "adapter"_a, "in_channels"_a = 1, "out_channels"_a = 1, "block_size"_a = 512,
+           nb::keep_alive<1, 2>(), "Drive the given MasterClockAdapter from this mock device.")
+        .def("set_input_value", &io::MockBackend::setInputValue, "value"_a,
+             "The constant value the synthetic capture produces each block.")
+        .def("start", &io::MockBackend::start)
+        .def("stop", &io::MockBackend::stop)
+        .def("tick", &io::MockBackend::tick, "frames"_a,
+             "Drive one callback block (the clock tick). No-op if not running / disconnected.")
+        .def("inject_disconnect", &io::MockBackend::injectDisconnect, "Simulate a hot-unplug.")
+        .def("inject_reconnect", &io::MockBackend::injectReconnect, "Simulate a re-plug.")
+        .def("inject_xrun", &io::MockBackend::injectXrun, "frames"_a, "Simulate a device xrun.")
+        .def("captured_output", &io::MockBackend::capturedOutput, "channel"_a,
+             "First sample of the last block written to output `channel`.")
+        .def_prop_ro("running", &io::MockBackend::running)
+        .def_prop_ro("disconnected", [](const io::MockBackend& b) { return b.disconnected(); })
+        .def_prop_ro("xrun_count", [](const io::MockBackend& b) { return b.xrunCount(); });
 
     nb::enum_<io::WavFormat>(m, "WavFormat")
         .value("Int16", io::WavFormat::Int16)
