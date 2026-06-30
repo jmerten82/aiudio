@@ -3,10 +3,11 @@
 > **Last updated:** 2026-06-29 · **Goal:** N independent input sources *and* M output
 > sinks — each on its own hardware clock — brought onto **one engine timeline**, composed
 > in **one graph**, controllable from **Python**, all **RT-safe**. · **Status:** in
-> progress — **G10, G8, G9, M9.1, M11a all merged** (multi-stream executor + per-port channel
-> widths + latency/delay-compensation + xrun policy + input/duplex/tap bindings). Everything the
-> MVP needs is in `main`; **only M10 (the multi-source manager) remains for the live MVP** — see
-> the **[delivery plan / PR chain in §11](#11-delivery-plan--the-pr-chain-live-status)** for live status. (Post-Phase-0; the I/O parts cluster in Phase 3 productionization, the
+> progress — **G10, G8, G9, M9.1, M11a merged**; **M10 (the multi-source manager) 🟡 in review**
+> — N sources → one graph (mix/route) → M sinks, composed via per-stream lock-free rings. With
+> M10 the **single-clock multi-source MVP** is built (live device-master-clock feeding + off-clock
+> drift are the remaining layers). See the
+> **[delivery plan / PR chain in §11](#11-delivery-plan--the-pr-chain-live-status)** for live status. (Post-Phase-0; the I/O parts cluster in Phase 3 productionization, the
 > spine parts are general and can land earlier.)
 >
 > This plan **absorbs the M9 robustness/hardening plan** (formerly `docs/75`) as its
@@ -121,7 +122,7 @@ RT/est/deps per sub-milestone; **do M9.1 first** (it makes every later live test
 
 ### Phase C — Multi-source transport (the ADR-0008 manager)
 
-**M10 — Multi-source manager** · 🟢 (transport off-thread) · ~2–3 wk · ADR (new; relates ADR-0008)
+**M10 — Multi-source manager** · ✅ **in review (PR)** · 🟢 (transport off-thread) · ADR-0014 (makes ADR-0008 §5 concrete)
 Implements ADR-0008 §5's deferred "future multi-source manager":
 - **C1 — Per-source capture as named sources:** generalize the existing input/duplex/tap
   backends so each registers as a named source feeding **its own SPSC ring** (ADR-0008 §2).
@@ -263,7 +264,7 @@ verified green before merge. **Status legend:** ✅ merged · 🟡 in review · 
 | 3 | `feat/g9-latency-pdc` | **G9** — node/edge latency reporting + delay compensation (ADR-0013) | ✅ **merged (PR #16)** | main | offline |
 | 4 | `feat/m9-1-xrun-policy` | **M9.1** — xrun/underrun policy + telemetry (device-side HAL detection → M9.4) | ✅ **merged (PR #17)** | main | headless + RT-alloc |
 | 5 | `feat/m11-input-bindings` | **M11a** — bind the input / duplex / tap backends to Python | ✅ **merged (PR #18)** | main | gated live |
-| 6 | `feat/m10-multisource-manager` | **M10 (single-clock) + M11b** — manager (N rings, one clock) + Python multi-source API → ⭐ **live MVP** | ⬜ | 1, 5 (+2, 4) | gated live |
+| 6 | `feat/m10-multisource-manager` | **M10 (single-clock)** — manager (per-stream rings, one clock) + Python multi-source API → ⭐ **MVP** | 🟡 **in review (PR)** | 1, 5 (+2, 4) | C++ + TSan + Python |
 | 7 | `feat/m9-4-hotplug` | **M9.4** — device hot-plug / fallback **+ a mock Core Audio backend** (reused by 8–9) | ⬜ | 4 | gated live + mock |
 | 8 | `feat/m9-3-resampler` | **M9.3** — boundary sample-rate conversion | ⬜ | 3, 4 | offline + live |
 | 9 | `feat/m9-5-drift-comp` | **M9.5** — adaptive drift compensation | ⬜ | 8 | mock + soak |
@@ -281,8 +282,10 @@ comp. (PRs 1, 5, 6 + optionally 2, 4 — the `~4–6 wk` single-clock MVP of §8
   ✅, PR 5 (M11a input bindings) ✅ — **all merged**. **All of Phase A (the spine prerequisites)
   is complete**, plus the M9.1 xrun policy and the input/duplex/tap Python bindings. Everything
   the MVP needs is now in `main` — multi-stream executor, per-port channel widths, latency/PDC,
-  xrun telemetry, and N device-backed input rings. **Next: PR 6 (M10 — the multi-source manager,
-  the live MVP ⭐)**, which composes them. *Note:* PR 2 delivered the channel-width engine
+  xrun telemetry, and N device-backed input rings. **PR 6 (M10 — the multi-source manager) 🟡 in
+  review** composes them into the single-clock MVP (N sources → mix/route → M sinks, per-stream
+  rings, TSan-clean). Remaining after it: the live device-master-clock feeding + off-clock drift
+  (M9.5), plus the productionization tail (M9.4/M9.3/M9.6). *Note:* PR 2 delivered the channel-width engine
   + the down/up-mix nodes; the **device↔graph channel mapping** slice of M9.2 (mono↔stereo at
   the I/O boundary) is still open and folds naturally into PR 6 (M10) or a small PR of its own.
 - Test infra: notebook execution now runs in the test interpreter (a throwaway kernelspec on

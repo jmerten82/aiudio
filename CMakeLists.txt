@@ -64,7 +64,8 @@ endif()
 # AudioBuffer / TimeInfo types. Construction + validation now; execution is G2.
 add_library(aiudio_graph
     src/graph/graph.cpp
-    src/graph/graph_executor.cpp)  # G2: compile + eager executor
+    src/graph/graph_executor.cpp          # G2: compile + eager executor
+    src/graph/multi_source_manager.cpp)   # M10: multi-source manager
 add_library(aiudio::graph ALIAS aiudio_graph)
 target_include_directories(aiudio_graph PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>

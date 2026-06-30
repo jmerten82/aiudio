@@ -6,9 +6,15 @@ offline file backend so the research/ML layer and the agent can build, run, and
 edit graphs.
 """
 
-from ._aiudio import Graph, GraphExecutor, OfflineBackend, WavFormat  # noqa: F401
+from ._aiudio import (  # noqa: F401
+    Graph,
+    GraphExecutor,
+    MultiSourceManager,
+    OfflineBackend,
+    WavFormat,
+)
 
-__all__ = ["Graph", "GraphExecutor", "OfflineBackend", "WavFormat"]
+__all__ = ["Graph", "GraphExecutor", "OfflineBackend", "WavFormat", "MultiSourceManager"]
 
 # The live device backend is a Core Audio (macOS) feature — a *control* frontend over
 # the real-time C++ audio thread (the audio thread never runs Python; ADR-0004). It is

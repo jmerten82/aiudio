@@ -21,6 +21,7 @@
 #include "aiudio/graph/graph_executor.hpp"
 #include "aiudio/graph/latency_node.hpp"
 #include "aiudio/graph/meter_node.hpp"
+#include "aiudio/graph/multi_source_manager.hpp"
 #include "aiudio/graph/sink_node.hpp"
 #include "aiudio/graph/source_node.hpp"
 #include "aiudio/graph/sum_node.hpp"
@@ -216,6 +217,47 @@ NB_MODULE(_aiudio, m) {
         .def_prop_ro("render_count", [](const graph::GraphExecutor& e) { return e.renderCount(); },
                      "Blocks the audio thread has processed (telemetry; climbs while audio flows).")
         .def_prop_ro("compiled", [](const graph::GraphExecutor& e) { return e.compiled(); });
+
+    // ---- Multi-source manager (M10): N input sources + M output sinks on one clock ----
+    // Producers push numpy into input streams; the pump runs the multi-stream graph; consumers
+    // pop numpy from output streams. Each (stream, channel) crosses via its own lock-free ring.
+    nb::class_<graph::MultiSourceManager>(m, "MultiSourceManager")
+        .def(nb::init<std::uint32_t, std::uint32_t, std::uint32_t, std::uint32_t, std::uint32_t>(),
+             "num_inputs"_a, "num_outputs"_a, "channels"_a, "max_block"_a, "ring_frames"_a)
+        .def_prop_ro("num_inputs", [](const graph::MultiSourceManager& mm) { return mm.numInputs(); })
+        .def_prop_ro("num_outputs", [](const graph::MultiSourceManager& mm) { return mm.numOutputs(); })
+        .def_prop_ro("channels", [](const graph::MultiSourceManager& mm) { return mm.channels(); })
+        .def("push_input", [](graph::MultiSourceManager& mm, std::uint32_t stream, InArray src) {
+            const auto ch = static_cast<std::uint32_t>(src.shape(0));
+            const auto fr = static_cast<std::uint32_t>(src.shape(1));
+            std::vector<float*> ptrs(ch);
+            for (std::uint32_t c = 0; c < ch; ++c)
+                ptrs[c] = const_cast<float*>(src.data()) + static_cast<std::size_t>(c) * fr;
+            io::AudioBuffer b{ptrs.data(), ch, fr};
+            return mm.pushInput(stream, b, fr);
+        }, "stream"_a, "samples"_a,
+           "Write a (channels, frames) block into input `stream`; returns frames accepted.")
+        .def("pop_output", [](graph::MultiSourceManager& mm, std::uint32_t stream, std::uint32_t frames) {
+            const auto ch = mm.channels();
+            auto* out = new float[static_cast<std::size_t>(ch) * frames]();
+            std::vector<float*> ptrs(ch);
+            for (std::uint32_t c = 0; c < ch; ++c) ptrs[c] = out + static_cast<std::size_t>(c) * frames;
+            io::AudioBuffer b{ptrs.data(), ch, frames};
+            mm.popOutput(stream, b, frames);
+            nb::capsule owner(out, [](void* p) noexcept { delete[] static_cast<float*>(p); });
+            return nb::ndarray<nb::numpy, float>(out, {static_cast<std::size_t>(ch),
+                                                       static_cast<std::size_t>(frames)}, owner);
+        }, "stream"_a, "frames"_a, "Read `frames` of output `stream` as a (channels, frames) array.")
+        .def("process", [](graph::MultiSourceManager& mm, graph::GraphExecutor& e, std::uint32_t frames) {
+            mm.process(e, frames, io::TimeInfo{});
+        }, "executor"_a, "frames"_a, nb::call_guard<nb::gil_scoped_release>(),
+           "Tick: drain inputs → run the multi-stream graph → fill outputs (pure C++; GIL released).")
+        .def("input_underruns", [](const graph::MultiSourceManager& mm, std::uint32_t s) {
+            return mm.inputUnderruns(s);
+        }, "stream"_a)
+        .def("output_overruns", [](const graph::MultiSourceManager& mm, std::uint32_t s) {
+            return mm.outputOverruns(s);
+        }, "stream"_a);
 
     nb::enum_<io::WavFormat>(m, "WavFormat")
         .value("Int16", io::WavFormat::Int16)
