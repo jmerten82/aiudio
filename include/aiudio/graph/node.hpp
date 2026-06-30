@@ -43,6 +43,25 @@ public:
         (void)index;
         (void)value;
     }
+
+    /// Channel-count layout (G8, compile-time): given the channel width at each input
+    /// port (`inWidths[0..numIn)`), fill the width of each output port (`outWidths[0..numOut)`).
+    /// The executor calls this in topological order to size each port's buffer, so widths
+    /// can change through the graph (down-mix, up-mix). `hostChannels` is the compiled
+    /// graph channel count (used for source/generator nodes with no inputs).
+    ///
+    /// Default — **inherit / broadcast**: 0-input nodes emit `hostChannels`; every other
+    /// node emits `max(inWidths)` on all outputs. This is correct for all channel-agnostic
+    /// nodes (gain, sum, meter, biquad, source, sink); only width-*changing* nodes override.
+    virtual void channelLayout(const std::uint32_t* inWidths, std::uint32_t numIn,
+                               std::uint32_t* outWidths, std::uint32_t numOut,
+                               std::uint32_t hostChannels) const noexcept {
+        std::uint32_t w = 0;
+        for (std::uint32_t i = 0; i < numIn; ++i)
+            if (inWidths[i] > w) w = inWidths[i];
+        if (w == 0) w = hostChannels;  // no inputs, or all-zero → the host width
+        for (std::uint32_t o = 0; o < numOut; ++o) outWidths[o] = w;
+    }
 };
 
 }  // namespace aiudio::graph
