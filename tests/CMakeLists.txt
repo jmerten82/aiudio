@@ -30,6 +30,7 @@ aiudio_add_test(test_graph_latency aiudio::graph)   # G9 latency + delay compens
 aiudio_add_test(test_graph_xrun aiudio::graph)      # M9.1 xrun/underrun policy + telemetry
 aiudio_add_test(test_multi_source_manager aiudio::graph)  # M10 multi-source manager
 aiudio_add_test(test_master_clock aiudio::graph)    # M10 live adapter + M9.4 mock/hot-plug
+aiudio_add_test(test_cross_clock aiudio::graph)     # M9.6 cross-clock multi-device (bridge)
 
 if(APPLE)
     aiudio_add_test(test_coreaudio_enumerate aiudio::io)  # device enumeration, no audio

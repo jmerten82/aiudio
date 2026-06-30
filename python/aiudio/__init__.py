@@ -7,6 +7,7 @@ edit graphs.
 """
 
 from ._aiudio import (  # noqa: F401
+    CrossClockBridge,
     Graph,
     GraphExecutor,
     MasterClockAdapter,
@@ -21,7 +22,7 @@ from ._aiudio import (  # noqa: F401
 __all__ = [
     "Graph", "GraphExecutor", "OfflineBackend", "WavFormat",
     "MultiSourceManager", "MasterClockAdapter", "MockBackend",
-    "Resampler", "ResamplingSource",
+    "Resampler", "ResamplingSource", "CrossClockBridge",
 ]
 
 # The live device backend is a Core Audio (macOS) feature — a *control* frontend over

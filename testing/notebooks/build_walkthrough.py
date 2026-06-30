@@ -65,7 +65,7 @@ print("public API (aiudio.__all__):", aiudio.__all__)
 print("DeviceBackend present:", hasattr(aiudio, "DeviceBackend"), "(macOS-only)")""")
 md(r"""> ⚠️ **Shortcoming.** The whole surface is still small: `Graph`, `GraphExecutor`,
 > `MultiSourceManager`, `MasterClockAdapter`, `MockBackend`, `Resampler`, `ResamplingSource`,
-> `OfflineBackend`, `WavFormat` (+ the macOS device backends). There is no Python access to the RT internals
+> `CrossClockBridge`, `OfflineBackend`, `WavFormat` (+ the macOS device backends). There is no Python access to the RT internals
 > (`RingBuffer`, `AudioBuffer`, `RenderCallback`), no serialization, no differentiable layer,
 > and no agent. Those are deliberate (the audio thread is C++; ADR-0002/0004) or not built yet
 > (Phases 1–2).""")
@@ -455,6 +455,40 @@ md(r"""> ⚠️ **Shortcomings.** The servo is **proportional** — it leaves a 
 > block — it is not yet auto-attached to a `MockBackend`/device inside the manager (that
 > wiring is M9.6).""")
 
+md(r"""### 7d. `CrossClockBridge` — one input + one output device on separate clocks (M9.6)
+
+The first cross-clock composition: an input device (the **master clock**, which defines the
+engine rate) + an output device on its **own** clock, kept in sync. The master drives the
+graph; the output device pulls through the drift-compensated path (§7c). Here two
+`MockBackend`s stand in for two physical clocks — the output device's clock is simulated
+**0.2 % slow**, so the engine produces faster than it consumes; the bridge's servo speeds the
+output ratio up and the cross-clock ring stays bounded (no overrun). A DC level set at the
+input arrives, scaled, at the output across the boundary.""")
+code(r"""g_xc = aiudio.Graph()
+s = g_xc.add_source(0); gn = g_xc.add_gain(0.5); k = g_xc.add_sink(0)
+g_xc.connect(s, 0, gn, 0); g_xc.connect(gn, 0, k, 0)
+ex_xc = aiudio.GraphExecutor(); ex_xc.compile(g_xc, channels=1, sample_rate=SR, max_block=64)
+mgr_xc = aiudio.MultiSourceManager(1, 1, 1, 64, 512)
+bridge = aiudio.CrossClockBridge(mgr_xc, ex_xc, 0, 0, SR, SR, 1, 8192, 64)  # engine=out nominal
+dev_in, dev_out = aiudio.MockBackend(), aiudio.MockBackend()
+bridge.attach_master(dev_in, in_channels=1, out_channels=0, block_size=64)   # master clock
+bridge.attach_output(dev_out, in_channels=0, out_channels=1, block_size=64)  # off-clock output
+dev_in.set_input_value(0.6); dev_in.start(); dev_out.start()
+b_acc, max_fill = 0.0, 0
+for step in range(20000):
+    dev_in.tick(64)                      # master clock advances the engine
+    b_acc += 64 * 0.998                  # output device clock runs 0.2% slow
+    while b_acc >= 64: dev_out.tick(64); b_acc -= 64
+    if step > 4000: max_fill = max(max_fill, bridge.output_fill)
+print(f"output={dev_out.captured_output(0):.4f} (in 0.6 → gain 0.5 → 0.3, across clocks)")
+print(f"output_ratio={bridge.output_ratio:.5f} (adapted >1.0)  max_fill={max_fill} (< 8192)  "
+      f"overruns={bridge.output_overruns}")""")
+md(r"""> ⚠️ **Shortcomings.** This is **one** input + **one** output device — *not* N sources
+> (that's the next phase). Both clocks here are **simulated** via mock tick cadences; true
+> two-device hardware sync is verified on hardware. The servo's target ring depth trades
+> latency for under-run safety (a deeper ring is safer but adds delay). And the real Core
+> Audio **device-died / hot-plug listener** is still the remaining hardware-verified wiring.""")
+
 # ---------------------------------------------------------------- 8. cross-backend
 md(r"""## 8. Cross-backend determinism (the *one-IR-many-backends* invariant)
 
@@ -489,7 +523,8 @@ Everything the Python layer **cannot** do yet (or does with a caveat), and why:
 | **`process()`** | silently renders only up to `max_block` frames (tail → 0) | contract footgun |
 | **File I/O** | **WAV only**; `WavFormat.Float32` unreadable by stdlib `wave` (use `Int16`) | format scope |
 | **Sample-rate conversion** | `Resampler` **✅ bound** (M9.3, boundary SRC, cubic kernel); not yet auto-wired into the device→graph path from Python (drive explicitly) | ✅ |
-| **Clock-drift compensation** | `ResamplingSource` **✅ bound** (M9.5, ring + resampler + proportional servo); proportional-only (small steady offset); true two-clock hardware = M9.6; not yet auto-attached to a backend in the manager | ✅ / in progress |
+| **Clock-drift compensation** | `ResamplingSource` **✅ bound** (M9.5, ring + resampler + proportional servo); proportional-only (small steady offset) | ✅ |
+| **Cross-clock multi-device** | `CrossClockBridge` **✅ bound** (M9.6, one input + one output device on separate clocks via the drift path); one-in/one-out (not N sources); clocks simulated via mocks, hardware sync verified on a device; real HAL hot-plug listener still pending | ✅ / in progress |
 | **Serialization** | no save/load of a graph | ADR-0009 deferred |
 | **Differentiable / trainable** | not available | Phase 1 |
 | **Agent (NL → graph)** | not available | Phase 2 |
