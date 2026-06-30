@@ -107,6 +107,35 @@ inline AudioObjectID findByUID(const std::string& uid) {
     return kAudioObjectUnknown;
 }
 
+// ---- Device-died / hot-plug listener (M9.4 hardware wiring, M9.6) ----
+// A device's `kAudioDevicePropertyDeviceIsAlive` flips to 0 when it is unplugged / dies.
+// Backends register a listener on it at open() and remove it at close, so a physical
+// disconnect fires AudioBackend::notifyDisconnect() (off the audio thread, on a HAL
+// notification thread). The trigger itself is hardware-verified; the wiring is here.
+
+inline bool deviceIsAlive(AudioObjectID dev) {
+    if (dev == kAudioObjectUnknown) return false;
+    AudioObjectPropertyAddress a = prop(kAudioDevicePropertyDeviceIsAlive, kAudioObjectPropertyScopeGlobal);
+    UInt32 alive = 0;
+    UInt32 size = sizeof(alive);
+    if (AudioObjectGetPropertyData(dev, &a, 0, nullptr, &size, &alive) != noErr) return false;
+    return alive != 0;
+}
+
+inline OSStatus addAliveListener(AudioObjectID dev, AudioObjectPropertyListenerProc proc,
+                                 void* client) {
+    if (dev == kAudioObjectUnknown) return kAudioHardwareBadObjectError;
+    AudioObjectPropertyAddress a = prop(kAudioDevicePropertyDeviceIsAlive, kAudioObjectPropertyScopeGlobal);
+    return AudioObjectAddPropertyListener(dev, &a, proc, client);
+}
+
+inline void removeAliveListener(AudioObjectID dev, AudioObjectPropertyListenerProc proc,
+                                void* client) {
+    if (dev == kAudioObjectUnknown) return;
+    AudioObjectPropertyAddress a = prop(kAudioDevicePropertyDeviceIsAlive, kAudioObjectPropertyScopeGlobal);
+    AudioObjectRemovePropertyListener(dev, &a, proc, client);
+}
+
 // Shared device enumeration used by both backends' enumerate().
 inline std::vector<AudioDeviceInfo> enumerateDevices() {
     std::vector<AudioDeviceInfo> result;

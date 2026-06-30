@@ -43,6 +43,10 @@ public:
     // must stay allocation-/lock-free.
     void renderFromIOProc(void* outputBufferList) noexcept;
 
+    // Invoked by the HAL device-alive property listener (off the audio thread, M9.4):
+    // if the device is no longer alive, fires the disconnect handler.
+    void handleDeviceAliveChanged() noexcept;
+
 private:
     AudioObjectID deviceId_ = kAudioObjectUnknown;
     AudioDeviceIOProcID ioProcId_ = nullptr;
@@ -52,6 +56,7 @@ private:
     std::uint32_t maxFrames_ = 0;
     std::uint32_t latencyFrames_ = 0;
     bool running_ = false;
+    bool aliveListenerOn_ = false;  // HAL device-died listener registered (M9.4)
     std::uint64_t sampleTime_ = 0;
 
     // Pre-allocated planar scratch for interleaved-output devices (RT-safe path).

@@ -65,7 +65,8 @@ print("public API (aiudio.__all__):", aiudio.__all__)
 print("DeviceBackend present:", hasattr(aiudio, "DeviceBackend"), "(macOS-only)")""")
 md(r"""> ⚠️ **Shortcoming.** The whole surface is still small: `Graph`, `GraphExecutor`,
 > `MultiSourceManager`, `MasterClockAdapter`, `MockBackend`, `Resampler`, `ResamplingSource`,
-> `CrossClockBridge`, `OfflineBackend`, `WavFormat` (+ the macOS device backends). There is no Python access to the RT internals
+> `CrossClockBridge`, `OfflineBackend`, `WavFormat`, `map_channels`/`ChannelMapMode`
+> (+ the macOS device backends). There is no Python access to the RT internals
 > (`RingBuffer`, `AudioBuffer`, `RenderCallback`), no serialization, no differentiable layer,
 > and no agent. Those are deliberate (the audio thread is C++; ADR-0002/0004) or not built yet
 > (Phases 1–2).""")
@@ -232,6 +233,17 @@ ex_ch = aiudio.GraphExecutor(); ex_ch.compile(g_ch, channels=2, sample_rate=SR, 
 stereo = np.zeros((2, 8), np.float32); stereo[0] = 1.0; stereo[1] = 0.5   # L=1.0, R=0.5
 y = ex_ch.process(stereo)
 print("down->up: out[0]=", float(y[0, 0]), " out[1]=", float(y[1, 0]), " (mono (L+R)/2 = 0.75, duplicated)")""")
+
+md(r"""**Boundary channel mapping (M9.2) — `map_channels`.** The down/up-mix *nodes* above
+change width **inside** the graph; `map_channels(block, out_channels, mode)` is the
+complementary piece at the device↔graph **edge** (where there is no node): a mono mic into a
+stereo graph, a stereo graph monitored to a mono speaker. `Auto` does the natural thing
+(1→N duplicate, N→1 average, N→M copy+zero-pad); explicit `ChannelMapMode`s override.""")
+code(r"""mono = np.full((1, 4), 0.6, np.float32)
+print("mono → stereo (duplicate):", aiudio.map_channels(mono, 2)[:, 0])
+stereo = np.stack([np.full(4, 1.0, np.float32), np.full(4, 0.4, np.float32)])
+print("stereo → mono (average):", float(aiudio.map_channels(stereo, 1)[0, 0]), "(=(1.0+0.4)/2)")
+print("stereo → 3ch (copy+zero-pad):", aiudio.map_channels(stereo, 3)[:, 0])""")
 
 md(r"""**Latency & delay compensation (G9).** A node can declare a processing latency
 (`add_latency(frames)` models a lookahead/FFT/resampler); `ex.latency_frames` reports the
@@ -486,8 +498,9 @@ print(f"output_ratio={bridge.output_ratio:.5f} (adapted >1.0)  max_fill={max_fil
 md(r"""> ⚠️ **Shortcomings.** This is **one** input + **one** output device — *not* N sources
 > (that's the next phase). Both clocks here are **simulated** via mock tick cadences; true
 > two-device hardware sync is verified on hardware. The servo's target ring depth trades
-> latency for under-run safety (a deeper ring is safer but adds delay). And the real Core
-> Audio **device-died / hot-plug listener** is still the remaining hardware-verified wiring.""")
+> latency for under-run safety (a deeper ring is safer but adds delay). The real Core Audio
+> **device-died / hot-plug listener** is now wired on the device backends (M9.4) — the unplug
+> *trigger* is hardware-verified.""")
 
 # ---------------------------------------------------------------- 8. cross-backend
 md(r"""## 8. Cross-backend determinism (the *one-IR-many-backends* invariant)
@@ -524,7 +537,9 @@ Everything the Python layer **cannot** do yet (or does with a caveat), and why:
 | **File I/O** | **WAV only**; `WavFormat.Float32` unreadable by stdlib `wave` (use `Int16`) | format scope |
 | **Sample-rate conversion** | `Resampler` **✅ bound** (M9.3, boundary SRC, cubic kernel); not yet auto-wired into the device→graph path from Python (drive explicitly) | ✅ |
 | **Clock-drift compensation** | `ResamplingSource` **✅ bound** (M9.5, ring + resampler + proportional servo); proportional-only (small steady offset) | ✅ |
-| **Cross-clock multi-device** | `CrossClockBridge` **✅ bound** (M9.6, one input + one output device on separate clocks via the drift path); one-in/one-out (not N sources); clocks simulated via mocks, hardware sync verified on a device; real HAL hot-plug listener still pending | ✅ / in progress |
+| **Cross-clock multi-device** | `CrossClockBridge` **✅ bound** (M9.6, one input + one output device on separate clocks via the drift path); one-in/one-out (not N sources); clocks simulated via mocks, two-device hardware sync verified on hardware | ✅ |
+| **Channel mapping (boundary)** | `map_channels`/`ChannelMapMode` **✅ bound** (M9.2, device↔graph mono↔stereo / N↔M); not yet auto-applied inside the manager push/pop (call explicitly) | ✅ |
+| **Device hot-plug / disconnect** | model **✅** (M9.4) + real Core Audio **device-died listener wired** on the output/input/duplex backends; the physical-unplug *trigger* is hardware-verified | ✅ |
 | **Serialization** | no save/load of a graph | ADR-0009 deferred |
 | **Differentiable / trainable** | not available | Phase 1 |
 | **Agent (NL → graph)** | not available | Phase 2 |

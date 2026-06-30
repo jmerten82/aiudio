@@ -15,6 +15,7 @@ aiudio_add_test(test_ring_buffer aiudio::io)
 aiudio_add_test(test_conversions aiudio::io)
 aiudio_add_test(test_resampler aiudio::io)          # M9.3 boundary sample-rate conversion
 aiudio_add_test(test_drift aiudio::io)              # M9.5 drift compensation (servo + source)
+aiudio_add_test(test_channel_map aiudio::io)        # M9.2 device<->graph channel mapping
 aiudio_add_test(test_wav_file aiudio::io)            # M6
 aiudio_add_test(test_graph aiudio::graph)           # G1
 aiudio_add_test(test_graph_nodes aiudio::graph)     # G1
@@ -34,4 +35,5 @@ aiudio_add_test(test_cross_clock aiudio::graph)     # M9.6 cross-clock multi-dev
 
 if(APPLE)
     aiudio_add_test(test_coreaudio_enumerate aiudio::io)  # device enumeration, no audio
+    aiudio_add_test(test_coreaudio_disconnect aiudio::io) # M9.4 HAL device-died listener wiring
 endif()

@@ -149,7 +149,7 @@ status — **kept current as we go**.
 - [ ] C++ RT executor: inline + off-thread pooled neural nodes
 - [ ] Streaming / cached-conv export (non-causal → causal)
 - [ ] Plugin-host backend + VST3/CLAP packaging (I/O M7)
-- [ ] **True multi-source I/O** — N inputs + M outputs, one graph, from Python *(plan + PR chain: [`docs/76`](docs/76-multi-source-io-roadmap.md) §11; **single-clock MVP built + live-drivable — G10 · G8 · G9 · M9.1 · M11a · M10 · master-clock adapter · M9.4 (mock + hot-plug) ✅ all merged** (N sources → mix/route → M sinks via per-stream rings, driven by any backend's clock). Remaining: real Core Audio HAL hot-plug listener + the rate/clock tail — M9.3 resampler · **M9.5 off-clock drift** · M9.6 cross-clock)*
+- [ ] **True multi-source I/O** — N inputs + M outputs, one graph, from Python *(plan + PR chain: [`docs/76`](docs/76-multi-source-io-roadmap.md) §11; **single-clock MVP built + live-drivable — G10 · G8 · G9 · M9.1 · M11a · M10 · master-clock adapter · M9.4 (mock + hot-plug) ✅ all merged**. The **rate/clock tail is implemented + in review** as a stacked chain: M9.3 resampler (#21) · M9.5 off-clock drift servo (#22) · M9.6 cross-clock multi-device (#23) · M9.2 boundary channel mapping + real HAL device-died listener (#24) — **feature-complete**, only the physical hardware triggers verified on-device)*
 
 ### Phase 4 — Breadth
 - [ ] Source separation, more neural FX, neural-codec node

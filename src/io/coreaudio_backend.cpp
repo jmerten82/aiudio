@@ -23,10 +23,22 @@ OSStatus ioProcTrampoline(AudioObjectID, const AudioTimeStamp*, const AudioBuffe
     return noErr;
 }
 
+// HAL property listener for kAudioDevicePropertyDeviceIsAlive (device-died / hot-unplug).
+// Runs on a HAL notification thread, not the audio thread (M9.4).
+OSStatus aliveListenerTrampoline(AudioObjectID, UInt32, const AudioObjectPropertyAddress*,
+                                 void* clientData) {
+    static_cast<CoreAudioBackend*>(clientData)->handleDeviceAliveChanged();
+    return noErr;
+}
+
 }  // namespace
 
 CoreAudioBackend::~CoreAudioBackend() {
     stop();
+    if (aliveListenerOn_) {
+        detail::removeAliveListener(deviceId_, aliveListenerTrampoline, this);
+        aliveListenerOn_ = false;
+    }
     if (ioProcId_ != nullptr && deviceId_ != kAudioObjectUnknown) {
         AudioDeviceDestroyIOProcID(deviceId_, ioProcId_);
     }
@@ -37,6 +49,10 @@ std::vector<AudioDeviceInfo> CoreAudioBackend::enumerate() {
 }
 
 bool CoreAudioBackend::open(const StreamConfig& config, RenderCallback* callback) {
+    if (aliveListenerOn_) {  // re-open: drop the listener on the previous device
+        detail::removeAliveListener(deviceId_, aliveListenerTrampoline, this);
+        aliveListenerOn_ = false;
+    }
     callback_ = callback;
     deviceId_ = config.outputDeviceId.empty()
                     ? detail::defaultDevice(kAudioHardwarePropertyDefaultOutputDevice)
@@ -70,7 +86,16 @@ bool CoreAudioBackend::open(const StreamConfig& config, RenderCallback* callback
     }
     ioProcId_ = procId;
     sampleTime_ = 0;
+
+    // Register the device-died listener so a hot-unplug fires the disconnect handler (M9.4).
+    disconnected_.store(false, std::memory_order_release);
+    if (detail::addAliveListener(deviceId_, aliveListenerTrampoline, this) == noErr)
+        aliveListenerOn_ = true;
     return true;
+}
+
+void CoreAudioBackend::handleDeviceAliveChanged() noexcept {
+    if (!detail::deviceIsAlive(deviceId_)) notifyDisconnect();  // off the audio thread
 }
 
 void CoreAudioBackend::renderFromIOProc(void* outputBufferList) noexcept {

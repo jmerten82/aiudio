@@ -45,6 +45,9 @@ public:
     // input list and the output list to fill. RT context: alloc-/lock-free.
     void renderFromIOProc(const void* inputBufferList, void* outputBufferList) noexcept;
 
+    // HAL device-alive listener callback (off the audio thread, M9.4).
+    void handleDeviceAliveChanged() noexcept;
+
 private:
     AudioObjectID deviceId_ = kAudioObjectUnknown;     // device or aggregate we run on
     AudioObjectID aggregateId_ = kAudioObjectUnknown;  // set if we created an aggregate
@@ -56,6 +59,7 @@ private:
     std::uint32_t maxFrames_ = 0;
     std::uint32_t latencyFrames_ = 0;
     bool running_ = false;
+    bool aliveListenerOn_ = false;  // HAL device-died listener registered (M9.4)
     std::uint64_t sampleTime_ = 0;
 
     std::vector<std::vector<float>> inScratch_;
