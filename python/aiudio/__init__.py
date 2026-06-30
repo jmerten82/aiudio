@@ -14,9 +14,19 @@ __all__ = ["Graph", "GraphExecutor", "OfflineBackend", "WavFormat"]
 # the real-time C++ audio thread (the audio thread never runs Python; ADR-0004). It is
 # present only where the extension was built with it.
 try:
-    from ._aiudio import AudioDeviceInfo, DeviceBackend  # noqa: F401
+    from ._aiudio import (  # noqa: F401
+        AudioDeviceInfo,
+        DeviceBackend,
+        DuplexBackend,
+        InputBackend,
+        ProcessInfo,
+        TapBackend,
+    )
 
-    __all__ += ["DeviceBackend", "AudioDeviceInfo"]
+    __all__ += [
+        "DeviceBackend", "AudioDeviceInfo",
+        "InputBackend", "DuplexBackend", "TapBackend", "ProcessInfo",
+    ]
 except ImportError:  # pragma: no cover - non-macOS builds
     pass
 

@@ -270,6 +270,20 @@ code(r"""if hasattr(aiudio, "AudioDeviceInfo") and hasattr(aiudio, "DeviceBacken
 else:
     print("DeviceBackend not built on this platform (macOS-only).")""")
 
+md(r"""**Input / duplex / tap backends (M11a).** Beyond the output `DeviceBackend`, the
+**`InputBackend`** (mic capture), **`DuplexBackend`** (mic → graph → speakers on one clock),
+and **`TapBackend`** (system / per-app *output* capture) are now bound — same control-frontend
+pattern. Enumeration and process listing are permission-free; *capturing* needs mic TCC (and
+taps need a signed binary). Run [`examples/python/ex_live_input.py`](../../examples/python/ex_live_input.py)
+for a live mic meter.""")
+code(r"""if hasattr(aiudio, "InputBackend"):
+    inputs = [d for d in aiudio.InputBackend().enumerate() if d.input_channels > 0]
+    print("input devices:", [d.name for d in inputs][:4])
+    procs = aiudio.TapBackend.list_processes()          # permission-free
+    print(f"tappable processes: {len(procs)} (e.g. {procs[0].bundle_id!r} pid={procs[0].pid})")
+else:
+    print("input/duplex/tap backends are macOS-only.")""")
+
 md(r"""Starting a stream needs a real output device, so the next cell **guards itself** and
 skips cleanly where there is none (e.g. CI). Where a device exists it runs ~0.4 s of
 **silent** output and reports telemetry.""")
@@ -302,9 +316,10 @@ md(r"""> ⚠️ **Shortcomings (the big ones).**
 > - **Live output is silent.** There is no oscillator / file-source node, and an output
 >   device hands the graph an *empty* input — so the meter reads ~0. The demo proves the
 >   *control + telemetry frontend*, not audible processing.
-> - **Output only.** Only the output backend is bound. The C++ **input / full-duplex /
->   process-tap** backends (M3–M5) exist but aren't exposed to Python yet.
-> - **macOS only** (`DeviceBackend`/`AudioDeviceInfo` aren't present on other platforms).""")
+> - **Capturing needs permission.** `InputBackend`/`DuplexBackend` now bound (M11a), but a
+>   live mic capture needs microphone TCC; `TapBackend` (system/app capture) needs a signed
+>   binary + audio-capture TCC. Enumeration / process listing are permission-free.
+> - **macOS only** (these Core Audio backends aren't present on other platforms).""")
 
 # ---------------------------------------------------------------- 7. offline
 md(r"""## 7. `OfflineBackend` + `WavFormat` — file rendering
@@ -375,8 +390,8 @@ Everything the Python layer **cannot** do yet (or does with a caveat), and why:
 |---|---|---|
 | **Node library** | `source/sink/gain/sum/meter/biquad_lowpass/downmix/upmix/latency`; no high-pass factory, EQ, dynamics, delay/reverb, general routing-matrix, or neural nodes | grows in Phase 1+ |
 | **Signal generation** | no oscillator/file-source node → **live device output is silent** | small follow-up |
-| **Live input** | mic / full-duplex / process-tap backends (M3–M5) exist in C++ but **aren't bound** | follow-up |
-| **Device backend** | **output-only**, **macOS-only** | scope / platform |
+| **Live input** | mic / full-duplex / process-tap backends **✅ bound** (`InputBackend`/`DuplexBackend`/`TapBackend`, M11a) — capture needs mic TCC; taps need a signed binary | ✅ |
+| **Device backends** | output + input + duplex + tap bound (M11a), **macOS-only**; capture/tap need TCC (+ signed binary for taps) | scope / platform |
 | **Control** | only gain/cutoff/Q; **no automation curves**; bounded queue **drops on overflow** (`set_* → False`) | future / RT trade-off |
 | **Direct edits** | `Graph.set_gain` is **not RT-safe on a running stream** — use `ex.set_*` | by design |
 | **`process()`** | silently renders only up to `max_block` frames (tail → 0) | contract footgun |

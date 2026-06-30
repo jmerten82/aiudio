@@ -55,6 +55,9 @@ public:
     void stop() override;
     [[nodiscard]] std::uint32_t latencyFrames() const override;
 
+    /// Whether the tap IOProc is currently started (control-thread telemetry).
+    [[nodiscard]] bool running() const noexcept { return running_; }
+
     // Invoked by the tap aggregate's IOProc (implementation detail). Takes the
     // captured AudioBufferList as const void*. RT context: alloc-/lock-free.
     void captureFromIOProc(const void* inputBufferList) noexcept;

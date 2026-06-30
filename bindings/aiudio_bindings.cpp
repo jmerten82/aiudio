@@ -33,6 +33,9 @@
 // where it exists. Everything else (graph IR, executor, offline) is cross-platform.
 #ifdef __APPLE__
 #include "aiudio/io/coreaudio_backend.hpp"
+#include "aiudio/io/coreaudio_duplex_backend.hpp"
+#include "aiudio/io/coreaudio_input_backend.hpp"
+#include "aiudio/io/coreaudio_process_tap_backend.hpp"
 #endif
 
 namespace nb = nanobind;
@@ -274,5 +277,84 @@ NB_MODULE(_aiudio, m) {
              "Stop the device IOProc. Releases the GIL.")
         .def_prop_ro("running", &io::CoreAudioBackend::running)
         .def_prop_ro("latency_frames", &io::CoreAudioBackend::latencyFrames);
+
+    // ---- Input backend (M3) — capture from an input device (needs mic TCC permission) ----
+    nb::class_<io::CoreAudioInputBackend>(m, "InputBackend")
+        .def(nb::init<>())
+        .def("enumerate", &io::CoreAudioInputBackend::enumerate,
+             "List the system's audio devices (setup-time; not real-time).")
+        .def("open", [](io::CoreAudioInputBackend& b, graph::GraphExecutor& e, std::uint32_t channels,
+                        double sampleRate, std::uint32_t block, const std::string& inputDevice) {
+            io::StreamConfig c;
+            c.inputChannels = channels;
+            c.sampleRate = sampleRate;
+            c.blockSize = block;
+            c.inputDeviceId = inputDevice;
+            return b.open(c, &e);
+        }, "executor"_a, "channels"_a = 1, "sample_rate"_a = 48000.0, "block_size"_a = 512,
+           "input_device"_a = std::string{}, nb::keep_alive<1, 2>(),
+           nb::call_guard<nb::gil_scoped_release>(),
+           "Open the input device, routing each captured RT block to the executor (in → graph).")
+        .def("start", &io::CoreAudioInputBackend::start, nb::call_guard<nb::gil_scoped_release>())
+        .def("stop", &io::CoreAudioInputBackend::stop, nb::call_guard<nb::gil_scoped_release>())
+        .def_prop_ro("running", &io::CoreAudioInputBackend::running)
+        .def_prop_ro("latency_frames", &io::CoreAudioInputBackend::latencyFrames);
+
+    // ---- Duplex backend (M4) — input+output on ONE clock (mic → graph → speakers) ----
+    nb::class_<io::CoreAudioDuplexBackend>(m, "DuplexBackend")
+        .def(nb::init<>())
+        .def("enumerate", &io::CoreAudioDuplexBackend::enumerate)
+        .def("open", [](io::CoreAudioDuplexBackend& b, graph::GraphExecutor& e,
+                        std::uint32_t inCh, std::uint32_t outCh, double sampleRate, std::uint32_t block,
+                        const std::string& inputDevice, const std::string& outputDevice) {
+            io::StreamConfig c;
+            c.inputChannels = inCh;
+            c.outputChannels = outCh;
+            c.sampleRate = sampleRate;
+            c.blockSize = block;
+            c.inputDeviceId = inputDevice;
+            c.outputDeviceId = outputDevice;
+            return b.open(c, &e);
+        }, "executor"_a, "input_channels"_a = 1, "output_channels"_a = 2, "sample_rate"_a = 48000.0,
+           "block_size"_a = 512, "input_device"_a = std::string{}, "output_device"_a = std::string{},
+           nb::keep_alive<1, 2>(), nb::call_guard<nb::gil_scoped_release>(),
+           "Open input+output on one shared clock (an aggregate device if they differ).")
+        .def("start", &io::CoreAudioDuplexBackend::start, nb::call_guard<nb::gil_scoped_release>())
+        .def("stop", &io::CoreAudioDuplexBackend::stop, nb::call_guard<nb::gil_scoped_release>())
+        .def_prop_ro("running", &io::CoreAudioDuplexBackend::running)
+        .def_prop_ro("latency_frames", &io::CoreAudioDuplexBackend::latencyFrames)
+        .def_prop_ro("uses_aggregate_device", &io::CoreAudioDuplexBackend::usesAggregateDevice);
+
+    // ---- Process-tap backend (M5) — system / per-app output capture (signed + TCC) ----
+    nb::class_<io::ProcessInfo>(m, "ProcessInfo")
+        .def_ro("pid", &io::ProcessInfo::pid)
+        .def_ro("bundle_id", &io::ProcessInfo::bundleId)
+        .def("__repr__", [](const io::ProcessInfo& p) {
+            return "<ProcessInfo pid=" + std::to_string(p.pid) + " '" + p.bundleId + "'>";
+        });
+
+    nb::class_<io::CoreAudioProcessTapBackend>(m, "TapBackend")
+        .def(nb::init<>())
+        .def_static("list_processes", &io::CoreAudioProcessTapBackend::listProcesses,
+                    "List processes Core Audio exposes (pid + bundle id). No permission needed.")
+        .def("tap_system_audio", &io::CoreAudioProcessTapBackend::tapSystemAudio,
+             "Capture whole-system output (call before open()).")
+        .def("tap_process", &io::CoreAudioProcessTapBackend::tapProcess, "pid"_a,
+             "Capture a single process's output by PID (call before open()).")
+        .def("enumerate", &io::CoreAudioProcessTapBackend::enumerate)
+        .def("open", [](io::CoreAudioProcessTapBackend& b, graph::GraphExecutor& e,
+                        std::uint32_t channels, double sampleRate, std::uint32_t block) {
+            io::StreamConfig c;
+            c.inputChannels = channels;
+            c.sampleRate = sampleRate;
+            c.blockSize = block;
+            return b.open(c, &e);
+        }, "executor"_a, "channels"_a = 2, "sample_rate"_a = 48000.0, "block_size"_a = 512,
+           nb::keep_alive<1, 2>(), nb::call_guard<nb::gil_scoped_release>(),
+           "Open the tap (needs a signed binary w/ NSAudioCaptureUsageDescription + audio-capture TCC).")
+        .def("start", &io::CoreAudioProcessTapBackend::start, nb::call_guard<nb::gil_scoped_release>())
+        .def("stop", &io::CoreAudioProcessTapBackend::stop, nb::call_guard<nb::gil_scoped_release>())
+        .def_prop_ro("running", &io::CoreAudioProcessTapBackend::running)
+        .def_prop_ro("latency_frames", &io::CoreAudioProcessTapBackend::latencyFrames);
 #endif  // __APPLE__
 }

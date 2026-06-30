@@ -38,6 +38,9 @@ public:
         return aggregateId_ != kAudioObjectUnknown;
     }
 
+    /// Whether the duplex IOProc is currently started (control-thread telemetry).
+    [[nodiscard]] bool running() const noexcept { return running_; }
+
     // Invoked by the duplex IOProc (implementation detail): both the captured
     // input list and the output list to fill. RT context: alloc-/lock-free.
     void renderFromIOProc(const void* inputBufferList, void* outputBufferList) noexcept;

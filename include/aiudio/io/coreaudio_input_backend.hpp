@@ -33,6 +33,9 @@ public:
     void stop() override;
     [[nodiscard]] std::uint32_t latencyFrames() const override;
 
+    /// Whether the input IOProc is currently started (control-thread telemetry).
+    [[nodiscard]] bool running() const noexcept { return running_; }
+
     // Invoked by the Core Audio input IOProc (implementation detail). Takes the
     // captured AudioBufferList as const void*. RT context: allocation-/lock-free.
     void captureFromIOProc(const void* inputBufferList) noexcept;
