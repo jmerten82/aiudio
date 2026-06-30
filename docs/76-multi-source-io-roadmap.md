@@ -108,7 +108,7 @@ RT/est/deps per sub-milestone; **do M9.1 first** (it makes every later live test
 
 | ID | Deliverable | RT | Est | Deps |
 |---|---|---|---|---|
-| **M9.1** xrun/underrun policy — ✅ **in review (PR)** | detect (ring over/underrun counters ✓ + executor under-served-block counter ✓); substitute (silence on underrun, drop on overrun ✓); atomic `xrun_count` / `dropped_commands` telemetry ✓; `StreamConfig.XrunPolicy` knob ✓ (enforcement deferred). **Device-side HAL-timestamp gap + `kAudioDeviceProcessorOverload` detection deferred to M9.4** (needs the mock backend to test). | 🟡 | 2–3 d | — |
+| **M9.1** xrun/underrun policy — ✅ **merged (PR #17)** | detect (ring over/underrun counters ✓ + executor under-served-block counter ✓); substitute (silence on underrun, drop on overrun ✓); atomic `xrun_count` / `dropped_commands` telemetry ✓; `StreamConfig.XrunPolicy` knob ✓ (enforcement deferred). **Device-side HAL-timestamp gap + `kAudioDeviceProcessorOverload` detection deferred to M9.4** (needs the mock backend to test). | 🟡 | 2–3 d | — |
 | **M9.2** channel mapping/routing | device↔graph mapping incl. **mono↔stereo**; within-graph routing/matrix nodes | 🟢 | 2–4 d | **G8** |
 | **M9.3** boundary sample-rate conversion | fixed-ratio polyphase FIR (or libsamplerate/Speex ○) at the I/O edge; alloc-free; reports latency | 🔴 | 4–6 d | M9.1, **G9** |
 | **M9.4** device hot-plug/disconnect + fallback | HAL listeners (○) + off-thread state machine: clean stop → fallback/notify → re-open | 🟢 | 4–7 d | M9.1 |
@@ -258,7 +258,7 @@ verified green before merge. **Status legend:** ✅ merged · 🟡 in review · 
 | 1 | `feat/g10-multistream-executor` | **G10** — multi-stream executor (N in / M out streams; source/sink stream binding) | ✅ **merged (PR #14)** | main | offline |
 | 2 | `feat/g8-per-port-channels` | **G8** — per-port channel counts + `DownmixNode`/`UpmixNode` (channel-width change) | ✅ **merged (PR #15)** | main | offline (golden) |
 | 3 | `feat/g9-latency-pdc` | **G9** — node/edge latency reporting + delay compensation (ADR-0013) | ✅ **merged (PR #16)** | main | offline |
-| 4 | `feat/m9-1-xrun-policy` | **M9.1** — xrun/underrun policy + telemetry (device-side HAL detection → M9.4) | 🟡 **in review (PR)** | main | headless + RT-alloc |
+| 4 | `feat/m9-1-xrun-policy` | **M9.1** — xrun/underrun policy + telemetry (device-side HAL detection → M9.4) | ✅ **merged (PR #17)** | main | headless + RT-alloc |
 | 5 | `feat/m11-input-bindings` | **M11a** — bind the input / duplex / tap backends to Python | ⬜ | main | gated live |
 | 6 | `feat/m10-multisource-manager` | **M10 (single-clock) + M11b** — manager (N rings, one clock) + Python multi-source API → ⭐ **live MVP** | ⬜ | 1, 5 (+2, 4) | gated live |
 | 7 | `feat/m9-4-hotplug` | **M9.4** — device hot-plug / fallback **+ a mock Core Audio backend** (reused by 8–9) | ⬜ | 4 | gated live + mock |
@@ -274,9 +274,11 @@ comp. (PRs 1, 5, 6 + optionally 2, 4 — the `~4–6 wk` single-clock MVP of §8
 - Strict chains: `1 → 6 → 10`, `3 → 8 → 9 → 10`, `5 → 6`.
 - Independent (branch off `main`, any order): PRs **1, 2, 3, 4, 5** — none depends on another;
   the table is a *recommended* linear order.
-- **Done so far:** PR 1 (G10) ✅, PR 2 (G8) ✅, PR 3 (G9 latency/PDC) ✅ — all merged.
-  **All of Phase A (the spine prerequisites) is complete** — M9.3's resampler can now report its
-  latency and rely on auto-compensation. *Note:* PR 2 delivered the channel-width engine
+- **Done so far:** PR 1 (G10) ✅, PR 2 (G8) ✅, PR 3 (G9 latency/PDC) ✅, PR 4 (M9.1 xrun policy)
+  ✅ — all merged. **All of Phase A (the spine prerequisites) is complete**, plus the M9.1 xrun
+  policy/telemetry — M9.3's resampler can report its latency and rely on auto-compensation, and
+  the xrun primitives are in place. **Next: PR 5 (M11a input bindings) → PR 6 (M10 manager, the
+  live MVP ⭐).** *Note:* PR 2 delivered the channel-width engine
   + the down/up-mix nodes; the **device↔graph channel mapping** slice of M9.2 (mono↔stereo at
   the I/O boundary) is still open and folds naturally into PR 6 (M10) or a small PR of its own.
 - Test infra: notebook execution now runs in the test interpreter (a throwaway kernelspec on
