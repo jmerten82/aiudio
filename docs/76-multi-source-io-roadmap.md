@@ -94,7 +94,7 @@ broadcast); a mechanical `prepare()`-signature change so stateful nodes size sta
 *Acceptance:* a 2→1 downmix and a 1→2 pan render correctly offline (golden); `process()`
 stays allocation-free.
 
-**G9 — Node/edge latency reporting + delay compensation** · 🟡 · ~3–4 d · ADR (new)
+**G9 — Node/edge latency reporting + delay compensation** · ✅ in review (PR) · 🟡 · ADR-0013
 Add `latencyFrames()` to the node/backend contract (✓ Verified absent today) and a
 graph-wide delay-compensation pass, so resampled/buffered/aligned sources stay
 sample-aligned. *Reused later by* lookahead/FFT/neural nodes.
@@ -257,7 +257,7 @@ verified green before merge. **Status legend:** ✅ merged · 🟡 in review · 
 |---|---|---|---|---|---|
 | 1 | `feat/g10-multistream-executor` | **G10** — multi-stream executor (N in / M out streams; source/sink stream binding) | ✅ **merged (PR #14)** | main | offline |
 | 2 | `feat/g8-per-port-channels` | **G8** — per-port channel counts + `DownmixNode`/`UpmixNode` (channel-width change) | ✅ **merged (PR #15)** | main | offline (golden) |
-| 3 | `feat/g9-latency-pdc` | **G9** — node/edge latency reporting + delay compensation | ⬜ **next** | main | offline |
+| 3 | `feat/g9-latency-pdc` | **G9** — node/edge latency reporting + delay compensation (ADR-0013) | 🟡 **in review (PR)** | main | offline |
 | 4 | `feat/m9-1-xrun-policy` | **M9.1** — xrun/underrun policy + telemetry | ⬜ | main | headless + RT-alloc |
 | 5 | `feat/m11-input-bindings` | **M11a** — bind the input / duplex / tap backends to Python | ⬜ | main | gated live |
 | 6 | `feat/m10-multisource-manager` | **M10 (single-clock) + M11b** — manager (N rings, one clock) + Python multi-source API → ⭐ **live MVP** | ⬜ | 1, 5 (+2, 4) | gated live |
@@ -274,7 +274,9 @@ comp. (PRs 1, 5, 6 + optionally 2, 4 — the `~4–6 wk` single-clock MVP of §8
 - Strict chains: `1 → 6 → 10`, `3 → 8 → 9 → 10`, `5 → 6`.
 - Independent (branch off `main`, any order): PRs **1, 2, 3, 4, 5** — none depends on another;
   the table is a *recommended* linear order.
-- **Done so far:** PR 1 (G10) and PR 2 (G8). *Note:* PR 2 delivered the channel-width engine
+- **Done so far:** PR 1 (G10) ✅ and PR 2 (G8) ✅ merged; PR 3 (G9 latency/PDC) 🟡 in review.
+  With G9, **all of Phase A (the spine prerequisites) is complete** — M9.3's resampler can now
+  report its latency and rely on auto-compensation. *Note:* PR 2 delivered the channel-width engine
   + the down/up-mix nodes; the **device↔graph channel mapping** slice of M9.2 (mono↔stereo at
   the I/O boundary) is still open and folds naturally into PR 6 (M10) or a small PR of its own.
 - Test infra: notebook execution now runs in the test interpreter (a throwaway kernelspec on

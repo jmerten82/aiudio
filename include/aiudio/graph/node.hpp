@@ -44,6 +44,14 @@ public:
         (void)value;
     }
 
+    /// Processing latency in frames (G9): how many frames this node delays its output
+    /// relative to its input. Default 0 (most nodes add no latency). A lookahead/FFT/
+    /// resampler node reports its inherent delay here; the executor uses it for graph-wide
+    /// **delay compensation** — at a fan-in, lower-latency branches are delayed so all
+    /// inputs recombine in phase. (Report 0 for an *intentional* delay effect, which must
+    /// NOT be compensated away.)
+    [[nodiscard]] virtual std::uint32_t latencyFrames() const noexcept { return 0; }
+
     /// Channel-count layout (G8, compile-time): given the channel width at each input
     /// port (`inWidths[0..numIn)`), fill the width of each output port (`outWidths[0..numOut)`).
     /// The executor calls this in topological order to size each port's buffer, so widths

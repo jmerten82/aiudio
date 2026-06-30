@@ -195,6 +195,23 @@ stereo = np.zeros((2, 8), np.float32); stereo[0] = 1.0; stereo[1] = 0.5   # L=1.
 y = ex_ch.process(stereo)
 print("down->up: out[0]=", float(y[0, 0]), " out[1]=", float(y[1, 0]), " (mono (L+R)/2 = 0.75, duplicated)")""")
 
+md(r"""**Latency & delay compensation (G9).** A node can declare a processing latency
+(`add_latency(frames)` models a lookahead/FFT/resampler); `ex.latency_frames` reports the
+graph total, and the executor **auto-aligns parallel branches** so they recombine in phase.
+Here an impulse fans out through a `latency(8)` branch and a direct branch into a mixer —
+the direct branch is compensated by 8, so a single **2×** impulse lands at frame 8 (not two
+separate impulses at 0 and 8):""")
+code(r"""g_lat = aiudio.Graph()
+s = g_lat.add_source(); lat = g_lat.add_latency(8, 1); mix = g_lat.add_sum(2); k = g_lat.add_sink()
+g_lat.connect(s, 0, lat, 0); g_lat.connect(lat, 0, mix, 0)   # branch A: +8 frames latency
+g_lat.connect(s, 0, mix, 1)                                   # branch B: direct (compensated)
+g_lat.connect(mix, 0, k, 0)
+ex_lat = aiudio.GraphExecutor(); ex_lat.compile(g_lat, channels=1, sample_rate=SR, max_block=32)
+imp = np.zeros((1, 32), np.float32); imp[0, 0] = 1.0
+y = ex_lat.process(imp)[0]
+print("latency_frames:", ex_lat.latency_frames, "| out[0]:", float(y[0]), " out[8]:", float(y[8]),
+      " (realigned: single 2x impulse at 8)")""")
+
 # ---------------------------------------------------------------- 5. control plane
 md(r"""## 5. The control plane — live, RT-safe parameter edits (G7)
 
@@ -358,7 +375,7 @@ Everything the Python layer **cannot** do yet (or does with a caveat), and why:
 
 | Area | Shortcoming | Status / why |
 |---|---|---|
-| **Node library** | `source/sink/gain/sum/meter/biquad_lowpass/downmix/upmix`; no high-pass factory, EQ, dynamics, delay/reverb, general routing-matrix, or neural nodes | grows in Phase 1+ |
+| **Node library** | `source/sink/gain/sum/meter/biquad_lowpass/downmix/upmix/latency`; no high-pass factory, EQ, dynamics, delay/reverb, general routing-matrix, or neural nodes | grows in Phase 1+ |
 | **Signal generation** | no oscillator/file-source node → **live device output is silent** | small follow-up |
 | **Live input** | mic / full-duplex / process-tap backends (M3–M5) exist in C++ but **aren't bound** | follow-up |
 | **Device backend** | **output-only**, **macOS-only** | scope / platform |
