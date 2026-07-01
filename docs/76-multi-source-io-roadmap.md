@@ -3,13 +3,15 @@
 > **Last updated:** 2026-06-30 · **Goal:** N independent input sources *and* M output
 > sinks — each on its own hardware clock — brought onto **one engine timeline**, composed
 > in **one graph**, controllable from **Python**, all **RT-safe**. · **Status:**
-> **roadmap feature-complete — the full chain is merged to `main`.** The single-clock
-> multi-source MVP (G10, G8, G9, M9.1, M11a, **M10**, master-clock adapter, **M9.4**) plus the
-> entire **rate/clock tail** are now in `main`: **M9.3** boundary resampler (#21), **M9.5**
-> off-clock drift servo (#22), **M9.6** cross-clock multi-device (#23), and **M9.2 + the real
-> HAL device-died listener** (#24). The only work left is the *physical* hardware triggers
-> (a real device unplug; two devices on separate physical clocks), whose logic is already
-> proven headlessly via the `MockBackend`. See the
+> **the engine + all mechanisms are merged and mock-verified; real multi-device is validated
+> for one live source and awaits a hardware soak.** In `main`: the single-clock MVP (G10, G8,
+> G9, M9.1, M11a, **M10** transport, master-clock adapter, **M9.4**), the rate/clock tail
+> (**M9.3** resampler #21, **M9.5** drift servo #22, **M9.6** 1-in/1-out cross-clock #23,
+> **M9.2** + HAL listener #24), and the **`LiveMultiSource`** cross-clock N-source engine
+> (#30/#31) with real-device `attach_*` bindings. **Verified headlessly** (mocks + simulated
+> drift, TSan-clean) **and with one real source live** (mic→graph→speakers). **Not yet done:**
+> the *N-real-device* long drift soak on hardware (the genuine remaining risk), the process-tap
+> signing, and real-device cross-clock beyond one master + one off-clock output. See the
 > **[delivery plan / PR chain in §11](#11-delivery-plan--the-pr-chain-live-status)** for live status. (Post-Phase-0; the I/O parts cluster in Phase 3 productionization, the
 > spine parts are general and can land earlier.)
 >
@@ -125,17 +127,27 @@ RT/est/deps per sub-milestone; **do M9.1 first** (it makes every later live test
 
 ### Phase C — Multi-source transport (the ADR-0008 manager)
 
-**M10 — Multi-source manager** · ✅ **merged (PR #19)** · 🟢 (transport off-thread) · ADR-0014 (makes ADR-0008 §5 concrete)
-Implements ADR-0008 §5's deferred "future multi-source manager":
+**M10 — Multi-source manager** · **partially delivered** · 🟢 (transport off-thread) · ADR-0014 (makes ADR-0008 §5 concrete)
+Implements ADR-0008 §5's deferred "future multi-source manager", in two layers:
 - **C1 — Per-source capture as named sources:** generalize the existing input/duplex/tap
   backends so each registers as a named source feeding **its own SPSC ring** (ADR-0008 §2).
+  — ✅ **`LiveMultiSource` (PR #30 engine + #31 bindings)**: a `CaptureSourceAdapter` lets any
+  capture backend push into a per-source ring; `attach_source(mic|tap|…)` wires real backends.
 - **C2 — The manager:** owns **N input backends + N rings** and **M output backends + M
   rings**; one **master clock** drives the engine IOProc; **off-clock sources are
   drift-compensated/resampled (Phase B) onto the master timeline**; exposes named input
   streams + named output streams to the executor.
-- **C3 — Symmetric output side:** graph → M output sinks via per-sink rings/backends.
-*Acceptance:* mic + a process tap + a file, on different clocks, all arrive sample-aligned
-on the engine timeline; two outputs receive distinct signals; xrun-clean over a soak run.
+  — split across: the **single-clock ring transport `MultiSourceManager`** ✅ **merged (PR #19)**
+  (owns rings, fed by push/adapter; **single-rate**, no drift — see its header note), and the
+  **cross-clock `LiveMultiSource`** ✅ (owns N sources' `ResamplingSource`s + drives the master
+  pump; **realizes the off-clock drift-comp**). *(Owning the backend objects lifetime-wise is
+  still on the caller; the engine owns the ASRC rings.)*
+- **C3 — Symmetric output side:** graph → M output sinks via per-sink rings/backends. — partial
+  (`MasterClockAdapter`/`CrossClockBridge` cover one master output + one off-clock output).
+*Acceptance:* mic + a process tap + a file, on different clocks, all arrive sample-aligned on
+the engine timeline; two outputs receive distinct signals; xrun-clean over a soak run. —
+**mechanisms built + verified headlessly (mocks + simulated drift) and with ONE real source
+live (mic→speakers); the N-real-device, long soak is NOT yet done** (the tap also needs signing).
 
 ### Phase D — Graph/executor multi-IO (graph spine)
 
@@ -236,7 +248,7 @@ start first.
 ---
 
 ## 9. Definition of done — true multi-source I/O
-- [ ] N independent input sources (e.g. mic + tap + file) on different clocks arrive **sample-aligned** on one engine timeline (M9.3/M9.5 + M10).
+- [~] N independent input sources (e.g. mic + tap + file) on different clocks arrive **sample-aligned** on one engine timeline (M9.3/M9.5 + M10). — **engine built (`LiveMultiSource`) + verified headlessly (mocks/simulated drift) and one real source live; the N-real-device long soak is the remaining hardware step.**
 - [ ] A single graph **binds distinct `SourceNode`s to distinct sources**, mixes/routes them (`SumNode` + G8), and drives **M distinct output sinks** (G10 + M10).
 - [ ] `process()` remains **allocation-free / lock-free**; per-source xruns detected + counted; survives a source hot-unplug (M9.1/M9.4).
 - [ ] The whole topology is **declarable and controllable from Python**, with per-source telemetry — audio thread untouched (M11).

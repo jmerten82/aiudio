@@ -376,6 +376,26 @@ bridge.attach_output(dev_out, in_channels=0, out_channels=1, block_size=64)  # o
 print(bridge.output_ratio, bridge.output_fill, bridge.output_underruns)
 ```
 
+### LiveMultiSource — **N** live sources on different clocks → one graph → a master output
+
+The general case: several live inputs each on their **own** clock, mixed through one graph, out
+to a master output device whose IOProc is the clock. `add_source` gives each source a ring +
+drift servo; `attach_master_output` makes a device pump everything. Real backends attach too
+(`attach_source(InputBackend|TapBackend, …)`, `attach_master_output(DeviceBackend, …)`) — this
+is live multi-source on real hardware, from Python:
+
+```python
+ex.compile(graph_with_N_input_streams, channels=1, sample_rate=48000.0, max_block=256)
+lms = a.LiveMultiSource(ex, engine_rate=48000.0, channels=1, max_block=256)
+lms.attach_source(mic,   stream=0, source_rate=48000.0)      # each source on its own clock
+lms.attach_source(other, stream=1, source_rate=44100.0)      # drift-compensated onto the engine
+lms.attach_master_output(speakers, out_stream=0, channels=2, sample_rate=48000.0)
+mic.start(); other.start(); speakers.start()                 # speakers' IOProc pumps the mix
+print(lms.source_ratio(1), lms.source_fill(1), lms.source_underruns(1))   # per-source telemetry
+```
+Mock-verified headlessly and validated with one real source live (mic→speakers); the N-real-
+device long drift soak is the remaining hardware step (`docs/76`).
+
 ---
 
 ## 10. Boundary DSP utilities
