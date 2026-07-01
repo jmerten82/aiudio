@@ -3,7 +3,10 @@
 > **Last updated:** 2026-06-30 · **Scope:** everything the aiudio pipeline can do **today**
 > (end of Phase 0), with runnable C++ and Python examples. Grounded in the merged code
 > (**✓ Verified**). For *why* it's built this way see the ADRs (`adr/`); for what's *next* see
-> `docs/76` (multi-source), `docs/78` (node library), and the README roadmap.
+> `docs/76` (multi-source), `docs/78` (node library), and the README roadmap. For **end-to-end
+> topology patterns** (offline/live × one/many sources × single/multi clock × live/recorded
+> output) assembled from these pieces, see the cookbook in
+> [`docs/81`](81-pipeline-usage-patterns.md).
 
 ---
 
