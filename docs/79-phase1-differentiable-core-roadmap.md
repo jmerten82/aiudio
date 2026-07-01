@@ -5,8 +5,9 @@
 > autograd, so DSP-node parameters are learnable and neural models are first-class peers.
 > Proven by gradient-based parameter optimization ("match a target") and closed by writing trained
 > parameters **back into the C++ real-time graph**. · **Status:** **in progress — D0 + D1 + D2 +
-> node-introspection enabler landed** (the `DiffExecutor` now auto-mirrors *any* graph:
-> `param_value`/`node_config`/`sample_rate` getters + auto-read, `init_params` optional).
+> node-introspection enabler + D3 (Waveshaper + recursive DcBlocker) landed** (the `DiffExecutor`
+> now auto-mirrors *any* graph: `param_value`/`node_config`/`sample_rate` getters + auto-read,
+> `init_params` optional). D3's stateful Compressor/Gate + feedback Delay are a deferred follow-up.
 > (D0: the differentiable executor spine + registry + C++↔torch parity harness, ADR-0016/0017, the
 > optional `aiudio.diff` / `aiudio[diff]` package; D1: the stateless linear nodes Mixer + Pan).
 > Phase 0 complete, Tier-1 DSP
@@ -142,7 +143,7 @@ milestone ships with a **parity test** (vs C++ where applicable), **pytest**, an
 | **D0** ✅ | Differentiable executor spine | `DiffExecutor` reads the IR + a diff-node registry; autograd source→sink; parity on a trivial graph | Phase 0 (IR, bindings, introspection) |
 | **D1** ✅ | Differentiable **stateless linear** nodes | Mixer (per-input learnable gains) + Pan (equal-power 1→2, learnable) — `forward` + gradcheck + parity. *Scope refined:* DcBlocker + Delay are recursive → moved to **D3**; ChannelMatrix needs channel-layout introspection → deferred (small follow-up). | D0 |
 | **D2** ✅ | Differentiable **filters** (the IIR problem) | `DiffBiquad` — design-param (log-freq/softplus-Q/gain_dB) magnitude-response training + design→biquad coeff export (ADR-0018). *Time-domain* recursive filtering in-graph → D3. | D1 |
-| **D3** | Differentiable **dynamics, nonlinear & recursive** | Waveshaper (STE for hardclip), Compressor/Gate (smooth surrogate + truncated BPTT), **DcBlocker + Delay** (one-pole / feedback — scan/BPTT; moved from D1) | D1 |
+| **D3** ◑ | Differentiable **dynamics, nonlinear & recursive** | ✅ Waveshaper (tanh/softclip FULL; hardclip straight-through SURROGATE) + DcBlocker (recursive per-frame scan) — both auto-mirrored via the introspection enabler. **Deferred to a D3 follow-up:** Compressor/Gate (stateful envelope) + Delay (feedback) — need a smooth surrogate + truncated BPTT. | D1, enabler |
 | **D4** | **Losses + training harness** | multi-res STFT (auraloss) + MSE/L1; `Trainer` (data→fwd→loss→bwd→step→checkpoint); reproducible | D0 |
 | **D5** | **Parameter optimization** ("match a target") — the headline slice | recover a graph's params from a target render by backprop (EQ+comp) | D1–D4 |
 | **D6** | **Round-trip to real time** | export trained params/coeffs → C++ `Graph`; golden parity: trained-torch vs C++-RT render | D2, D5 |
@@ -170,9 +171,14 @@ reproduces the response within tolerance (feeds D6). Trains through the analytic
 response** — the IIR-autodiff workaround (`docs/20` §2.2, ADR-0018). Running a filter *inside* a
 differentiable graph forward (time-domain recursion) lands with the recursive nodes in **D3**.
 
-**D3 — Dynamics/nonlinear.** *Acceptance:* the waveshaper trains (drive/mix); the compressor's
-diff forward matches C++ within tolerance and gradient flows through the envelope with bounded
-BPTT; differentiability status per node is declared and tested.
+**D3 — Dynamics, nonlinear & recursive.** ◑ *Delivered:* `WaveshaperDiffNode` (tanh/softclip =
+FULL; hardclip = straight-through SURROGATE — verified the gradient flows in the clipped region)
+and `DcBlockerDiffNode` (the recursive one-pole as a differentiable per-frame **scan**). Both
+**auto-mirror the graph** via the introspection enabler (shape/corner/sample-rate from the IR).
+*Acceptance met:* C++↔torch parity (stateful DcBlocker compared cold, `warmup=0`), gradients flow
+(incl. through the recursion and the STE), differentiability status declared + tested. *Deferred
+to a D3 follow-up:* the **Compressor/Gate** (stateful nonlinear envelope) and **Delay** (feedback)
+— they need a smooth-surrogate gain computer + truncated BPTT, best done as a focused unit.
 
 **D4 — Losses + trainer.** *Acceptance:* a toy target converges; the run is **deterministic**
 under a fixed seed; checkpoints save/restore params round-trip; CPU + (if available) GPU paths
