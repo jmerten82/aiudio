@@ -177,6 +177,19 @@ tools and Python extensions:
   much easier than CLT alone. The native-tap helper is the one place you may want
   full Xcode (or careful manual `codesign`).
 
+**Concrete: the `aiudio-recorder.app` bundle.** `examples/cpp/ex_record_mic_tap.cpp` +
+`package_recorder_app.sh` realize the "signed `.app`" mitigation — a mic + system-audio
+recorder (mic clock, tap as off-clock source, no playback → no feedback) packaged into a
+**signed `aiudio-recorder.app`** by CMake. Its `Info.plist` carries **both**
+`NSMicrophoneUsageDescription` **and** `NSAudioCaptureUsageDescription`; the plist is also
+`-sectcreate`'d into the Mach-O so the raw binary works too. The **bundle** gives TCC a stable
+identity (`com.aiudio.recorder`), so the mic + audio-recording grants **survive rebuilds** —
+unlike a bare ad-hoc CLI, whose changing cdhash resets the grant. Ad-hoc by default;
+`AIUDIO_CODESIGN_ID=…` real-signs. This is the way to test the tap end-to-end **without
+BlackHole**. Verified on macOS 26: the pipeline runs, the tap drift servo adapts, and a valid
+WAV is written (silent until both TCC grants are given — the expected ungranted state). See
+`examples/cpp/README.md`.
+
 ---
 
 ## 7. Do this first (the next hour)
