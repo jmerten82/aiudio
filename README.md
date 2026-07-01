@@ -149,7 +149,7 @@ status — **kept current as we go**.
 - [ ] C++ RT executor: inline + off-thread pooled neural nodes
 - [ ] Streaming / cached-conv export (non-causal → causal)
 - [ ] Plugin-host backend + VST3/CLAP packaging (I/O M7)
-- [x] **True multi-source I/O** — N inputs + M outputs, one graph, from Python *(plan: [`docs/76`](docs/76-multi-source-io-roadmap.md) §11; **feature-complete — the full chain is merged**: G10 · G8 · G9 · M9.1 · M11a · M10 · master-clock adapter · M9.4 · M9.3 resampler (#21) · M9.5 off-clock drift servo (#22) · M9.6 cross-clock multi-device (#23) · M9.2 boundary channel mapping + real HAL device-died listener (#24). N sources → mix/route → M sinks via per-stream rings, on one or separate clocks. Only the physical hardware triggers (a real unplug; two devices on separate clocks) remain on-device, their logic proven headlessly via the mock)*
+- [x] **True multi-source I/O** — N inputs + M outputs, one graph, from Python *(plan: [`docs/76`](docs/76-multi-source-io-roadmap.md) §11; **feature-complete — the full chain is merged**: G10 · G8 · G9 · M9.1 · M11a · M10 · master-clock adapter · M9.4 · M9.3 resampler (#21) · M9.5 off-clock drift servo (#22) · M9.6 cross-clock multi-device (#23) · M9.2 boundary channel mapping + real HAL device-died listener (#24) · **`LiveMultiSource`** N-source cross-clock engine (#30/#31) · **off-thread WAV recorder** `attach_wav_recorder` (#33). N sources → mix/route → M sinks via per-stream rings, on one or separate clocks, optionally recorded to a WAV. Only the physical hardware triggers (a real unplug; two devices on separate clocks) remain on-device, their logic proven headlessly via the mock)*
 
 ### Phase 4 — Breadth
 - [ ] Source separation, more neural FX, neural-codec node

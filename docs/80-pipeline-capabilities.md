@@ -424,6 +424,20 @@ print(lms.source_ratio(1), lms.source_fill(1), lms.source_underruns(1))   # per-
 Mock-verified headlessly and validated with one real source live (mic→speakers); the N-real-
 device long drift soak is the remaining hardware step (`docs/76`).
 
+**Recording the mix to a WAV.** `attach_wav_recorder(path)` taps the mixed master output to a
+file **off the audio thread** (ADR-0004): the pump pushes each block into a lock-free ring, a
+writer thread drains it to disk. Records until `stop_recording()`; a full ring (disk stalling)
+drops + counts frames rather than blocking the pump. This is the *N live sources → gain → mix →
+`out.wav` for a duration* recorder:
+
+```python
+lms.attach_wav_recorder("out.wav", format=a.WavFormat.Float32)   # arm before/after start
+mic.start(); other.start(); speakers.start()
+time.sleep(duration_seconds)                                     # <-- recording duration
+lms.stop_recording()                                             # final drain + finalize
+print(lms.recorded_frames, lms.record_dropped_frames)            # telemetry (dropped ≈ 0)
+```
+
 ---
 
 ## 10. Boundary DSP utilities

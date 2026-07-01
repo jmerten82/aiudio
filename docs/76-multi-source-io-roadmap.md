@@ -8,8 +8,10 @@
 > G9, M9.1, M11a, **M10** transport, master-clock adapter, **M9.4**), the rate/clock tail
 > (**M9.3** resampler #21, **M9.5** drift servo #22, **M9.6** 1-in/1-out cross-clock #23,
 > **M9.2** + HAL listener #24), and the **`LiveMultiSource`** cross-clock N-source engine
-> (#30/#31) with real-device `attach_*` bindings. **Verified headlessly** (mocks + simulated
-> drift, TSan-clean) **and with one real source live** (mic→graph→speakers). **Not yet done:**
+> (#30/#31) with real-device `attach_*` bindings **plus an off-thread WAV recorder**
+> (`attach_wav_recorder` — RT ring → writer thread; #33). **Verified headlessly** (mocks +
+> simulated drift, TSan-clean) **and with one real source live** (mic→graph→speakers).
+> **Not yet done:**
 > the *N-real-device* long drift soak on hardware (the genuine remaining risk), the process-tap
 > signing, and real-device cross-clock beyond one master + one off-clock output. See the
 > **[delivery plan / PR chain in §11](#11-delivery-plan--the-pr-chain-live-status)** for live status. (Post-Phase-0; the I/O parts cluster in Phase 3 productionization, the

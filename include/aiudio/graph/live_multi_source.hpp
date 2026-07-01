@@ -22,11 +22,16 @@
 #include <memory>
 #include <vector>
 
+#include <atomic>
+#include <string>
+
 #include "aiudio/graph/graph_executor.hpp"
 #include "aiudio/io/audio_buffer.hpp"
 #include "aiudio/io/render_callback.hpp"
 #include "aiudio/io/resampling_source.hpp"
 #include "aiudio/io/types.hpp"
+#include "aiudio/io/wav_file.hpp"
+#include "aiudio/io/wav_recorder.hpp"
 
 namespace aiudio::graph {
 
@@ -98,6 +103,40 @@ public:
         return s ? s->res.overruns() : 0;
     }
 
+    // ---- Recording: tap the master output block to a WAV, off the audio thread (ADR-0004) ----
+    /// Record the mixed master-output stream to `path`. The audio thread pushes each block into
+    /// a lock-free ring; a writer thread drains it to disk. Records until stopRecording() (or
+    /// destruction). Returns false if the file couldn't open or a recording is already active.
+    /// Safe to call before or after the master device starts. `ringFrames` buffers disk stalls.
+    bool recordToWav(const std::string& path, io::WavFormat format = io::WavFormat::Float32,
+                     std::uint32_t ringFrames = 48000) {
+        if (recording_.load(std::memory_order_acquire)) return false;
+        recorder_ = std::make_unique<io::WavRecorder>();
+        if (!recorder_->start(path, channels_, engineRate_, format, ringFrames, maxBlock_)) {
+            recorder_.reset();
+            return false;
+        }
+        recording_.store(true, std::memory_order_release);  // publish after the recorder is armed
+        return true;
+    }
+
+    /// Stop recording: the writer thread does a final drain, then the WAV is finalized.
+    /// Idempotent. Keeps the pump running (only the WAV tap stops).
+    void stopRecording() noexcept {
+        recording_.store(false, std::memory_order_release);
+        if (recorder_) recorder_->stop();
+    }
+
+    [[nodiscard]] bool recording() const noexcept {
+        return recording_.load(std::memory_order_acquire);
+    }
+    [[nodiscard]] std::uint64_t recordedFrames() const noexcept {
+        return recorder_ ? recorder_->framesWritten() : 0;
+    }
+    [[nodiscard]] std::uint64_t recordDroppedFrames() const noexcept {
+        return recorder_ ? recorder_->droppedFrames() : 0;
+    }
+
 private:
     // Push a source's capture into its ResamplingSource (runs on that source's IOProc thread).
     struct CaptureSourceAdapter final : io::RenderCallback {
@@ -140,6 +179,8 @@ private:
             float* d = out.channel(c);
             for (std::uint32_t f = 0; f < frames; ++f) d[f] = 0.0f;
         }
+        // Tap the mixed output to the recorder's ring (wait-free); the writer thread drains it.
+        if (recording_.load(std::memory_order_acquire)) recorder_->pushBlock(src, frames);
     }
 
     void allocStreams(std::vector<std::vector<float>>& store, std::vector<std::vector<float*>>& ptrs,
@@ -169,6 +210,11 @@ private:
     std::vector<std::vector<float*>> inPtrs_, outPtrs_;
     std::vector<io::AudioBuffer> inBufs_, outBufs_;
     MasterOut masterOut_;
+    // Optional WAV tap. `recorder_` is assigned before `recording_` goes true (release), and the
+    // pump only touches it once it reads recording_==true (acquire) — so the pump never sees a
+    // half-built recorder. Destroyed only with `this` (after the master device has stopped).
+    std::unique_ptr<io::WavRecorder> recorder_;
+    std::atomic<bool> recording_{false};
 };
 
 }  // namespace aiudio::graph
