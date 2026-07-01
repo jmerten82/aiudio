@@ -152,3 +152,33 @@ def test_device_drives_multisource_manager_via_adapter(aud):
     finally:
         be.stop()
     assert not be.running
+
+
+def test_live_multi_source_mic_to_speakers(aud):
+    """LiveMultiSource on real hardware: a live mic (source, its own clock) → graph → the
+    speakers as the master clock (its IOProc pumps + pulls the source). Live-gated. (Two real
+    input devices would exercise true N-source; here one real source proves the machinery.)"""
+    if not hasattr(aud, "InputBackend"):
+        return
+    g = aud.Graph()
+    src = g.add_source(0)
+    gn = g.add_gain(0.3)
+    k = g.add_sink(0)
+    g.connect(src, 0, gn, 0)
+    g.connect(gn, 0, k, 0)
+    ex = aud.GraphExecutor()
+    assert ex.compile(g, channels=1, sample_rate=SR, max_block=BLOCK)
+    lms = aud.LiveMultiSource(ex, engine_rate=SR, channels=1, max_block=BLOCK)
+
+    mic = aud.InputBackend()
+    spk = aud.DeviceBackend()
+    assert lms.attach_source(mic, stream=0, source_rate=SR, channels=1, block_size=BLOCK)
+    assert lms.attach_master_output(spk, out_stream=0, channels=1, sample_rate=SR, block_size=BLOCK)
+    assert mic.start()
+    assert spk.start()                       # the speakers' IOProc pumps; the mic feeds source 0
+    try:
+        time.sleep(0.4)
+        assert ex.render_count > 0           # the master pumped the multi-source graph live
+    finally:
+        spk.stop()
+        mic.stop()

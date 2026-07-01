@@ -27,6 +27,7 @@
 #include "aiudio/graph/graph.hpp"
 #include "aiudio/graph/graph_executor.hpp"
 #include "aiudio/graph/latency_node.hpp"
+#include "aiudio/graph/live_multi_source.hpp"
 #include "aiudio/graph/master_clock_adapter.hpp"
 #include "aiudio/graph/meter_node.hpp"
 #include "aiudio/graph/mixer_node.hpp"
@@ -526,6 +527,47 @@ NB_MODULE(_aiudio, m) {
         .def_prop_ro("output_underruns", &graph::CrossClockBridge::outputUnderruns)
         .def_prop_ro("output_overruns", &graph::CrossClockBridge::outputOverruns);
 
+    // ---- LiveMultiSource: N live sources on DIFFERENT clocks → one graph → a master output.
+    // Compile the executor first; add_source registers each off-clock source (drift-comped via a
+    // ResamplingSource); the master output device's clock pumps everything. attach_* open the
+    // given backends against the internal callbacks. (Real Core Audio source/master overloads are
+    // added in the macOS block below.) `lms_cls` is reused there. ----
+    auto lms_cls = nb::class_<graph::LiveMultiSource>(m, "LiveMultiSource")
+        .def(nb::init<graph::GraphExecutor&, double, std::uint32_t, std::uint32_t>(),
+             "executor"_a, "engine_rate"_a, "channels"_a, "max_block"_a, nb::keep_alive<1, 2>(),
+             "Compose N live input sources on different clocks → one multi-stream graph → a master "
+             "output device. Compile `executor` first (at engine_rate / channels / max_block).")
+        .def("attach_source", [](graph::LiveMultiSource& lms, io::MockBackend& dev, std::uint32_t stream,
+                                 double sourceRate, std::uint32_t channels, std::uint32_t block,
+                                 std::uint32_t ringFrames) {
+            io::StreamConfig c;
+            c.inputChannels = channels;
+            c.outputChannels = 0;
+            c.sampleRate = sourceRate;
+            c.blockSize = block;
+            return dev.open(c, &lms.addSource(stream, sourceRate, ringFrames));
+        }, "device"_a, "stream"_a, "source_rate"_a = 48000.0, "channels"_a = 1, "block_size"_a = 256,
+           "ring_frames"_a = 8192, nb::keep_alive<2, 1>(),
+           "Attach a capture backend as an off-clock source feeding graph input `stream` "
+           "(drift-compensated onto the engine timeline).")
+        .def("attach_master_output", [](graph::LiveMultiSource& lms, io::MockBackend& dev,
+                                        std::uint32_t outStream, std::uint32_t channels,
+                                        double sampleRate, std::uint32_t block) {
+            io::StreamConfig c;
+            c.inputChannels = 0;
+            c.outputChannels = channels;
+            c.sampleRate = sampleRate;
+            c.blockSize = block;
+            return dev.open(c, &lms.masterOutput(outStream));
+        }, "device"_a, "out_stream"_a = 0, "channels"_a = 1, "sample_rate"_a = 48000.0,
+           "block_size"_a = 256, nb::keep_alive<2, 1>(),
+           "Attach the master output device — its clock pumps the whole composition.")
+        .def_prop_ro("source_count", &graph::LiveMultiSource::sourceCount)
+        .def("source_ratio", &graph::LiveMultiSource::sourceRatio, "stream"_a)
+        .def("source_fill", &graph::LiveMultiSource::sourceFill, "stream"_a)
+        .def("source_underruns", &graph::LiveMultiSource::sourceUnderruns, "stream"_a)
+        .def("source_overruns", &graph::LiveMultiSource::sourceOverruns, "stream"_a);
+
     // ---- Mock backend (M9.4): a deterministic, manually-ticked backend for the live path ----
     nb::class_<io::MockBackend>(m, "MockBackend")
         .def(nb::init<>())
@@ -878,5 +920,51 @@ NB_MODULE(_aiudio, m) {
         .def_prop_ro("latency_frames", &io::CoreAudioProcessTapBackend::latencyFrames)
         .def_prop_ro("disconnected", [](const io::CoreAudioProcessTapBackend& b) { return b.disconnected(); })
         .def_prop_ro("xrun_count", [](const io::CoreAudioProcessTapBackend& b) { return b.xrunCount(); });
+
+    // ---- LiveMultiSource: attach REAL Core Audio backends (mic / tap as off-clock sources,
+    // an output device as the master clock). Each opens the backend against the internal
+    // callback; GIL released during open. This is live multi-source on real hardware. ----
+    lms_cls
+        .def("attach_source", [](graph::LiveMultiSource& lms, io::CoreAudioInputBackend& dev,
+                                 std::uint32_t stream, double sourceRate, std::uint32_t channels,
+                                 std::uint32_t block, std::uint32_t ringFrames,
+                                 const std::string& inputDevice) {
+            io::StreamConfig c;
+            c.inputChannels = channels;
+            c.sampleRate = sourceRate;
+            c.blockSize = block;
+            c.inputDeviceId = inputDevice;
+            return dev.open(c, &lms.addSource(stream, sourceRate, ringFrames));
+        }, "device"_a, "stream"_a, "source_rate"_a = 48000.0, "channels"_a = 1, "block_size"_a = 256,
+           "ring_frames"_a = 8192, "input_device"_a = std::string{}, nb::keep_alive<2, 1>(),
+           nb::call_guard<nb::gil_scoped_release>(),
+           "Attach a live mic as an off-clock source feeding graph input `stream`.")
+        .def("attach_source", [](graph::LiveMultiSource& lms, io::CoreAudioProcessTapBackend& dev,
+                                 std::uint32_t stream, double sourceRate, std::uint32_t channels,
+                                 std::uint32_t block, std::uint32_t ringFrames) {
+            io::StreamConfig c;
+            c.inputChannels = channels;
+            c.sampleRate = sourceRate;
+            c.blockSize = block;
+            return dev.open(c, &lms.addSource(stream, sourceRate, ringFrames));
+        }, "device"_a, "stream"_a, "source_rate"_a = 48000.0, "channels"_a = 2, "block_size"_a = 256,
+           "ring_frames"_a = 8192, nb::keep_alive<2, 1>(), nb::call_guard<nb::gil_scoped_release>(),
+           "Attach a system/app tap as an off-clock source (needs signing + audio-capture TCC).")
+        .def("attach_master_output", [](graph::LiveMultiSource& lms, io::CoreAudioBackend& dev,
+                                        std::uint32_t outStream, std::uint32_t channels,
+                                        double sampleRate, std::uint32_t block,
+                                        const std::string& outputDevice) {
+            io::StreamConfig c;
+            c.outputChannels = channels;
+            c.sampleRate = sampleRate;
+            c.blockSize = block;
+            c.outputDeviceId = outputDevice;
+            return dev.open(c, &lms.masterOutput(outStream));
+        }, "device"_a, "out_stream"_a = 0, "channels"_a = 2, "sample_rate"_a = 48000.0,
+           "block_size"_a = 512, "output_device"_a = std::string{}, nb::keep_alive<2, 1>(),
+           nb::call_guard<nb::gil_scoped_release>(),
+           "Attach a live output device (speakers) as the master clock — its IOProc pumps the "
+           "whole composition. This is live multi-source on real hardware.")
+        ;
 #endif  // __APPLE__
 }

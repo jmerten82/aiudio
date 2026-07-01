@@ -434,6 +434,41 @@ ax[1].plot(fills); ax[1].set_title("ring fill (bounded)"); ax[1].set_xlabel("×1
 plt.tight_layout(); plt.show()
 print(f"output={dout.captured_output(0):.3f} (0.6×0.5=0.3 across clocks)  overruns={bridge.output_overruns}")""")
 
+md(r"""### 5.4 **N** live sources on different clocks → one graph → a master output (`LiveMultiSource`)
+
+The general case: several live inputs, **each on its own clock**, mixed through one graph and
+sent to a master output device whose IOProc is the clock. `add_source(stream, source_rate)`
+gives each source its own ring + drift servo; `attach_master_output(device)` makes that device
+pump everything. Here two sources — one at 48 kHz, one at **44.1 kHz** — mix to the master; the
+44.1 kHz source's servo tracks `44100/48000 ≈ 0.919` and its ring stays bounded. (Headless via
+mocks; on macOS swap in a real mic + speakers via `attach_source(InputBackend…)` /
+`attach_master_output(DeviceBackend…)`.)""")
+code(r"""g = a.Graph()
+a0, a1 = g.add_source(0), g.add_source(1)
+mx, out = g.add_mixer(2, 1.0), g.add_sink(0)
+g.connect(a0, 0, mx, 0); g.connect(a1, 0, mx, 1); g.connect(mx, 0, out, 0)
+ex = a.GraphExecutor(); ex.compile(g, channels=1, sample_rate=SR, max_block=64)
+lms = a.LiveMultiSource(ex, engine_rate=SR, channels=1, max_block=64)
+sA, sB, master = a.MockBackend(), a.MockBackend(), a.MockBackend()
+lms.attach_source(sA, stream=0, source_rate=SR, block_size=64, ring_frames=8192)
+lms.attach_source(sB, stream=1, source_rate=44100.0, block_size=64, ring_frames=8192)   # 44.1k clock
+lms.attach_master_output(master, out_stream=0, sample_rate=SR, block_size=64)
+sA.set_input_value(0.5); sB.set_input_value(0.2)
+sA.start(); sB.start(); master.start()
+acc, ratios = 0.0, []
+for step in range(12000):
+    sA.tick(64)
+    acc += 64 * (44100.0 / SR)                       # source B ticks on its 44.1k clock
+    while acc >= 64: sB.tick(64); acc -= 64
+    master.tick(64)
+    if step % 100 == 0: ratios.append(lms.source_ratio(1))
+plt.figure(figsize=(9, 2.4)); plt.plot(ratios)
+plt.axhline(44100/48000, color="crimson", ls="--", lw=0.8, label="44100/48000")
+plt.legend(); plt.title("LiveMultiSource: source-1 (44.1k) drift ratio tracks the engine")
+plt.xlabel("×100 blocks"); plt.tight_layout(); plt.show()
+print(f"{lms.source_count} sources -> master out {master.captured_output(0):.3f} (0.5+0.2=0.7)  "
+      f"src1 ratio={lms.source_ratio(1):.5f}  fill={lms.source_fill(1)}  overruns={lms.source_overruns(1)}")""")
+
 # ============================================================ 6. boundary DSP
 md(r"""## 6. Boundary DSP — resampling, drift, channel mapping
 

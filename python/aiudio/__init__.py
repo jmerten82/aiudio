@@ -11,6 +11,7 @@ from ._aiudio import (  # noqa: F401
     CrossClockBridge,
     Graph,
     GraphExecutor,
+    LiveMultiSource,
     MasterClockAdapter,
     MockBackend,
     MultiSourceManager,
@@ -25,7 +26,7 @@ from ._aiudio import (  # noqa: F401
 __all__ = [
     "Graph", "GraphExecutor", "OfflineBackend", "WavFormat", "XrunPolicy",
     "MultiSourceManager", "MasterClockAdapter", "MockBackend",
-    "Resampler", "ResamplingSource", "CrossClockBridge",
+    "Resampler", "ResamplingSource", "CrossClockBridge", "LiveMultiSource",
     "ChannelMapMode", "map_channels",
 ]
 
