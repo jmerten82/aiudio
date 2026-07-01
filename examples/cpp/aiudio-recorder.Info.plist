@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleName</key>
+    <string>aiudio-recorder</string>
+    <key>CFBundleDisplayName</key>
+    <string>aiudio recorder</string>
+    <key>CFBundleIdentifier</key>
+    <string>com.aiudio.recorder</string>
+    <key>CFBundleExecutable</key>
+    <string>aiudio-recorder</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleVersion</key>
+    <string>1</string>
+    <key>CFBundleShortVersionString</key>
+    <string>0.0.1</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>14.4</string>
+    <!-- A CLI-style tool run from the terminal, not a GUI app. -->
+    <key>LSBackgroundOnly</key>
+    <true/>
+    <!-- Microphone (Core Audio input, M3) — triggers the mic TCC prompt. -->
+    <key>NSMicrophoneUsageDescription</key>
+    <string>aiudio records the microphone for live processing.</string>
+    <!-- Process tap (M5) — triggers the audio-recording (purple-dot) TCC prompt. -->
+    <key>NSAudioCaptureUsageDescription</key>
+    <string>aiudio captures system and per-application audio for processing.</string>
+</dict>
+</plist>

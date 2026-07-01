@@ -46,4 +46,21 @@ if(APPLE)
                 "$<TARGET_FILE:ex_tap_capture>"
         COMMENT "Ad-hoc signing ex_tap_capture (for the audio-capture TCC prompt)"
         VERBATIM)
+
+    # End-to-end signed recorder: mic (M3) + system/per-app tap (M5) → graph → WAV, no
+    # playback. Embeds NSMicrophoneUsageDescription + NSAudioCaptureUsageDescription, then
+    # packages the binary into a signed `aiudio-recorder.app` (stable bundle id → stable TCC
+    # grant). Links aiudio::graph (pulls io + the Core Audio frameworks). See docs/70 §6.
+    aiudio_add_example(ex_record_mic_tap aiudio::graph)
+    target_link_options(ex_record_mic_tap PRIVATE
+        "-Wl,-sectcreate,__TEXT,__info_plist,${CMAKE_CURRENT_SOURCE_DIR}/aiudio-recorder.Info.plist")
+    set_source_files_properties(ex_record_mic_tap.cpp PROPERTIES
+        OBJECT_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/aiudio-recorder.Info.plist")
+    add_custom_command(TARGET ex_record_mic_tap POST_BUILD
+        COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/package_recorder_app.sh"
+                "$<TARGET_FILE:ex_record_mic_tap>"
+                "${CMAKE_CURRENT_SOURCE_DIR}/aiudio-recorder.Info.plist"
+                "$<TARGET_FILE_DIR:ex_record_mic_tap>"
+        COMMENT "Packaging + signing aiudio-recorder.app"
+        VERBATIM)
 endif()

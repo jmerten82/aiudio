@@ -149,6 +149,36 @@ system or one process, with no virtual device (ADR-0007).
      silently capture nothing — see `docs/70-macos-audio-capture-plan.md` §6.
    - Then `afplay system.wav` to verify.
 
+## End-to-end signed recorder — mic + system audio → gain → mix → WAV (`aiudio-recorder.app`)
+
+`ex_record_mic_tap` is the full recorder: it captures the **microphone** (M3) **and** the
+**system (or per-app) output** (M5 tap), applies a configurable gain to each, sums them, and
+writes the mix to a WAV — for a duration. It reuses the shipped engine (`ResamplingSource`
+drift servo + multi-stream `GraphExecutor` + `WavRecorder`) and is **playback-free**: the mic
+IOProc is the clock, the tap is an off-clock source, and the mix goes only to the file — so a
+whole-system tap never captures our own output (no feedback). This is the way to test the tap
+end-to-end **without a BlackHole loopback**.
+
+CMake packages it into a **signed `aiudio-recorder.app`** (a stable bundle id → the mic +
+audio-recording TCC grants survive rebuilds, unlike a bare ad-hoc CLI):
+
+```bash
+cmake --build build --target ex_record_mic_tap          # builds + signs the .app
+APP=build/examples/cpp/aiudio-recorder.app/Contents/MacOS/aiudio-recorder
+$APP --list                                             # pick a PID (no permission needed)
+$APP --seconds 10 --mic-gain 1.0 --tap-gain 0.6 out.wav # mic + WHOLE-system audio
+$APP --pid 1234 --seconds 10 out.wav                    # mic + ONE app's audio
+afplay out.wav
+```
+
+- **First run:** macOS shows **two** prompts — Microphone and Audio Recording (purple dot).
+  Grant **both**, play some audio, then re-run. Until granted, it records **silence** (a valid
+  but empty WAV) — that's the ungranted state, not a bug.
+- Run the binary **from inside the bundle** (`…app/Contents/MacOS/aiudio-recorder`) so it uses
+  the bundle's stable identity; passing args + reading stdout works normally.
+- To real-sign instead of ad-hoc: `AIUDIO_CODESIGN_ID="Developer ID Application: …" cmake
+  --build build --target ex_record_mic_tap` (or run `package_recorder_app.sh` directly).
+
 ## How to test G1 (graph IR + node contract — cross-platform, no audio)
 
 G1 adds the `aiudio-graph` library: the `Node` contract, the typed `Graph` IR with
