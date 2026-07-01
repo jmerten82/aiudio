@@ -9,9 +9,12 @@ so it is kept **tight**; depth lives in [`docs/`](docs/). Keep this file and
 > **true multi-source I/O** track (`docs/76`: boundary resampling, off-clock drift
 > compensation, cross-clock multi-device, channel mapping, the Core Audio device-died
 > listener) was **implemented off-schedule** ahead of its planned Phase-3 slot and is now
-> merged to `main` — feature-complete bar the hardware-only physical triggers. Now
-> **further productionizing the pipeline** while moving into Phase 1. See
-> [README Roadmap](README.md#roadmap).
+> merged to `main` — feature-complete bar the hardware-only physical triggers. **Recent
+> productionization (merged):** the `LiveMultiSource` N-source cross-clock engine (#30/#31),
+> numpy `WavReader`/`WavWriter` bindings (#32), the off-thread **`WavRecorder`** /
+> `attach_wav_recorder` live recorder (#33), and the signed **`aiudio-recorder.app`** (mic +
+> system tap → mix → WAV; tap-testable without a loopback, #34). Now **further productionizing
+> the pipeline** while moving into Phase 1. See [README Roadmap](README.md#roadmap).
 
 ---
 

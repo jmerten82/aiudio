@@ -438,6 +438,12 @@ lms.stop_recording()                                             # final drain +
 print(lms.recorded_frames, lms.record_dropped_frames)            # telemetry (dropped ≈ 0)
 ```
 
+In C++ this is `graph::LiveMultiSource::recordToWav()` / `stopRecording()`, backed by the
+reusable **`io::WavRecorder`** unit (the RT-ring + writer-thread that any block source can push
+into). The signed **`aiudio-recorder.app`** example (`examples/cpp/ex_record_mic_tap.cpp`) is the
+end-to-end tool — **mic + system/per-app tap → per-source gain → mix → WAV**, playback-free — for
+testing the process tap **without a loopback device** (see `docs/70` §6 and `examples/cpp/README.md`).
+
 ---
 
 ## 10. Boundary DSP utilities

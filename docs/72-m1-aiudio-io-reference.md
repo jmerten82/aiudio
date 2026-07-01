@@ -273,6 +273,12 @@ into.
 - **No graph engine** (nodes, scheduling) — that's a separate track that *uses*
   these contracts.
 
+> **Since M1 (io components added later on the same contracts):** `WavReader`/`WavWriter`
+> (M6, Python-bound), `Resampler` + `DriftCompensator` + `ResamplingSource` (M9.3/M9.5),
+> `map_channels` (M9.2), and **`io::WavRecorder`** — a live WAV recorder built on the
+> `RingBuffer` (§3.5): the audio thread pushes blocks, a writer thread drains them to a
+> `WavWriter` off-thread (ADR-0004). See `docs/71` and `docs/80` for the current io surface.
+
 ## 10. Acceptance status (vs `71-*` M1)
 
 | Criterion | Status |

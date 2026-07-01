@@ -142,6 +142,12 @@ this machine's real devices (default in = **Sennheiser Profile**, default out =
 > float32) and `OfflineBackend` (the ADR-0005 offline clock) drive a
 > `RenderCallback` over a WAV faster than real time; golden `file → graph → file`
 > render is bit-exact. (Done jointly with graph **G4**.)
+> **Post-M6 (productionization):** `WavReader`/`WavWriter` are now **bound to Python**
+> (numpy planar I/O; `WavWriter` gained a RAII-finalizing destructor) — PR #32; and
+> **`io::WavRecorder`** records a live block stream to a WAV **off the audio thread**
+> (RT ring → writer thread; ADR-0004), wired into `LiveMultiSource` as
+> `recordToWav()` / `attach_wav_recorder()` — PR #33. The signed **`aiudio-recorder.app`**
+> (mic + system tap → mix → WAV) exercises it end-to-end — PR #34 (`docs/70` §6).
 > M8 ✅ merged (PR #12, == graph **G6**) — **Python bindings** (nanobind `_aiudio`):
 > build/edit a `Graph`, drive a `GraphExecutor` with a **numpy `process()`**, and
 > render via `OfflineBackend`, all from Python. Verified: a Python
