@@ -32,8 +32,8 @@ jobs:
       - name: ThreadSanitizer (control plane + live edit + multi-source + drift)
         run: |
           cmake -S . -B build-tsan -DAIUDIO_SANITIZE=thread
-          cmake --build build-tsan -j --target test_graph_control test_graph_live_edit test_multi_source_manager test_master_clock test_drift test_cross_clock
-          ctest --test-dir build-tsan -R 'test_graph_control|test_graph_live_edit|test_multi_source_manager|test_master_clock|test_drift|test_cross_clock' --output-on-failure
+          cmake --build build-tsan -j --target test_graph_control test_graph_live_edit test_multi_source_manager test_master_clock test_drift test_cross_clock test_live_multi_source
+          ctest --test-dir build-tsan -R 'test_graph_control|test_graph_live_edit|test_multi_source_manager|test_master_clock|test_drift|test_cross_clock|test_live_multi_source' --output-on-failure
       - name: Address/UB Sanitizer (full suite)
         run: |
           cmake -S . -B build-asan -DAIUDIO_SANITIZE=address,undefined
