@@ -130,7 +130,10 @@ device backend to run live (§8) — no graph changes.
 
 Every node is added with `Graph.add_*` (Python) or `addNode(std::make_unique<…>)` (C++). Live
 control uses `GraphExecutor.set_param(node, index, value)` with the indices below; continuous
-gain-like params are **click-free** (smoothed). Full catalog + roadmap: `docs/78`.
+gain-like params are **click-free** (smoothed). Full catalog + roadmap: `docs/78`. For **typical
+node chains + idioms** (channel strips, parallel compression, synth voices, delay sends, stereo,
+routing) with runnable C++/Python, see the node-usage cookbook in
+[`docs/82`](82-node-usage-patterns.md).
 
 | Node | Python factory | Ports | Live params (index) |
 |---|---|---|---|
