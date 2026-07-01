@@ -13,6 +13,9 @@ dependencies = ["numpy>=1.26"]
 [project.optional-dependencies]
 # `pip install -e ".[test]"` (or `pip install -r testing/python/requirements-dev.txt`).
 test = ["pytest>=8.0", "ruff>=0.5", "nbconvert>=7.0", "jupyter-client>=8.0", "ipykernel>=6.0", "matplotlib>=3.7"]
+# The differentiable / ML layer (Phase 1, ADR-0016/0017): `pip install -e ".[diff]"`.
+# Kept optional so the base package stays lightweight (the RT core needs no torch).
+diff = ["torch>=2.0"]
 
 [tool.ruff]
 # Notebooks intentionally use REPL idioms (semicolon-joined statements, mid-notebook

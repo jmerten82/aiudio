@@ -1,12 +1,14 @@
 # 79 — Phase 1: Differentiable Core — Implementation Roadmap
 
-> **Last updated:** 2026-06-30 · **Goal:** make the graph IR **differentiable and trainable** —
+> **Last updated:** 2026-07-01 · **Goal:** make the graph IR **differentiable and trainable** —
 > a *third executor* (alongside real-time and offline) that runs the **same IR** through PyTorch
 > autograd, so DSP-node parameters are learnable and neural models are first-class peers.
 > Proven by gradient-based parameter optimization ("match a target") and closed by writing trained
-> parameters **back into the C++ real-time graph**. · **Status:** **planned** (Phase 0 complete;
-> Tier-1 DSP nodes landed). Research grounding is **✓ Verified** (from `docs/20`/`docs/50`); the
-> milestone plan is a **design proposal** (○) until each ADR is locked at implementation.
+> parameters **back into the C++ real-time graph**. · **Status:** **in progress — D0 landed**
+> (the differentiable executor spine + node registry + C++↔torch parity harness + trivial nodes;
+> ADR-0016/0017; the optional `aiudio.diff` / `aiudio[diff]` package). Phase 0 complete, Tier-1 DSP
+> nodes landed. Research grounding is **✓ Verified** (from `docs/20`/`docs/50`); the remaining
+> milestones (D1–D8) are a **design proposal** (○) until each ADR is locked at implementation.
 >
 > Extends the README **Phase 1 — Differentiable core** and [`docs/78`](78-node-library-roadmap.md)
 > (Tier 3). *Why* the pillar exists: [`docs/50`](50-architecture-patterns.md) §3 and
@@ -134,7 +136,7 @@ milestone ships with a **parity test** (vs C++ where applicable), **pytest**, an
 
 | ID | Milestone | Delivers | Depends on |
 |---|---|---|---|
-| **D0** | Differentiable executor spine | `DiffExecutor` reads the IR + a diff-node registry; autograd source→sink; parity on a trivial graph | Phase 0 (IR, bindings, introspection) |
+| **D0** ✅ | Differentiable executor spine | `DiffExecutor` reads the IR + a diff-node registry; autograd source→sink; parity on a trivial graph | Phase 0 (IR, bindings, introspection) |
 | **D1** | Differentiable **linear** DSP nodes | Gain, Sum, Mixer, Pan, ChannelMatrix, DcBlocker, (fractional) Delay — `forward` + gradcheck + parity | D0 |
 | **D2** | Differentiable **filters** (the IIR problem) | `SvfNode` (trainable) + frequency-sampling; magnitude-match training; SVF→biquad export | D1 |
 | **D3** | Differentiable **dynamics & nonlinearities** | Waveshaper (STE for hardclip), Compressor/Gate (smooth surrogate + truncated BPTT) | D1 |

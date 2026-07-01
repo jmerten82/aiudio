@@ -98,6 +98,8 @@ Proposed ──▶ Accepted ──▶ Deprecated
 | [0013](0013-latency-reporting-and-delay-compensation.md) | Latency reporting + graph-wide delay compensation (PDC) (extends ADR-0009) | Accepted | 2026-06-29 |
 | [0014](0014-multi-source-manager.md) | Multi-source manager — N sources + M sinks on one clock via per-stream rings (makes ADR-0008 §5 concrete) | Accepted | 2026-06-29 |
 | [0015](0015-boundary-resampling-and-cross-clock-drift.md) | Boundary sample-rate conversion + cross-clock drift compensation (realizes ADR-0008; M9.3/M9.5/M9.6) | Accepted | 2026-06-29 |
+| [0016](0016-differentiable-execution-strategy.md) | Differentiable execution — a Python/PyTorch executor over the same IR (Phase 1, D0; dual node face + parity harness + differentiability status) | Accepted | 2026-07-01 |
+| [0017](0017-autodiff-framework-pytorch.md) | Autodiff framework — PyTorch, as the optional `aiudio[diff]` extra | Accepted | 2026-07-01 |
 
 ### Backlog (decisions to record when made)
 - Agent control-plane design (LLM-orchestrates-structure + differentiable param tuning) — currently *research direction* in `docs/40-*`, promote to an ADR when locked (it will build on ADR-0010's queue + atomic-swap hooks).
