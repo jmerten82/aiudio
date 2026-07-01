@@ -134,6 +134,7 @@ status — **kept current as we go**.
 - [x] **Testing strategy** — documented C++ + Python layers (RT-safety/allocation, sanitizers, golden, cross-backend, live-device, packaging, notebooks) + one-command runner + CI *(`testing/README.md` ✅ CI-green)*
 
 ### Phase 1 — Differentiable core
+> **Implementation roadmap:** [`docs/79-phase1-differentiable-core-roadmap.md`](docs/79-phase1-differentiable-core-roadmap.md) — the third executor (Python/PyTorch, off-thread) over the same IR; milestones **D0–D8** (executor spine · linear nodes · trainable SVF filters · dynamics · losses+trainer · parameter-match slice · round-trip to RT · first neural node · DDSP exemplar), with the hard-problem mitigations, ADRs (0016/0017), dependency graph, and definition of done.
 - [ ] Differentiable end-to-end graph execution
 - [~] Classic DSP nodes as peers — **Tier-1 node library landed** (parametric EQ, compressor/gate, delay, waveshaper, oscillator/noise, pan/width, mixer, channel-matrix, DC blocker; plan + tiers in [`docs/78`](docs/78-node-library-roadmap.md)). *Making them differentiable + Tier 2/3 (spectral/convolution reverb, neural) is the remaining work.*
 - [ ] First neural node (RAVE-/NAM-class) under the same contract

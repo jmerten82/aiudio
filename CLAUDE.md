@@ -13,8 +13,10 @@ so it is kept **tight**; depth lives in [`docs/`](docs/). Keep this file and
 > productionization (merged):** the `LiveMultiSource` N-source cross-clock engine (#30/#31),
 > numpy `WavReader`/`WavWriter` bindings (#32), the off-thread **`WavRecorder`** /
 > `attach_wav_recorder` live recorder (#33), and the signed **`aiudio-recorder.app`** (mic +
-> system tap → mix → WAV; tap-testable without a loopback, #34). Now **further productionizing
-> the pipeline** while moving into Phase 1. See [README Roadmap](README.md#roadmap).
+> system tap → mix → WAV; tap-testable without a loopback, #34). **Phase 1 is now planned** —
+> the differentiable-core implementation roadmap (the third executor: Python/PyTorch over the
+> same IR; milestones D0–D8) is written up in
+> [`docs/79`](docs/79-phase1-differentiable-core-roadmap.md). See [README Roadmap](README.md#roadmap).
 
 ---
 
