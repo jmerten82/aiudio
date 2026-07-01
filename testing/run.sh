@@ -31,8 +31,8 @@ ctest --test-dir build --output-on-failure
 if [ "$SANITIZE" = 1 ]; then
     section "C++ — ThreadSanitizer (control plane + live edit: race-free)"
     cmake -S . -B build-tsan -DAIUDIO_SANITIZE=thread >/dev/null
-    cmake --build build-tsan -j --target test_graph_control test_graph_live_edit test_multi_source_manager test_master_clock test_drift test_cross_clock
-    ctest --test-dir build-tsan -R 'test_graph_control|test_graph_live_edit|test_multi_source_manager|test_master_clock|test_drift|test_cross_clock' --output-on-failure
+    cmake --build build-tsan -j --target test_graph_control test_graph_live_edit test_multi_source_manager test_master_clock test_drift test_cross_clock test_live_multi_source
+    ctest --test-dir build-tsan -R 'test_graph_control|test_graph_live_edit|test_multi_source_manager|test_master_clock|test_drift|test_cross_clock|test_live_multi_source' --output-on-failure
 
     section "C++ — Address/UB Sanitizer (full suite)"
     cmake -S . -B build-asan -DAIUDIO_SANITIZE=address,undefined >/dev/null
