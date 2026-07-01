@@ -27,6 +27,17 @@ public:
         else if (index == kMix) mix_.setTarget(value < 0.0f ? 0.0f : (value > 1.0f ? 1.0f : value));
     }
 
+    [[nodiscard]] float paramValue(std::uint32_t index) const noexcept override {
+        if (index == kDrive) return drive_.target();
+        if (index == kMix) return mix_.target();
+        return 0.0f;
+    }
+
+    /// {"shape": 0=Tanh | 1=SoftClip | 2=HardClip}
+    [[nodiscard]] std::vector<std::pair<std::string, double>> config() const override {
+        return {{"shape", static_cast<double>(static_cast<int>(shape_))}};
+    }
+
     void prepare(double sampleRate, std::uint32_t /*maxBlock*/) override {
         drive_.prepare(sampleRate, driveInit_);
         mix_.prepare(sampleRate, mixInit_);

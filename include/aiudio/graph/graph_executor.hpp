@@ -90,6 +90,10 @@ public:
     /// until per-port channel counts (G8) land.
     [[nodiscard]] std::uint32_t channels() const noexcept;
 
+    /// Compiled sample rate in Hz (0 if not compiled). Introspection for the differentiable
+    /// layer (ADR-0016) — filters/DC-blockers need it to mirror their C++ coefficients.
+    [[nodiscard]] double sampleRate() const noexcept;
+
     /// Number of distinct input / output streams the compiled graph uses (= max bound
     /// stream index + 1 over Source / Sink nodes; 0 if none). Lets a caller size the
     /// `inputs`/`outputs` it passes to the multi-stream `process()`.

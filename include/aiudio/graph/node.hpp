@@ -8,6 +8,9 @@
 #pragma once
 
 #include <cstdint>
+#include <string>
+#include <utility>
+#include <vector>
 
 #include "aiudio/io/audio_buffer.hpp"
 #include "aiudio/io/types.hpp"
@@ -42,6 +45,21 @@ public:
     virtual void setParam(std::uint32_t index, float value) noexcept {
         (void)index;
         (void)value;
+    }
+
+    /// Read a control parameter's current (target) value — the inverse of `setParam`, same index
+    /// meaning. Default 0. Off-thread introspection for the differentiable layer (ADR-0016) so it
+    /// can mirror the node into a torch forward; not called on the audio thread.
+    [[nodiscard]] virtual float paramValue(std::uint32_t index) const noexcept {
+        (void)index;
+        return 0.0f;
+    }
+
+    /// Non-numeric construction settings that parameter indices don't cover (a waveshaper's shape,
+    /// a biquad's filter type, a DC-blocker's corner…) as (name, value) pairs — enums as their
+    /// integer value. Introspection for the differentiable layer (ADR-0016). Default: none.
+    [[nodiscard]] virtual std::vector<std::pair<std::string, double>> config() const {
+        return {};
     }
 
     /// Processing latency in frames (G9): how many frames this node delays its output

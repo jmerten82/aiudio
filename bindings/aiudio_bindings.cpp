@@ -420,6 +420,20 @@ NB_MODULE(_aiudio, m) {
             const graph::Node* n = g.node(id);
             return n ? nb::cast(n->typeName()) : nb::none();
         }, "node"_a, "The node's type name, or None if the id is invalid/removed.")
+        .def("param_value", [](const graph::Graph& g, graph::NodeId id, std::uint32_t index) {
+            const graph::Node* n = g.node(id);
+            return n ? n->paramValue(index) : 0.0f;
+        }, "node"_a, "index"_a,
+           "Current (target) value of param `index` — the inverse of set_param. For the "
+           "differentiable layer to mirror the node (ADR-0016).")
+        .def("node_config", [](const graph::Graph& g, graph::NodeId id) {
+            nb::dict out;
+            if (const graph::Node* n = g.node(id))
+                for (const auto& kv : n->config()) out[kv.first.c_str()] = kv.second;
+            return out;
+        }, "node"_a,
+           "Non-numeric construction config as a {name: value} dict (e.g. waveshaper 'shape', "
+           "biquad 'type', dc-blocker 'corner_hz'); enums as their int value. Empty if none.")
         .def_prop_ro("live_node_count", [](const graph::Graph& g) { return g.liveNodeCount(); },
                      "Number of live (non-removed) nodes.")
         .def("set_gain", [](graph::Graph& g, graph::NodeId id, float v) {
@@ -446,6 +460,8 @@ NB_MODULE(_aiudio, m) {
              "written by sinks on stream k. num_outputs=0 -> use the graph's output_streams.")
         .def_prop_ro("channels", [](const graph::GraphExecutor& e) { return e.channels(); },
                      "Compiled channel count per port (0 if not compiled).")
+        .def_prop_ro("sample_rate", [](const graph::GraphExecutor& e) { return e.sampleRate(); },
+                     "Compiled sample rate in Hz (0 if not compiled).")
         .def_prop_ro("input_streams", [](const graph::GraphExecutor& e) { return e.inputStreamCount(); },
                      "Number of distinct input streams the compiled graph reads.")
         .def_prop_ro("output_streams", [](const graph::GraphExecutor& e) { return e.outputStreamCount(); },

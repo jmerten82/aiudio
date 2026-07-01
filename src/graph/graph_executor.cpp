@@ -38,6 +38,7 @@ struct GraphExecutor::CompiledGraph {
     std::vector<std::vector<float*>> compPtrs;
     std::uint32_t maxBlock = 0;
     std::uint32_t numChannels = 0;               // per-port channel count (uniform pre-G8)
+    double sampleRate = 0.0;                      // compiled sample rate (introspection)
     std::uint32_t inputStreams = 0;              // max source streamIndex + 1
     std::uint32_t outputStreams = 0;             // max sink streamIndex + 1
     std::uint32_t latency = 0;                    // total graph latency (frames)
@@ -60,6 +61,7 @@ std::unique_ptr<GraphExecutor::CompiledGraph> GraphExecutor::build(const Graph& 
     auto cg = std::make_unique<CompiledGraph>();
     cg->maxBlock = maxBlock;
     cg->numChannels = numChannels;
+    cg->sampleRate = sampleRate;
     const std::size_t n = g.nodeCount();
     cg->byId.assign(n, nullptr);  // filled per node below; command drain indexes by NodeId
 
@@ -324,6 +326,11 @@ void GraphExecutor::process(const io::AudioBuffer* inputs, std::uint32_t numInpu
 std::uint32_t GraphExecutor::channels() const noexcept {
     CompiledGraph* g = active_.load(std::memory_order_acquire);
     return g ? g->numChannels : 0;
+}
+
+double GraphExecutor::sampleRate() const noexcept {
+    CompiledGraph* g = active_.load(std::memory_order_acquire);
+    return g ? g->sampleRate : 0.0;
 }
 
 std::uint32_t GraphExecutor::inputStreamCount() const noexcept {

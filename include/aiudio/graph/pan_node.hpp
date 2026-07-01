@@ -21,6 +21,10 @@ public:
         if (index == kPan) pan_.setTarget(value < -1.0f ? -1.0f : (value > 1.0f ? 1.0f : value));
     }
 
+    [[nodiscard]] float paramValue(std::uint32_t index) const noexcept override {
+        return index == kPan ? pan_.target() : 0.0f;
+    }
+
     void prepare(double sampleRate, std::uint32_t /*maxBlock*/) override {
         pan_.prepare(sampleRate, panInit_);
     }
