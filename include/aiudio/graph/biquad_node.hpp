@@ -62,6 +62,18 @@ public:
         design(type_, freqHz_, q_, gainDb_, sampleRate_);
     }
 
+    [[nodiscard]] float paramValue(std::uint32_t index) const noexcept override {
+        if (index == kCutoffHz) return static_cast<float>(freqHz_);
+        if (index == kQ) return static_cast<float>(q_);
+        if (index == kGainDb) return static_cast<float>(gainDb_);
+        return 0.0f;
+    }
+
+    /// {"type": 0=Lowpass 1=Highpass 2=Peaking 3=LowShelf 4=HighShelf}
+    [[nodiscard]] std::vector<std::pair<std::string, double>> config() const override {
+        return {{"type", static_cast<double>(static_cast<int>(type_))}};
+    }
+
     void prepare(double sampleRate, std::uint32_t /*maxBlock*/) override {
         for (auto& z : z1_) z = 0.0f;
         for (auto& z : z2_) z = 0.0f;

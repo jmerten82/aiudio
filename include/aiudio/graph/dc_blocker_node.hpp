@@ -15,6 +15,11 @@ public:
     explicit DcBlockerNode(double cornerHz = 20.0, std::uint32_t maxChannels = 2) noexcept
         : cornerHz_(cornerHz), maxChannels_(maxChannels == 0 ? 1 : maxChannels) {}
 
+    /// {"corner_hz": the one-pole corner frequency} — introspection for the differentiable layer.
+    [[nodiscard]] std::vector<std::pair<std::string, double>> config() const override {
+        return {{"corner_hz", cornerHz_}};
+    }
+
     void prepare(double sampleRate, std::uint32_t /*maxBlock*/) override {
         constexpr double kTwoPi = 6.283185307179586;
         double r = 1.0 - kTwoPi * cornerHz_ / (sampleRate > 0.0 ? sampleRate : 48000.0);

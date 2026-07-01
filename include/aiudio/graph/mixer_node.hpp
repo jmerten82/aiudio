@@ -22,6 +22,10 @@ public:
         if (index < numInputs_) gains_[index].setTarget(value);
     }
 
+    [[nodiscard]] float paramValue(std::uint32_t index) const noexcept override {
+        return index < numInputs_ ? gains_[index].target() : 0.0f;
+    }
+
     void prepare(double sampleRate, std::uint32_t /*maxBlock*/) override {
         for (auto& g : gains_) g.prepare(sampleRate, gainInit_);
     }

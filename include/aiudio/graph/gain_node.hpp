@@ -27,6 +27,10 @@ public:
         if (index == kGain) gain_.store(value, std::memory_order_relaxed);
     }
 
+    [[nodiscard]] float paramValue(std::uint32_t index) const noexcept override {
+        return index == kGain ? gain_.load(std::memory_order_relaxed) : 0.0f;
+    }
+
     void prepare(double /*sampleRate*/, std::uint32_t /*maxBlock*/) override {}
 
     void process(const AudioBuffer* inputs, AudioBuffer* outputs,

@@ -47,24 +47,32 @@ def registered_types() -> list[str]:
 
 
 def make_diff_node(type_name: str, num_inputs: int, num_outputs: int,
-                   init: dict[int, float] | None = None) -> "DiffNode":
-    """Instantiate the registered `DiffNode` for ``type_name`` (raises if unregistered)."""
+                   init: dict[int, float] | None = None, *, param_reader=None,
+                   config: dict | None = None, sample_rate: float = 48000.0) -> "DiffNode":
+    """Instantiate the registered `DiffNode` for ``type_name`` (raises if unregistered).
+
+    ``param_reader(index) -> float`` reads the live C++ node's param value (node-introspection
+    enabler); ``config`` its non-numeric settings (e.g. waveshaper ``shape``); ``sample_rate`` the
+    compiled rate. ``init`` overrides ``param_reader`` per index (explicit control)."""
     cls = _REGISTRY.get(type_name)
     if cls is None:
         raise NotImplementedError(
             f"no differentiable implementation for node type {type_name!r}; "
             f"registered: {registered_types()}"
         )
-    return cls(num_inputs, num_outputs, dict(init or {}))
+    return cls(num_inputs, num_outputs, dict(init or {}), param_reader=param_reader,
+               config=dict(config or {}), sample_rate=float(sample_rate))
 
 
 class DiffNode(nn.Module):
     """Base class for a node's differentiable face.
 
     ``forward(inputs)`` takes a list of ``[batch, channels, frames]`` tensors (one per input port,
-    in port order) and returns one ``[batch, channels, frames]`` output tensor. Learnable
-    parameters are ``torch.nn.Parameter``s created in ``__init__`` from ``init`` (a
-    ``{param_index: value}`` map matching the C++ ``set_param`` indices in ``docs/82``).
+    in port order) and returns one ``[batch, channels, frames]`` output. Learnable parameters are
+    ``torch.nn.Parameter``s created in ``__init__``. Each param is resolved by :meth:`_param`:
+    an explicit ``init`` override wins, else the live C++ value via ``param_reader`` (so a
+    `DiffExecutor` auto-mirrors any graph), else a default. ``config`` / ``sample_rate`` carry the
+    node's non-numeric settings and the compiled rate.
     """
 
     #: differentiability status (subclasses override)
@@ -72,11 +80,23 @@ class DiffNode(nn.Module):
     #: set by @register_diff_node
     type_name: str = ""
 
-    def __init__(self, num_inputs: int, num_outputs: int, init: dict[int, float]):
+    def __init__(self, num_inputs: int, num_outputs: int, init: dict[int, float] | None = None, *,
+                 param_reader=None, config: dict | None = None, sample_rate: float = 48000.0):
         super().__init__()
         self.num_inputs = int(num_inputs)
         self.num_outputs = int(num_outputs)
-        self.init = init
+        self.init = dict(init or {})
+        self.config = dict(config or {})
+        self.sample_rate = float(sample_rate)
+        self._param_reader = param_reader
+
+    def _param(self, index: int, default: float = 0.0) -> float:
+        """Resolve a param: explicit ``init`` override → live C++ value → ``default``."""
+        if index in self.init:
+            return float(self.init[index])
+        if self._param_reader is not None:
+            return float(self._param_reader(index))
+        return float(default)
 
     def forward(self, inputs: list[torch.Tensor]) -> torch.Tensor:  # noqa: D401
         raise NotImplementedError
@@ -114,10 +134,9 @@ class GainDiffNode(DiffNode):
 
     differentiability = Differentiability.FULL
 
-    def __init__(self, num_inputs: int, num_outputs: int, init: dict[int, float]):
-        super().__init__(num_inputs, num_outputs, init)
-        gain0 = float(init.get(0, 1.0))  # index 0 = gain
-        self.gain = nn.Parameter(torch.tensor(gain0, dtype=torch.float64))
+    def __init__(self, num_inputs, num_outputs, init=None, **kw):
+        super().__init__(num_inputs, num_outputs, init, **kw)
+        self.gain = nn.Parameter(torch.tensor(self._param(0, 1.0), dtype=torch.float64))
 
     def forward(self, inputs: list[torch.Tensor]) -> torch.Tensor:
         return inputs[0] * self.gain.to(inputs[0].dtype)
@@ -146,9 +165,9 @@ class MixerDiffNode(DiffNode):
 
     differentiability = Differentiability.FULL
 
-    def __init__(self, num_inputs: int, num_outputs: int, init: dict[int, float]):
-        super().__init__(num_inputs, num_outputs, init)
-        gains = [float(init.get(i, 1.0)) for i in range(self.num_inputs)]  # default 1.0 per input
+    def __init__(self, num_inputs, num_outputs, init=None, **kw):
+        super().__init__(num_inputs, num_outputs, init, **kw)
+        gains = [self._param(i, 1.0) for i in range(self.num_inputs)]  # default 1.0 per input
         self.gains = nn.Parameter(torch.tensor(gains, dtype=torch.float64))
 
     def forward(self, inputs: list[torch.Tensor]) -> torch.Tensor:
@@ -166,9 +185,9 @@ class PanDiffNode(DiffNode):
 
     differentiability = Differentiability.FULL
 
-    def __init__(self, num_inputs: int, num_outputs: int, init: dict[int, float]):
-        super().__init__(num_inputs, num_outputs, init)
-        self.pan = nn.Parameter(torch.tensor(float(init.get(0, 0.0)), dtype=torch.float64))
+    def __init__(self, num_inputs, num_outputs, init=None, **kw):
+        super().__init__(num_inputs, num_outputs, init, **kw)
+        self.pan = nn.Parameter(torch.tensor(self._param(0, 0.0), dtype=torch.float64))
 
     def forward(self, inputs: list[torch.Tensor]) -> torch.Tensor:
         x = inputs[0][:, :1, :]                       # mono source = channel 0

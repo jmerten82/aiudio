@@ -13,6 +13,7 @@ back from the C++ nodes (getters) is a later refinement; topology already comes 
 """
 from __future__ import annotations
 
+import functools
 from collections import deque
 
 import torch
@@ -23,23 +24,28 @@ from .nodes import make_diff_node
 
 class DiffExecutor(nn.Module):
     def __init__(self, graph, *, init_params: dict[int, dict[int, float]] | None = None,
-                 dtype: torch.dtype = torch.float32):
+                 dtype: torch.dtype = torch.float32, sample_rate: float = 48000.0):
         super().__init__()
         self._dtype = dtype
+        self._sample_rate = float(sample_rate)
         init_params = init_params or {}
 
-        # --- read the IR (topology only) ---
+        # --- read the IR: topology (nodes/edges) + per-node params & config (introspection) ---
         self._meta: dict[int, tuple[str, int, int]] = {
             nid: (tname, nin, nout) for (nid, tname, nin, nout) in graph.nodes()
         }
         self._edges = [tuple(e) for e in graph.edges()]  # (src, src_port, dst, dst_port)
 
-        # --- build a diff node per graph node ---
+        # --- build a diff node per graph node, auto-reading its live params + config ---
         self._diff = nn.ModuleDict()
         self._sources: list[int] = []
         self._sinks: list[int] = []
         for nid, (tname, nin, nout) in self._meta.items():
-            self._diff[str(nid)] = make_diff_node(tname, nin, nout, init_params.get(nid, {}))
+            reader = functools.partial(graph.param_value, nid)  # reader(index) -> live C++ value
+            config = dict(graph.node_config(nid))
+            self._diff[str(nid)] = make_diff_node(
+                tname, nin, nout, init_params.get(nid, {}),
+                param_reader=reader, config=config, sample_rate=self._sample_rate)
             if tname == "SourceNode":
                 self._sources.append(nid)
             elif tname == "SinkNode":

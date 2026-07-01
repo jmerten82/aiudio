@@ -4,7 +4,9 @@
 > a *third executor* (alongside real-time and offline) that runs the **same IR** through PyTorch
 > autograd, so DSP-node parameters are learnable and neural models are first-class peers.
 > Proven by gradient-based parameter optimization ("match a target") and closed by writing trained
-> parameters **back into the C++ real-time graph**. · **Status:** **in progress — D0 + D1 + D2 landed**
+> parameters **back into the C++ real-time graph**. · **Status:** **in progress — D0 + D1 + D2 +
+> node-introspection enabler landed** (the `DiffExecutor` now auto-mirrors *any* graph:
+> `param_value`/`node_config`/`sample_rate` getters + auto-read, `init_params` optional).
 > (D0: the differentiable executor spine + registry + C++↔torch parity harness, ADR-0016/0017, the
 > optional `aiudio.diff` / `aiudio[diff]` package; D1: the stateless linear nodes Mixer + Pan).
 > Phase 0 complete, Tier-1 DSP
