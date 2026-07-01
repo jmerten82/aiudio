@@ -7,6 +7,7 @@
 #include <atomic>
 #include <cmath>
 #include <cstdint>
+#include <filesystem>
 #include <memory>
 #include <thread>
 #include <vector>
@@ -18,6 +19,7 @@
 #include "aiudio/graph/sum_node.hpp"
 #include "aiudio/io/mock_backend.hpp"
 #include "aiudio/io/types.hpp"
+#include "aiudio/io/wav_file.hpp"
 #include "test_framework.hpp"
 
 using namespace aiudio::graph;
@@ -163,6 +165,49 @@ AIUDIO_TEST(multithreaded_live_multi_source_is_race_free) {
 
     CHECK(!bad.load());
     CHECK(pumps.load() > 0);
+}
+
+// End-to-end: record the mixed master output to a WAV (the audio thread taps into the
+// recorder's ring; the writer thread drains to disk). Read the file back and check the mix.
+AIUDIO_TEST(records_master_output_to_wav) {
+    auto g = mixGraph();
+    GraphExecutor exec;
+    REQUIRE(exec.compile(*g, 1, kRe, 64));
+    LiveMultiSource lms(exec, kRe, 1, 64);
+
+    MockBackend srcA, srcB, master;
+    REQUIRE(srcA.open(cfg(1, 0, 64), &lms.addSource(0, kRe, 4096)));
+    REQUIRE(srcB.open(cfg(1, 0, 64), &lms.addSource(1, kRe, 4096)));
+    REQUIRE(master.open(cfg(0, 1, 64), &lms.masterOutput(0)));
+    srcA.setInputValue(0.5f);
+    srcB.setInputValue(0.2f);
+
+    const std::string path = (std::filesystem::temp_directory_path() / "aiudio_lms_rec.wav").string();
+    REQUIRE(lms.recordToWav(path, aiudio::io::WavFormat::Float32, 16384));
+    CHECK(lms.recording());
+
+    srcA.start();
+    srcB.start();
+    master.start();
+    for (int i = 0; i < 500; ++i) {
+        srcA.tick(64);
+        srcB.tick(64);
+        master.tick(64);  // each pump taps the 0.7 mix into the recorder ring
+    }
+    lms.stopRecording();  // final drain + finalize
+    CHECK(lms.recordedFrames() > 0);
+    CHECK(lms.recordDroppedFrames() == 0);
+
+    aiudio::io::WavReader r(path);
+    REQUIRE(r.ok());
+    CHECK(r.channels() == 1);
+    CHECK(r.totalFrames() > 0);
+    std::vector<float> c0(static_cast<std::size_t>(r.totalFrames()), 0.0f);
+    float* planar[1] = {c0.data()};
+    const std::uint32_t got = r.read(planar, 1, static_cast<std::uint32_t>(r.totalFrames()));
+    REQUIRE(got > 64);
+    CHECK(near(c0[got - 1], 0.7f, 1e-2f));  // steady-state mix 0.5 + 0.2 landed on disk
+    std::filesystem::remove(path);
 }
 
 AIUDIO_TEST_MAIN()

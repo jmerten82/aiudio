@@ -38,7 +38,8 @@ add_library(aiudio_io
     src/io/wav_file.cpp              # M6: WAV reader/writer
     src/io/offline_backend.cpp       # M6: offline (file) backend
     src/io/mock_backend.cpp          # M9.4: deterministic test backend
-    src/io/resampling_source.cpp)    # M9.5: off-clock source (ring + resampler + drift servo)
+    src/io/resampling_source.cpp     # M9.5: off-clock source (ring + resampler + drift servo)
+    src/io/wav_recorder.cpp)         # live WAV recorder (RT ring + writer thread; ADR-0004)
 add_library(aiudio::io ALIAS aiudio_io)
 
 target_include_directories(aiudio_io PUBLIC

@@ -706,6 +706,25 @@ NB_MODULE(_aiudio, m) {
         .value("Int16", io::WavFormat::Int16)
         .value("Float32", io::WavFormat::Float32);
 
+    // LiveMultiSource WAV recording — bound here (not in the class chain above) because it uses
+    // WavFormat as a default argument, which must be registered with nanobind first. Records the
+    // mixed master output off the audio thread (ADR-0004): the pump pushes into a lock-free ring,
+    // a writer thread drains it to disk.
+    lms_cls
+        .def("attach_wav_recorder",
+             [](graph::LiveMultiSource& lms, const std::string& path, io::WavFormat format,
+                std::uint32_t ring_frames) { return lms.recordToWav(path, format, ring_frames); },
+             "path"_a, "format"_a = io::WavFormat::Float32, "ring_frames"_a = 48000,
+             nb::call_guard<nb::gil_scoped_release>(),
+             "Record the mixed master output to a WAV. Records until stop_recording(). Returns "
+             "False if the file can't open or a recording is already active.")
+        .def("stop_recording", &graph::LiveMultiSource::stopRecording,
+             nb::call_guard<nb::gil_scoped_release>(),
+             "Stop the WAV tap: final drain + finalize. Idempotent; leaves the pump running.")
+        .def_prop_ro("recording", &graph::LiveMultiSource::recording)
+        .def_prop_ro("recorded_frames", &graph::LiveMultiSource::recordedFrames)
+        .def_prop_ro("record_dropped_frames", &graph::LiveMultiSource::recordDroppedFrames);
+
     // Planar-float32 WAV read/write (M6), the numpy boundary for offline/tooling I/O.
     // These do blocking file I/O — control/offline thread ONLY, never the audio thread
     // (ADR-0004). For live recording, drain a lock-free ring into a WavWriter on a writer
