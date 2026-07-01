@@ -13,6 +13,7 @@ SVF form — ``docs/20`` §2.2 / candidate ADR-0018) or with straight-through gr
 from __future__ import annotations
 
 import enum
+import math
 
 import torch
 import torch.nn as nn
@@ -133,3 +134,45 @@ class SumDiffNode(DiffNode):
         for extra in inputs[1:]:
             out = out + extra
         return out
+
+
+# ---- D1: stateless linear nodes -------------------------------------------------- #
+
+@register_diff_node("MixerNode")
+class MixerDiffNode(DiffNode):
+    """Weighted sum of N inputs (N→1), each with its own **learnable** gain. Param index ``i`` =
+    gain of input ``i`` (``docs/82``); width-preserving. Matches C++ ``MixerNode``:
+    ``out = Σ_i in_i · gain_i``."""
+
+    differentiability = Differentiability.FULL
+
+    def __init__(self, num_inputs: int, num_outputs: int, init: dict[int, float]):
+        super().__init__(num_inputs, num_outputs, init)
+        gains = [float(init.get(i, 1.0)) for i in range(self.num_inputs)]  # default 1.0 per input
+        self.gains = nn.Parameter(torch.tensor(gains, dtype=torch.float64))
+
+    def forward(self, inputs: list[torch.Tensor]) -> torch.Tensor:
+        out = inputs[0] * self.gains[0].to(inputs[0].dtype)
+        for i in range(1, len(inputs)):
+            out = out + inputs[i] * self.gains[i].to(inputs[i].dtype)
+        return out
+
+
+@register_diff_node("PanNode")
+class PanDiffNode(DiffNode):
+    """Equal-power pan, mono → stereo (1→**2** ch, G8 width change). Param index 0 = pan (−1…+1),
+    **learnable**. Matches C++ ``PanNode``: ``θ = (pan·0.5 + 0.5)·π/2``; ``L = x·cos θ``,
+    ``R = x·sin θ`` (reads input channel 0)."""
+
+    differentiability = Differentiability.FULL
+
+    def __init__(self, num_inputs: int, num_outputs: int, init: dict[int, float]):
+        super().__init__(num_inputs, num_outputs, init)
+        self.pan = nn.Parameter(torch.tensor(float(init.get(0, 0.0)), dtype=torch.float64))
+
+    def forward(self, inputs: list[torch.Tensor]) -> torch.Tensor:
+        x = inputs[0][:, :1, :]                       # mono source = channel 0
+        theta = (self.pan.to(x.dtype) * 0.5 + 0.5) * (math.pi / 2.0)
+        left = x * torch.cos(theta)
+        right = x * torch.sin(theta)
+        return torch.cat([left, right], dim=1)        # [batch, 2, frames]

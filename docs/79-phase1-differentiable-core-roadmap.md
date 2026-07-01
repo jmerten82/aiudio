@@ -4,9 +4,10 @@
 > a *third executor* (alongside real-time and offline) that runs the **same IR** through PyTorch
 > autograd, so DSP-node parameters are learnable and neural models are first-class peers.
 > Proven by gradient-based parameter optimization ("match a target") and closed by writing trained
-> parameters **back into the C++ real-time graph**. · **Status:** **in progress — D0 landed**
-> (the differentiable executor spine + node registry + C++↔torch parity harness + trivial nodes;
-> ADR-0016/0017; the optional `aiudio.diff` / `aiudio[diff]` package). Phase 0 complete, Tier-1 DSP
+> parameters **back into the C++ real-time graph**. · **Status:** **in progress — D0 + D1 landed**
+> (D0: the differentiable executor spine + registry + C++↔torch parity harness, ADR-0016/0017, the
+> optional `aiudio.diff` / `aiudio[diff]` package; D1: the stateless linear nodes Mixer + Pan).
+> Phase 0 complete, Tier-1 DSP
 > nodes landed. Research grounding is **✓ Verified** (from `docs/20`/`docs/50`); the remaining
 > milestones (D1–D8) are a **design proposal** (○) until each ADR is locked at implementation.
 >
@@ -137,9 +138,9 @@ milestone ships with a **parity test** (vs C++ where applicable), **pytest**, an
 | ID | Milestone | Delivers | Depends on |
 |---|---|---|---|
 | **D0** ✅ | Differentiable executor spine | `DiffExecutor` reads the IR + a diff-node registry; autograd source→sink; parity on a trivial graph | Phase 0 (IR, bindings, introspection) |
-| **D1** | Differentiable **linear** DSP nodes | Gain, Sum, Mixer, Pan, ChannelMatrix, DcBlocker, (fractional) Delay — `forward` + gradcheck + parity | D0 |
+| **D1** ✅ | Differentiable **stateless linear** nodes | Mixer (per-input learnable gains) + Pan (equal-power 1→2, learnable) — `forward` + gradcheck + parity. *Scope refined:* DcBlocker + Delay are recursive → moved to **D3**; ChannelMatrix needs channel-layout introspection → deferred (small follow-up). | D0 |
 | **D2** | Differentiable **filters** (the IIR problem) | `SvfNode` (trainable) + frequency-sampling; magnitude-match training; SVF→biquad export | D1 |
-| **D3** | Differentiable **dynamics & nonlinearities** | Waveshaper (STE for hardclip), Compressor/Gate (smooth surrogate + truncated BPTT) | D1 |
+| **D3** | Differentiable **dynamics, nonlinear & recursive** | Waveshaper (STE for hardclip), Compressor/Gate (smooth surrogate + truncated BPTT), **DcBlocker + Delay** (one-pole / feedback — scan/BPTT; moved from D1) | D1 |
 | **D4** | **Losses + training harness** | multi-res STFT (auraloss) + MSE/L1; `Trainer` (data→fwd→loss→bwd→step→checkpoint); reproducible | D0 |
 | **D5** | **Parameter optimization** ("match a target") — the headline slice | recover a graph's params from a target render by backprop (EQ+comp) | D1–D4 |
 | **D6** | **Round-trip to real time** | export trained params/coeffs → C++ `Graph`; golden parity: trained-torch vs C++-RT render | D2, D5 |
@@ -150,9 +151,13 @@ milestone ships with a **parity test** (vs C++ where applicable), **pytest**, an
 yields finite gradients w.r.t. the gain; the diff forward matches the C++ `process()` within
 `1e-6`; the batched tensor convention `[batch, channels, frames]` is fixed and documented.
 
-**D1 — Linear nodes.** *Acceptance:* each node's diff forward matches C++ within tolerance;
-`torch.autograd.gradcheck` (float64) passes for every learnable param; the fractional `Delay`
-line is differentiable w.r.t. delay time.
+**D1 — Stateless linear nodes.** ✅ *Delivered:* `MixerNode` (per-input learnable gains,
+width-preserving) and `PanNode` (equal-power 1→2 — a channel-width change, G8). *Acceptance met:*
+diff forward matches C++ within tolerance (bit-exact for construction-set params; within the
+`SmoothedValue` float32 steady state, ~2e-5, for `set_param`-driven gains), `gradcheck` (float64)
+passes, and gradients match analytic. *Scope note:* the recursive `DcBlocker` (one-pole) and
+`Delay` (feedback) fit D3's scan/BPTT machinery, so they moved there; `ChannelMatrix` needs the
+node's channel layout exposed (a small introspection follow-up) and is deferred.
 
 **D2 — Filters.** *Acceptance:* an `SvfNode` trains to match a target magnitude response (loss
 ↓ over N steps, stable); exporting SVF→biquad coefficients into the C++ `BiquadNode` reproduces
