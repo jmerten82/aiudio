@@ -206,7 +206,10 @@ Telemetry (both languages): `render_count`, `xrun_count`, `dropped_commands`, `l
 ## 6. The live control plane
 
 Edits are enqueued on a lock-free queue and applied at the next block — safe to call **while a
-device is running**. Returns `False`/`false` only if the queue is momentarily full.
+device is running**. Returns `False`/`false` only if the queue is momentarily full. For the full
+control story — automation, control surfaces, and *dynamic-graph* edits (insert/bypass/remove
+nodes live via the atomic swap) — see the cookbook in
+[`docs/83`](83-live-control-and-dynamic-graphs.md).
 
 ```python
 ex.set_gain(gain_node, 0.25)            # convenience for GainNode
