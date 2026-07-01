@@ -42,6 +42,10 @@ public:
     WavWriter(const std::string& path, std::uint32_t channels, double sampleRate,
               WavFormat format = WavFormat::Int16);
 
+    /// RAII: patch the header sizes if the caller didn't `finalize()` (idempotent), so a
+    /// dropped writer never leaves a zero-length/unreadable WAV.
+    ~WavWriter() { finalize(); }
+
     [[nodiscard]] bool ok() const noexcept { return file_.good(); }
 
     /// Write `frames` from `planar[ch][frame]` (planar float32, ±1.0).

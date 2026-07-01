@@ -266,6 +266,34 @@ ob.open(cfg, &exec);
 ob.start();
 ```
 
+### Direct WAV read/write (`WavReader` / `WavWriter`)
+
+When you want to write processed blocks yourself (a render loop, a recorder) or read a WAV into
+numpy without a third-party dependency, use `WavReader`/`WavWriter` directly. Both handle
+canonical **PCM-16** and **32-bit-float** WAV with the planar `(channels, frames)` float32
+convention. **These do blocking file I/O — the control/offline thread only, never the audio
+thread (ADR-0004).** For a live recorder, drain a lock-free ring into a `WavWriter` on a writer
+thread; do not call `write()` from a device IOProc.
+
+```python
+# Capture a graph's processed output to a WAV (off the audio thread).
+with a.WavWriter("out.wav", channels=1, sample_rate=48000.0, format=a.WavFormat.Float32) as w:
+    for _ in range(n_blocks):
+        out = ex.process(block)          # C++ runs the graph
+        w.write(np.ascontiguousarray(out))   # Python writes off-thread
+# `with` finalizes the header on exit; a dropped writer is also finalized by its destructor (RAII).
+
+r = a.WavReader("out.wav")               # read back into numpy
+print(r.ok, r.channels, r.sample_rate, r.total_frames)
+data = r.read(r.total_frames)            # (channels, frames) float32; short read => end of data
+```
+
+```cpp
+io::WavWriter w{"out.wav", /*channels*/ 1, /*sampleRate*/ 48000.0, io::WavFormat::Float32};
+w.write(planar, 1, frames);              // append a planar block
+w.finalize();                            // or rely on the destructor (idempotent)
+```
+
 ### Live device — macOS (Core Audio)
 
 Output (`DeviceBackend`), mic input (`InputBackend`), full-duplex (`DuplexBackend`), and
@@ -418,9 +446,10 @@ src.push(producer_block); engine_block = src.pull(64)
 print(src.ratio, src.fill_frames, src.overruns, src.underruns)
 ```
 
-C++-only building blocks (RT internals, deliberately not bound — ADR-0004): `io::RingBuffer<T>`
-(lock-free SPSC), `io::int16ToFloat`/`floatToInt16`, `io::WavReader`/`io::WavWriter`,
-`io::Resampler`, `io::DriftCompensator`, `io::mapChannels`.
+WAV read/write is also bound directly (`WavReader`/`WavWriter`, see §8) for render loops and
+recorders. C++-only building blocks (RT internals, deliberately not bound — ADR-0004):
+`io::RingBuffer<T>` (lock-free SPSC), `io::int16ToFloat`/`floatToInt16`, `io::Resampler`,
+`io::DriftCompensator`, `io::mapChannels`.
 
 ---
 
