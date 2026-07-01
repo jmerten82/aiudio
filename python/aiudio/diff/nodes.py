@@ -195,3 +195,62 @@ class PanDiffNode(DiffNode):
         left = x * torch.cos(theta)
         right = x * torch.sin(theta)
         return torch.cat([left, right], dim=1)        # [batch, 2, frames]
+
+
+# ---- D3: nonlinear + recursive nodes --------------------------------------------- #
+
+@register_diff_node("WaveshaperNode")
+class WaveshaperDiffNode(DiffNode):
+    """Saturation (1→1): ``out = x·(1−mix) + shape(x·drive)·mix`` — matches C++ ``WaveshaperNode``.
+    Learnable drive (index 0) + mix (index 1); the ``shape`` (tanh|softclip|hardclip) comes from
+    ``config`` (node introspection). tanh/softclip are smooth (FULL); hardclip uses a
+    **straight-through** gradient (SURROGATE) so training still flows."""
+
+    def __init__(self, num_inputs, num_outputs, init=None, **kw):
+        super().__init__(num_inputs, num_outputs, init, **kw)
+        self.drive = nn.Parameter(torch.tensor(self._param(0, 1.0), dtype=torch.float64))
+        self.mix = nn.Parameter(torch.tensor(self._param(1, 1.0), dtype=torch.float64))
+        self._shape = int(round(self.config.get("shape", 0)))  # 0=tanh 1=softclip 2=hardclip
+        self.differentiability = (
+            Differentiability.SURROGATE if self._shape == 2 else Differentiability.FULL)
+
+    def _shaped(self, u: torch.Tensor) -> torch.Tensor:
+        if self._shape == 1:                              # softclip: x / (1 + |x|)
+            return u / (1.0 + torch.abs(u))
+        if self._shape == 2:                              # hardclip: clamp, straight-through grad
+            return u + (torch.clamp(u, -1.0, 1.0) - u).detach()
+        return torch.tanh(u)                              # tanh (default)
+
+    def forward(self, inputs: list[torch.Tensor]) -> torch.Tensor:
+        x = inputs[0]
+        drive = self.drive.to(x.dtype)
+        mix = self.mix.to(x.dtype)
+        return x * (1.0 - mix) + self._shaped(x * drive) * mix
+
+
+@register_diff_node("DcBlockerNode")
+class DcBlockerDiffNode(DiffNode):
+    """One-pole DC/rumble remover (1→1), **recursive**: ``y[n] = x[n] − x[n−1] + R·y[n−1]``,
+    ``R = clamp(1 − 2π·corner/sr, 0, 0.99999)`` — matches C++ ``DcBlockerNode``. No learnable
+    params (fixed filter); differentiable through its input via a per-frame scan (the recursion
+    autodiff pattern for D3). ``corner_hz`` (config) and ``sample_rate`` come from introspection."""
+
+    differentiability = Differentiability.FULL
+
+    def _r(self) -> float:
+        corner = float(self.config.get("corner_hz", 20.0))
+        r = 1.0 - 2.0 * math.pi * corner / (self.sample_rate if self.sample_rate > 0 else 48000.0)
+        return max(0.0, min(0.99999, r))
+
+    def forward(self, inputs: list[torch.Tensor]) -> torch.Tensor:
+        x = inputs[0]                                     # [batch, ch, frames]
+        r = self._r()
+        x1 = torch.zeros_like(x[..., 0])                  # per (batch, ch) state, init 0
+        y1 = torch.zeros_like(x[..., 0])
+        outs = []
+        for f in range(x.shape[-1]):
+            xf = x[..., f]
+            y = xf - x1 + r * y1
+            x1, y1 = xf, y
+            outs.append(y)
+        return torch.stack(outs, dim=-1)
