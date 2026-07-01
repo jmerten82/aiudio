@@ -50,6 +50,7 @@
 #include "aiudio/io/resampler.hpp"
 #include "aiudio/io/resampling_source.hpp"
 #include "aiudio/io/types.hpp"
+#include "aiudio/io/wav_file.hpp"
 
 // The live device backend (Core Audio) is macOS-only; DeviceBackend is exposed only
 // where it exists. Everything else (graph IR, executor, offline) is cross-platform.
@@ -190,6 +191,39 @@ nb::ndarray<nb::numpy, float> mapChannelsBlock(InArray src, std::uint32_t outCha
     nb::capsule owner(outData, [](void* p) noexcept { delete[] static_cast<float*>(p); });
     return nb::ndarray<nb::numpy, float>(
         outData, {static_cast<std::size_t>(outChannels), static_cast<std::size_t>(frames)}, owner);
+}
+
+// Write one planar (channels, frames) float32 block to a WAV file (M6). File I/O — NOT
+// real-time; call only from the control/offline thread, never the audio thread (ADR-0004).
+void wavWriterWrite(io::WavWriter& w, InArray input) {
+    const auto channels = static_cast<std::uint32_t>(input.shape(0));
+    const auto frames = static_cast<std::uint32_t>(input.shape(1));
+    std::vector<const float*> ptrs(channels);
+    for (std::uint32_t c = 0; c < channels; ++c)
+        ptrs[c] = input.data() + static_cast<std::size_t>(c) * frames;
+    w.write(ptrs.data(), channels, frames);
+}
+
+// Read up to `maxFrames` frames from a WAV file into a (channels, produced) float32 array
+// (M6). `produced` < `maxFrames` signals end of data. File I/O — NOT real-time (control
+// thread only). Returns a (0, 0) array if the reader failed to open.
+nb::ndarray<nb::numpy, float> wavReaderRead(io::WavReader& r, std::uint32_t maxFrames) {
+    const std::uint32_t channels = r.channels();
+    auto* outData = new float[static_cast<std::size_t>(channels) * maxFrames]();
+    std::vector<float*> ptrs(channels);
+    for (std::uint32_t c = 0; c < channels; ++c)
+        ptrs[c] = outData + static_cast<std::size_t>(c) * maxFrames;
+    const std::uint32_t produced = r.read(ptrs.data(), channels, maxFrames);
+
+    // Compact each channel's `produced` frames to be contiguous (channels, produced).
+    if (produced != maxFrames)
+        for (std::uint32_t c = 1; c < channels; ++c)
+            std::copy_n(outData + static_cast<std::size_t>(c) * maxFrames, produced,
+                        outData + static_cast<std::size_t>(c) * produced);
+
+    nb::capsule owner(outData, [](void* p) noexcept { delete[] static_cast<float*>(p); });
+    return nb::ndarray<nb::numpy, float>(
+        outData, {static_cast<std::size_t>(channels), static_cast<std::size_t>(produced)}, owner);
 }
 
 // Engine-side pull from a ResamplingSource (M9.5): produce `frames` of engine-rate audio
@@ -671,6 +705,37 @@ NB_MODULE(_aiudio, m) {
     nb::enum_<io::WavFormat>(m, "WavFormat")
         .value("Int16", io::WavFormat::Int16)
         .value("Float32", io::WavFormat::Float32);
+
+    // Planar-float32 WAV read/write (M6), the numpy boundary for offline/tooling I/O.
+    // These do blocking file I/O — control/offline thread ONLY, never the audio thread
+    // (ADR-0004). For live recording, drain a lock-free ring into a WavWriter on a writer
+    // thread; do not call write() from a device IOProc.
+    nb::class_<io::WavReader>(m, "WavReader")
+        .def(nb::init<std::string>(), "path"_a,
+             "Open a canonical PCM-16 or 32-bit-float WAV for reading.")
+        .def_prop_ro("ok", &io::WavReader::ok, "True if the file opened and the format is supported.")
+        .def_prop_ro("channels", &io::WavReader::channels)
+        .def_prop_ro("sample_rate", &io::WavReader::sampleRate)
+        .def_prop_ro("total_frames", &io::WavReader::totalFrames)
+        .def("read", &wavReaderRead, "max_frames"_a,
+             "Read up to max_frames into a (channels, produced) float32 array; produced < "
+             "max_frames means end of data. Stateful: successive calls advance through the file.");
+
+    nb::class_<io::WavWriter>(m, "WavWriter")
+        .def(nb::init<std::string, std::uint32_t, double, io::WavFormat>(), "path"_a, "channels"_a,
+             "sample_rate"_a, "format"_a = io::WavFormat::Float32,
+             "Create a WAV for writing (Float32 lossless by default, Int16 for compatibility).")
+        .def_prop_ro("ok", &io::WavWriter::ok)
+        .def("write", &wavWriterWrite, "block"_a,
+             "Append a planar (channels, frames) float32 block. Extra channels are zero-filled.")
+        .def("finalize", &io::WavWriter::finalize,
+             "Patch the RIFF/data sizes and flush. Idempotent; also run on destruction, but "
+             "call it (or use `with`) for deterministic close.")
+        .def("__enter__", [](nb::object self) { return self; })  // same Python object, no new owner
+        .def("__exit__", [](io::WavWriter& w, nb::args) {         // (exc_type, exc, tb) — accept None
+            w.finalize();
+            return false;  // don't suppress exceptions
+        });
 
     nb::class_<io::OfflineBackend>(m, "OfflineBackend")
         .def(nb::init<std::string, std::string, io::WavFormat>(), "input_wav"_a, "output_wav"_a,
