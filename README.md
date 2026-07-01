@@ -229,6 +229,7 @@ Accepted so far:
 | [0015](adr/0015-boundary-resampling-and-cross-clock-drift.md) | Boundary sample-rate conversion + cross-clock drift compensation (M9.3/M9.5/M9.6) |
 | [0016](adr/0016-differentiable-execution-strategy.md) | Differentiable execution — Python/PyTorch executor over the same IR (Phase 1 · D0) |
 | [0017](adr/0017-autodiff-framework-pytorch.md) | Autodiff framework — PyTorch (optional `aiudio[diff]` extra) |
+| [0018](adr/0018-trainable-filter-form.md) | Trainable-filter form — design-param + magnitude-response training, biquad coeff export (Phase 1 · D2) |
 
 > **Significant decisions require an ADR.** See `CLAUDE.md` §9 for when to write
 > one and how it ties into keeping the docs current.

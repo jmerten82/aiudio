@@ -24,6 +24,7 @@ except ModuleNotFoundError as exc:  # pragma: no cover - exercised only without 
     ) from exc
 
 from .executor import DiffExecutor
+from .filters import DiffBiquad, FilterType, fit_magnitude
 from .nodes import (
     DiffNode,
     Differentiability,
@@ -42,4 +43,7 @@ __all__ = [
     "registered_types",
     "assert_parity",
     "max_abs_diff",
+    "DiffBiquad",
+    "FilterType",
+    "fit_magnitude",
 ]

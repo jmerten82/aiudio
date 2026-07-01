@@ -4,7 +4,7 @@
 > a *third executor* (alongside real-time and offline) that runs the **same IR** through PyTorch
 > autograd, so DSP-node parameters are learnable and neural models are first-class peers.
 > Proven by gradient-based parameter optimization ("match a target") and closed by writing trained
-> parameters **back into the C++ real-time graph**. · **Status:** **in progress — D0 + D1 landed**
+> parameters **back into the C++ real-time graph**. · **Status:** **in progress — D0 + D1 + D2 landed**
 > (D0: the differentiable executor spine + registry + C++↔torch parity harness, ADR-0016/0017, the
 > optional `aiudio.diff` / `aiudio[diff]` package; D1: the stateless linear nodes Mixer + Pan).
 > Phase 0 complete, Tier-1 DSP
@@ -139,7 +139,7 @@ milestone ships with a **parity test** (vs C++ where applicable), **pytest**, an
 |---|---|---|---|
 | **D0** ✅ | Differentiable executor spine | `DiffExecutor` reads the IR + a diff-node registry; autograd source→sink; parity on a trivial graph | Phase 0 (IR, bindings, introspection) |
 | **D1** ✅ | Differentiable **stateless linear** nodes | Mixer (per-input learnable gains) + Pan (equal-power 1→2, learnable) — `forward` + gradcheck + parity. *Scope refined:* DcBlocker + Delay are recursive → moved to **D3**; ChannelMatrix needs channel-layout introspection → deferred (small follow-up). | D0 |
-| **D2** | Differentiable **filters** (the IIR problem) | `SvfNode` (trainable) + frequency-sampling; magnitude-match training; SVF→biquad export | D1 |
+| **D2** ✅ | Differentiable **filters** (the IIR problem) | `DiffBiquad` — design-param (log-freq/softplus-Q/gain_dB) magnitude-response training + design→biquad coeff export (ADR-0018). *Time-domain* recursive filtering in-graph → D3. | D1 |
 | **D3** | Differentiable **dynamics, nonlinear & recursive** | Waveshaper (STE for hardclip), Compressor/Gate (smooth surrogate + truncated BPTT), **DcBlocker + Delay** (one-pole / feedback — scan/BPTT; moved from D1) | D1 |
 | **D4** | **Losses + training harness** | multi-res STFT (auraloss) + MSE/L1; `Trainer` (data→fwd→loss→bwd→step→checkpoint); reproducible | D0 |
 | **D5** | **Parameter optimization** ("match a target") — the headline slice | recover a graph's params from a target render by backprop (EQ+comp) | D1–D4 |
@@ -159,9 +159,14 @@ passes, and gradients match analytic. *Scope note:* the recursive `DcBlocker` (o
 `Delay` (feedback) fit D3's scan/BPTT machinery, so they moved there; `ChannelMatrix` needs the
 node's channel layout exposed (a small introspection follow-up) and is deferred.
 
-**D2 — Filters.** *Acceptance:* an `SvfNode` trains to match a target magnitude response (loss
-↓ over N steps, stable); exporting SVF→biquad coefficients into the C++ `BiquadNode` reproduces
-the trained response within tolerance (feeds D6). Direct-form biquad is declared `Surrogate`.
+**D2 — Filters.** ✅ *Delivered:* `DiffBiquad` (`aiudio.diff.filters`) — a differentiable RBJ
+biquad in reparameterized **design-param** space (log-freq, softplus-Q, gain_dB). *Acceptance met:*
+formula parity with the C++ `BiquadNode::design()` (analytic |H| vs the impulse-response FFT of
+`add_biquad_*`); `fit_magnitude` recovers a target response by gradient descent (loss ↓ ≥100×,
+freq within 10%, gain within 0.6 dB); exporting the trained coeffs via `add_biquad_coeffs`
+reproduces the response within tolerance (feeds D6). Trains through the analytic **magnitude
+response** — the IIR-autodiff workaround (`docs/20` §2.2, ADR-0018). Running a filter *inside* a
+differentiable graph forward (time-domain recursion) lands with the recursive nodes in **D3**.
 
 **D3 — Dynamics/nonlinear.** *Acceptance:* the waveshaper trains (drive/mix); the compressor's
 diff forward matches C++ within tolerance and gradient flows through the envelope with bounded
@@ -229,9 +234,9 @@ numbers continue from **ADR-0015**:
 - **ADR-0017 — Autodiff framework = PyTorch.** The training substrate for the ML layer (a major
   dependency choice; ADR trigger). Rationale: dominant in neural audio (DDSP/RAVE/auraloss),
   natural fit for ADR-0002's Python ML layer, TorchScript/ONNX export paths toward RT (ADR-0006).
-- **ADR-0018 (with D2) — Trainable-filter form.** SVF / frequency-sampling as the *trainable*
-  filter representation, with SVF→biquad coefficient export for RT (resolves `docs/20` §2.2 in
-  the codebase). *(May fold into ADR-0016.)*
+- **ADR-0018 — Trainable-filter form** ✅ **(Accepted, with D2).** Design-parameter
+  (reparameterized: log-freq/softplus-Q/gain_dB) magnitude-response training + design→biquad
+  coefficient export for RT — resolves `docs/20` §2.2 in the codebase.
 - **ADR-0006 revisited (with D7):** ADR-0006 already covers RT neural *inference* (RTNeural inline
   / ANIRA off-thread). D7 adds the **training** side (torch) + **export**; note the split rather
   than superseding, unless deployment specifics force a new ADR.
