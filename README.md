@@ -135,7 +135,7 @@ status — **kept current as we go**.
 
 ### Phase 1 — Differentiable core
 > **Implementation roadmap:** [`docs/79-phase1-differentiable-core-roadmap.md`](docs/79-phase1-differentiable-core-roadmap.md) — the third executor (Python/PyTorch, off-thread) over the same IR; milestones **D0–D8** (executor spine · linear nodes · trainable SVF filters · dynamics · losses+trainer · parameter-match slice · round-trip to RT · first neural node · DDSP exemplar), with the hard-problem mitigations, ADRs (0016/0017), dependency graph, and definition of done.
-- [ ] Differentiable end-to-end graph execution
+- [~] Differentiable end-to-end graph execution — **D0 landed**: the optional `aiudio.diff` executor (PyTorch, off-thread; ADR-0016/0017) runs the same `Graph` IR through autograd with **C++↔torch parity** (trivial nodes: source/gain/sum/sink); D1–D8 add the node library, losses+trainer, and the round-trip to RT.
 - [~] Classic DSP nodes as peers — **Tier-1 node library landed** (parametric EQ, compressor/gate, delay, waveshaper, oscillator/noise, pan/width, mixer, channel-matrix, DC blocker; plan + tiers in [`docs/78`](docs/78-node-library-roadmap.md)). *Making them differentiable + Tier 2/3 (spectral/convolution reverb, neural) is the remaining work.*
 - [ ] First neural node (RAVE-/NAM-class) under the same contract
 - [ ] "Brighten the vocal" slice — EQ node tuned by gradient vs a CLAP objective
@@ -227,6 +227,8 @@ Accepted so far:
 | [0013](adr/0013-latency-reporting-and-delay-compensation.md) | Latency reporting + graph-wide delay compensation (PDC) (extends ADR-0009) |
 | [0014](adr/0014-multi-source-manager.md) | Multi-source manager — N sources + M sinks on one clock via per-stream rings (ADR-0008 §5) |
 | [0015](adr/0015-boundary-resampling-and-cross-clock-drift.md) | Boundary sample-rate conversion + cross-clock drift compensation (M9.3/M9.5/M9.6) |
+| [0016](adr/0016-differentiable-execution-strategy.md) | Differentiable execution — Python/PyTorch executor over the same IR (Phase 1 · D0) |
+| [0017](adr/0017-autodiff-framework-pytorch.md) | Autodiff framework — PyTorch (optional `aiudio[diff]` extra) |
 
 > **Significant decisions require an ADR.** See `CLAUDE.md` §9 for when to write
 > one and how it ties into keeping the docs current.
