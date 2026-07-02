@@ -34,7 +34,7 @@ from .nodes import (
     registered_types,
 )
 from .parity import assert_parity, max_abs_diff
-from .train import fit, load_checkpoint, save_checkpoint, seed_everything
+from .train import fit, load_checkpoint, match_target, save_checkpoint, seed_everything
 
 __all__ = [
     "DiffExecutor",
@@ -52,6 +52,7 @@ __all__ = [
     "mse",
     "l1",
     "fit",
+    "match_target",
     "seed_everything",
     "save_checkpoint",
     "load_checkpoint",
