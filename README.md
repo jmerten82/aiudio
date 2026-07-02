@@ -12,8 +12,13 @@ offline use.
 > **Python bindings** and a **Python control plane** that drives a *running* pipeline
 > as a frontend, G1–G7) are implemented and tested, with a documented C++ + Python
 > [testing strategy](testing/README.md) (CI-green). Remaining I/O — M7 (plugin host),
-> M9 (hardening) — is not a Phase-0 gate. Next: Phase 1 (differentiable core).
-> **Last updated:** 2026-06-30.
+> M9 (hardening) — is not a Phase-0 gate. **Phase 1 (differentiable core) complete:**
+> the optional `aiudio.diff` third executor (PyTorch, off-thread) runs the same IR
+> through autograd — the full DSP node library is differentiable, with losses + a
+> trainer, parameter-match against a target, a round-trip that writes trained params
+> back into the C++ real-time graph, a first neural node, and a DDSP synth exemplar
+> (D0–D8, [`docs/79`](docs/79-phase1-differentiable-core-roadmap.md)). Next: Phase 2
+> (agent control plane). **Last updated:** 2026-07-01.
 
 ---
 
@@ -133,12 +138,14 @@ status — **kept current as we go**.
 - [x] **Python control plane** — drive a *running* pipeline as a frontend: lock-free param command queue + atomic telemetry, and the RT output backend exposed control-only *(ADR-0010; G7 ✅ — Python never touches the audio thread)*
 - [x] **Testing strategy** — documented C++ + Python layers (RT-safety/allocation, sanitizers, golden, cross-backend, live-device, packaging, notebooks) + one-command runner + CI *(`testing/README.md` ✅ CI-green)*
 
-### Phase 1 — Differentiable core
-> **Implementation roadmap:** [`docs/79-phase1-differentiable-core-roadmap.md`](docs/79-phase1-differentiable-core-roadmap.md) — the third executor (Python/PyTorch, off-thread) over the same IR; milestones **D0–D8** (executor spine · linear nodes · trainable SVF filters · dynamics · losses+trainer · parameter-match slice · round-trip to RT · first neural node · DDSP exemplar), with the hard-problem mitigations, ADRs (0016/0017), dependency graph, and definition of done.
-- [~] Differentiable end-to-end graph execution — **D0 landed**: the optional `aiudio.diff` executor (PyTorch, off-thread; ADR-0016/0017) runs the same `Graph` IR through autograd with **C++↔torch parity** (trivial nodes: source/gain/sum/sink); D1–D8 add the node library, losses+trainer, and the round-trip to RT.
-- [~] Classic DSP nodes as peers — **Tier-1 node library landed** (parametric EQ, compressor/gate, delay, waveshaper, oscillator/noise, pan/width, mixer, channel-matrix, DC blocker; plan + tiers in [`docs/78`](docs/78-node-library-roadmap.md)). *Making them differentiable + Tier 2/3 (spectral/convolution reverb, neural) is the remaining work.*
-- [ ] First neural node (RAVE-/NAM-class) under the same contract
-- [ ] "Brighten the vocal" slice — EQ node tuned by gradient vs a CLAP objective
+### Phase 1 — Differentiable core *(complete — D0–D8 landed)*
+> **Implementation roadmap:** [`docs/79-phase1-differentiable-core-roadmap.md`](docs/79-phase1-differentiable-core-roadmap.md) — the third executor (Python/PyTorch, off-thread) over the same IR; milestones **D0–D8** (executor spine · linear nodes · trainable SVF filters · dynamics · losses+trainer · parameter-match slice · round-trip to RT · first neural node · DDSP exemplar), with the hard-problem mitigations, ADRs (0016/0017/0018), dependency graph, and definition of done.
+- [x] Differentiable end-to-end graph execution — the optional `aiudio.diff` executor (PyTorch, off-thread; ADR-0016/0017) runs the same `Graph` IR through autograd with **C++↔torch parity**, auto-mirroring *any* graph (D0 + node-introspection enabler).
+- [x] Classic DSP nodes as peers, **differentiable** — the full Tier-1 library (gain/mixer/pan, parametric EQ, waveshaper, DC blocker, compressor/gate, delay) has a differentiable form matching its C++ node (D1–D3); Tier 2/3 (spectral/convolution reverb) remains for later phases.
+- [x] Losses + reproducible trainer — multi-res STFT loss + MSE/L1, `fit`/`seed_everything`/checkpoints (D4).
+- [x] "Match a target" parameter optimization — `match_target` recovers a graph's params by backprop, then `export_to_graph` writes them into the C++ real-time graph (D5–D6; the gradient-tuning "brighten the vocal" slice — a *CLAP* objective is the Phase-2 upgrade).
+- [x] First neural node (NAM-/RAVE-class in spirit) under the same contract — a torch `nn.Module` as a graph peer, trained jointly with DSP, exported via `torch.export`; RT inference is Phase 3 (D7).
+- [x] DDSP exemplar — `HarmonicSynth` matches a target timbre via the STFT loss (D8).
 - [x] Process-tap & offline/file backends (I/O M5–M6) *(M5 ✅ taps; M6 ✅ offline/file backend — both merged)*
 
 ### Phase 2 — Agent control plane *(the differentiator)*
@@ -184,7 +191,9 @@ aiudio/
 ├── include/aiudio/graph/  ← aiudio-graph headers (Node, Graph, executor, nodes)
 ├── src/io/, src/graph/    ← library implementations
 ├── bindings/              ← nanobind Python bindings (_aiudio module)
-├── python/aiudio/         ← Python package
+├── python/aiudio/         ← Python package (control frontend)
+│   └── diff/              ← optional differentiable layer (`aiudio[diff]`, PyTorch): executor,
+│                            node registry, filters, losses, trainer, DDSP synth, parity harness
 ├── tests/                 ← C++ unit tests (CTest) + Python binding tests
 ├── testing/               ← test strategy (testing/README.md) + cross-cutting tests + run.sh
 ├── pyproject.toml         ← `pip install .` (scikit-build-core + nanobind)
@@ -330,6 +339,7 @@ See [`examples/README.md`](examples/README.md) and
 | RT core language | **C++20** (clang 21) | real-time safety, plugin/DSP/ML-runtime ecosystem |
 | Research/ML language | **Python 3.11+** | PyTorch/JAX, agent, scripting |
 | Interop | **nanobind** | low-overhead C++↔Python bindings |
+| Differentiable layer | **PyTorch** (optional `aiudio[diff]`) | autograd over the same IR; trainable DSP + neural (ADR-0016/0017) |
 | Build | **CMake** + **scikit-build-core** | C++ + Python packaging |
 | RT neural inference | **RTNeural** (inline) · **ANIRA** (off-thread pool) | proven RT-safe patterns |
 | ML runtime(s) | **LibTorch / ONNX Runtime** (abstracted) | don't marry one runtime |

@@ -4,20 +4,21 @@
 > a *third executor* (alongside real-time and offline) that runs the **same IR** through PyTorch
 > autograd, so DSP-node parameters are learnable and neural models are first-class peers.
 > Proven by gradient-based parameter optimization ("match a target") and closed by writing trained
-> parameters **back into the C++ real-time graph**. · **Status:** **in progress — D0 + D1 + D2 +
-> node-introspection enabler + D3 (complete) landed** (the `DiffExecutor` now auto-mirrors *any*
-> graph: `param_value`/`node_config`/`sample_rate` getters + auto-read, `init_params` optional).
-> D3 covers Waveshaper, DcBlocker, Compressor, Gate, and Delay (stateful/recursive via per-frame
-> scans, cold-parity with C++). **D4** (multi-res STFT loss + `fit`/checkpoint harness) also
-> landed, **D5** (parameter-match — `match_target`) is in, and **D6** (round-trip to real time —
-> `export_to_graph`) closes ML-first → RT. **D7** (first neural node — a torch `nn.Module` as a
-> graph peer, trained jointly with DSP, exported via `torch.export`) is in. **Remaining: D8** (DDSP
-> exemplar) — the research tail.
+> parameters **back into the C++ real-time graph**. · **Status: ✅ COMPLETE — D0–D8 all landed.**
+> The `DiffExecutor` auto-mirrors *any* graph (`param_value`/`node_config`/`sample_rate` getters +
+> auto-read, `init_params` optional); the full DSP node library is differentiable — linear (D1),
+> trainable filters (D2), dynamics/nonlinear/recursive (D3: Waveshaper, DcBlocker, Compressor,
+> Gate, Delay via per-frame scans, cold-parity with C++). D4 = multi-res STFT loss + `fit`/
+> checkpoint harness; D5 = parameter-match (`match_target`); D6 = round-trip to RT
+> (`export_to_graph` — C++ render == trained-torch render); D7 = first neural node (a torch
+> `nn.Module` as a graph peer, trained jointly with DSP, exported via `torch.export`); D8 = a DDSP
+> `HarmonicSynth` exemplar (timbre match, multi-res-STFT-distance metric). **Next: Phase 2** (agent
+> control plane) — see [README Roadmap](../README.md#roadmap).
 > (D0: the differentiable executor spine + registry + C++↔torch parity harness, ADR-0016/0017, the
 > optional `aiudio.diff` / `aiudio[diff]` package; D1: the stateless linear nodes Mixer + Pan).
-> Phase 0 complete, Tier-1 DSP
-> nodes landed. Research grounding is **✓ Verified** (from `docs/20`/`docs/50`); the remaining
-> milestones (D1–D8) are a **design proposal** (○) until each ADR is locked at implementation.
+> Phase 0 complete, Tier-1 DSP nodes landed. Research grounding is **✓ Verified** (from
+> `docs/20`/`docs/50`); the milestone work (D0–D8) is now **implemented and tested** (each ADR
+> 0016/0017/0018 accepted at implementation).
 >
 > Extends the README **Phase 1 — Differentiable core** and [`docs/78`](78-node-library-roadmap.md)
 > (Tier 3). *Why* the pillar exists: [`docs/50`](50-architecture-patterns.md) §3 and
@@ -153,7 +154,7 @@ milestone ships with a **parity test** (vs C++ where applicable), **pytest**, an
 | **D5** ✅ | **Parameter optimization** ("match a target") — the headline slice | `match_target` recovers a graph's params from a target **render** by backprop through a multi-node audio-domain graph (gain → waveshaper → compressor); learned params push to C++. | D1–D4 |
 | **D6** ✅ | **Round-trip to real time** | `export_to_graph` writes trained params → C++ via `set_param`; golden parity: **C++ render == trained-torch render** (atomic/stateful compared cold; smoothed after settling). Closes ML-first → RT. | D2, D5 |
 | **D7** ✅ | **First neural node** | C++ `NeuralNode` placeholder (identity in RT — inference is Phase 3) + `NeuralDiffNode` wrapping an injected torch `nn.Module`; trains **jointly with DSP nodes**; exports via `torch.export` (→ ONNX/ExecuTorch, ADR-0006). | D0, D4 |
-| **D8** | **DDSP exemplar + eval** | harmonic+noise DDSP (or learned EQ-match) end-to-end example, small dataset, metrics; notebook | D4, D5 |
+| **D8** ✅ | **DDSP exemplar + eval** | `HarmonicSynth` (harmonic + filtered-noise, fixed f0) trains to match a target **timbre** via multi-res STFT loss — recovers the spectral envelope (`ex_ddsp_synth_match`). Metric: STFT distance (CLAP = Phase-2 hook). | D4, D5 |
 
 **D0 — Differentiable executor spine.** *Acceptance:* on `source→gain→sink`, `loss.backward()`
 yields finite gradients w.r.t. the gain; the diff forward matches the C++ `process()` within
@@ -222,9 +223,15 @@ TorchScript; lowers to ONNX/ExecuTorch → RTNeural/ANIRA/LibTorch, ADR-0006). R
 model stays Phase 3 (the C++ node is a placeholder). Neural weights deploy by export, not
 `set_param` (so `export_params` is empty for the neural node).
 
-**D8 — DDSP exemplar.** *Acceptance:* a runnable, documented end-to-end example (DDSP synth or
-EQ-match) with a small dataset and reported metrics (multi-res STFT distance; CLAP hook); shipped
-as a notebook + example, mirroring the Phase-0 cookbooks.
+**D8 — DDSP exemplar.** ✅ *Delivered:* `aiudio.diff.HarmonicSynth` — a differentiable
+harmonic + filtered-noise synth (the DDSP additive model) at a **fixed f0**, with learnable
+per-harmonic amplitudes + a noise gain. It trains, via the multi-res STFT loss (D4) + `fit`, to
+**match a target timbre**, recovering the spectral envelope (harmonic-amplitude error ≲ 2e-3 on a
+1/n target; STFT distance collapses ~300×). Shipped as `examples/python/ex_ddsp_synth_match.py`
+with the reported metric (multi-res STFT distance). *Pitch is fixed by design* — a multi-res STFT
+loss is poor at pitch (`docs/20` §2.1), so f0 is not learned by naive descent; learning *timbre* at
+known pitch is exactly the loss's strength, and pitch-aware / staged training is a Phase-2+ concern.
+A perceptual **CLAP-embedding** distance is the noted Phase-2 metric hook (`docs/40`).
 
 ---
 
@@ -283,7 +290,7 @@ The node contract already reserves "**differentiable parameters**" and an explic
 
 ## 8. Definition of done
 
-Phase 1 is "the differentiable core is built" when:
+**✅ All met (D0–D8 landed, PRs #39–#48).** Phase 1 is "the differentiable core is built" when:
 
 1. **The same IR runs on the differentiable executor** — `DiffExecutor` interprets a `Graph`
    built with the existing API; forward output matches the C++ executor within tolerance (**parity**
@@ -297,9 +304,10 @@ Phase 1 is "the differentiable core is built" when:
 5. **At least one neural node trains as a first-class peer** (D7).
 6. **A reproducible training harness + multi-res STFT loss + a DDSP exemplar** exist, tested and
    documented (D4/D8), mirroring the Phase-0 cookbooks.
-7. **Docs/ADRs current** — README Phase-1 boxes ticked as milestones land; ADR-0016/0017 written;
-   `docs/78` Tier-3 status advanced; a Phase-1 cookbook (the fourth in the `docs/81–83` series:
-   "Differentiable & Trainable Graphs") added.
+7. **Docs/ADRs current** — README Phase-1 boxes ticked; ADR-0016/0017/0018 accepted; `docs/78`
+   Tier-3 status advanced; and the Phase-1 cookbook
+   [`docs/84 — Differentiable & Trainable Graphs`](84-differentiable-and-trainable-graphs.md) added
+   (the fourth in the `docs/81–83` cookbook series).
 
 **Explicit non-goals for Phase 1** (deferred): the neural-model *zoo* (source separation, codecs,
 generation — Phase 4); **RT neural deployment** (streaming/cached-conv, RTNeural/ONNX on the audio

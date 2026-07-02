@@ -4,18 +4,18 @@ Guidance for Claude Code (and humans) working in this repo. Loaded every session
 so it is kept **tight**; depth lives in [`docs/`](docs/). Keep this file and
 [`README.md`](README.md) **current** — see [§9 Living-documents protocol](#9-living-documents-protocol).
 
-> **Last updated:** 2026-06-30 · **Current phase:** Phase 1 — Differentiable core
-> (just started). Phase 0 (I/O layer + graph spine) is complete, and the
-> **true multi-source I/O** track (`docs/76`: boundary resampling, off-clock drift
-> compensation, cross-clock multi-device, channel mapping, the Core Audio device-died
-> listener) was **implemented off-schedule** ahead of its planned Phase-3 slot and is now
-> merged to `main` — feature-complete bar the hardware-only physical triggers. **Recent
-> productionization (merged):** the `LiveMultiSource` N-source cross-clock engine (#30/#31),
-> numpy `WavReader`/`WavWriter` bindings (#32), the off-thread **`WavRecorder`** /
-> `attach_wav_recorder` live recorder (#33), and the signed **`aiudio-recorder.app`** (mic +
-> system tap → mix → WAV; tap-testable without a loopback, #34). **Phase 1 is now planned** —
-> the differentiable-core implementation roadmap (the third executor: Python/PyTorch over the
-> same IR; milestones D0–D8) is written up in
+> **Last updated:** 2026-07-01 · **Current phase:** Phase 1 — Differentiable core
+> **✅ COMPLETE (D0–D8)**; moving to **Phase 2** (agent control plane). Phase 0 (I/O layer +
+> graph spine) is complete, and the **true multi-source I/O** track (`docs/76`) was implemented
+> off-schedule and merged. **Phase 1 (merged, #39–#48):** the optional `aiudio.diff` third
+> executor (PyTorch, off-thread; ADR-0016/0017) runs the *same* `Graph` IR through autograd, with
+> **C++↔torch parity** — auto-mirroring any graph (`param_value`/`node_config`/`sample_rate` +
+> node-introspection enabler). The full DSP node library is differentiable (linear, trainable
+> filters, dynamics/nonlinear/recursive via per-frame scans); plus a multi-res STFT loss + `fit`/
+> checkpoint trainer, `match_target` (recover params from a target render), `export_to_graph`
+> (write trained params back into the C++ RT graph — round-trip verified), a first **neural node**
+> (torch `nn.Module` as a graph peer, trained jointly with DSP, `torch.export` deploy), and a DDSP
+> `HarmonicSynth` timbre-match exemplar. Roadmap + status:
 > [`docs/79`](docs/79-phase1-differentiable-core-roadmap.md). See [README Roadmap](README.md#roadmap).
 
 ---
@@ -51,6 +51,7 @@ decision requires a **new superseding ADR** (§10), never a silent divergence.
 | Architecture & graph engine | `docs/50-architecture-patterns.md` |
 | macOS audio capture | `docs/70-macos-audio-capture-plan.md` |
 | **I/O foundation milestones** | `docs/71-io-layer-milestones.md` |
+| **Differentiable core (Phase 1)** | `docs/79-phase1-differentiable-core-roadmap.md` · `python/aiudio/diff/` |
 | References | `docs/90-references.md` |
 | Roadmap & status | `README.md` §Roadmap |
 | **Why** a decision was made | `adr/` (index: `adr/README.md`) |

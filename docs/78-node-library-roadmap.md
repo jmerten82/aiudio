@@ -65,17 +65,21 @@ radix-2 or a vendored kiss/pffft) — the gating enabler for the tier.
 
 ---
 
-## Tier 3 — differentiable & neural peers (the Phase-1 vision) · ⬜ planned
+## Tier 3 — differentiable & neural peers (the Phase-1 vision) · ◑ **partly landed** (Phase 1, `aiudio.diff`)
 
-Where the framework's thesis (DSP + neural as one graph) gets proven.
+Where the framework's thesis (DSP + neural as one graph) gets proven. **Phase 1 (D0–D8) delivered
+the differentiable + training side** in the optional `aiudio.diff` executor (torch, off-thread):
+the whole Tier-1 library now has a differentiable, C++-parity form; a first neural node trains as a
+graph peer; and a DDSP synth exemplar matches a target timbre. **RT deployment** of neural models
+(and the heavier codec/separation nodes) remains Phase 3/4.
 
-| Node | What | Notes |
+| Node | What | Status |
 |---|---|---|
-| `SvfNode` (state-variable filter) | differentiable-friendly filter form | `docs/20`: direct-form IIR has poor gradients — SVF/frequency-sampling is the trainable form |
-| DDSP synth (harmonic + filtered noise + learned reverb) | the canonical differentiable triad | builds on `OscillatorNode`/`NoiseNode` |
-| `NeuralNode` wrapper | TorchScript/ONNX model as a first-class node | runtime-agnostic (**ADR-0006**); streaming/cached-conv for RT (RAVE/NAM) — README Phase-1 "first neural node" |
-| Codec node (EnCodec/DAC) | encode/decode to RVQ tokens | unlocks LLM/token workflows |
-| Source separation / denoise | Demucs / neural | pooled, off-thread (ANIRA pattern), `realtime_capable=false` |
+| Trainable filters | differentiable-friendly form | ✅ Phase 1 · D2 — `DiffBiquad`: design-param + **frequency-domain magnitude** training (`docs/20`: direct-form IIR has poor gradients); coeffs export to the C++ `BiquadNode` (ADR-0018) |
+| DDSP synth (harmonic + filtered noise) | the canonical differentiable additive model | ✅ Phase 1 · D8 — `aiudio.diff.HarmonicSynth`, timbre match via multi-res STFT (learned reverb → later) |
+| `NeuralNode` wrapper | a torch model as a first-class node | ◑ Phase 1 · D7 — trains as a graph peer + `torch.export` deploy path; **RT inference** (streaming/cached-conv, RTNeural/ANIRA/LibTorch — ADR-0006) is **Phase 3**. C++ node is an identity placeholder for now. |
+| Codec node (EnCodec/DAC) | encode/decode to RVQ tokens | ⬜ Phase 4 — unlocks LLM/token workflows |
+| Source separation / denoise | Demucs / neural | ⬜ Phase 4 — pooled, off-thread (ANIRA pattern), `realtime_capable=false` |
 
 ---
 
