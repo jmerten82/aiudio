@@ -8,10 +8,10 @@ only — heavy, batched, GPU/MPS-friendly.
 **Optional** — requires PyTorch. Install with:  ``pip install "aiudio[diff]"``. torch is imported
 lazily here so the base ``aiudio`` package (the RT core + control frontend) needs no torch.
 
-D0 (this milestone): the executor spine + node registry + the C++↔torch parity harness, with the
-trivial nodes (Source/Sink/Gain/Sum). Subsequent milestones add the rest of the node library
-(D1–D3), losses + a trainer (D4), the parameter-match slice (D5), and the round-trip to RT (D6).
-See ``docs/79`` for the full plan.
+Phase 1 is **complete** (D0–D8, see ``docs/79``): the executor spine + node registry + C++↔torch
+parity harness (D0); the full DSP node library — linear (D1), filters (D2), dynamics/nonlinear/
+recursive (D3); losses + a trainer (D4); the parameter-match slice (D5); the round-trip to RT (D6);
+the first neural node (D7); and a DDSP synth exemplar (D8, `HarmonicSynth`).
 """
 from __future__ import annotations
 
@@ -23,6 +23,7 @@ except ModuleNotFoundError as exc:  # pragma: no cover - exercised only without 
         'Install it with:  pip install "aiudio[diff]"'
     ) from exc
 
+from .ddsp import HarmonicSynth
 from .executor import DiffExecutor
 from .filters import DiffBiquad, FilterType, fit_magnitude
 from .losses import MultiResolutionSTFTLoss, l1, mse
@@ -55,6 +56,7 @@ __all__ = [
     "DiffBiquad",
     "FilterType",
     "fit_magnitude",
+    "HarmonicSynth",
     "MultiResolutionSTFTLoss",
     "mse",
     "l1",
