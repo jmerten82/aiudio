@@ -5,7 +5,9 @@ so it is kept **tight**; depth lives in [`docs/`](docs/). Keep this file and
 [`README.md`](README.md) **current** — see [§9 Living-documents protocol](#9-living-documents-protocol).
 
 > **Last updated:** 2026-07-01 · **Current phase:** Phase 1 — Differentiable core
-> **✅ COMPLETE (D0–D8)**; moving to **Phase 2** (agent control plane). Phase 0 (I/O layer +
+> **✅ COMPLETE (D0–D8)**; moving to **Phase 2** (agent control plane + visual workbench — plan in
+> [`docs/85`](docs/85-phase2-agent-workbench-roadmap.md): browser graph editor + grounded LLM
+> companion + agent self-extension). Phase 0 (I/O layer +
 > graph spine) is complete, and the **true multi-source I/O** track (`docs/76`) was implemented
 > off-schedule and merged. **Phase 1 (merged, #39–#48):** the optional `aiudio.diff` third
 > executor (PyTorch, off-thread; ADR-0016/0017) runs the *same* `Graph` IR through autograd, with

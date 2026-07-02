@@ -69,8 +69,10 @@ fork. See `30-realtime-neural-inference.md`.
 
 ## 4. Non-goals (for v1)
 
-- A full DAW with a timeline/arrangement UI. aiudio is a *framework/engine*,
-  not an end-user DAW (though it could power one).
+- A full DAW with a **timeline/arrangement** UI. aiudio is a *framework/engine*,
+  not an end-user linear arranger (though it could power one). *Note:* a **visual
+  signal-graph editor** in the browser **is in scope** from Phase 2 (see `docs/85`) —
+  that's a node/flow workbench over the live engine, not a timeline DAW.
 - Speech-first features (TTS/STT/voice-conversion) as the primary product.
 - Mobile/embedded-only deployment as the first target.
 - Replacing PyTorch/JAX as a general ML framework — aiudio sits *on top of*

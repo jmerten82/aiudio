@@ -148,10 +148,14 @@ status — **kept current as we go**.
 - [x] DDSP exemplar — `HarmonicSynth` matches a target timbre via the STFT loss (D8).
 - [x] Process-tap & offline/file backends (I/O M5–M6) *(M5 ✅ taps; M6 ✅ offline/file backend — both merged)*
 
-### Phase 2 — Agent control plane *(the differentiator)*
-- [ ] Typed graph-edit action space (`add_node`/`connect`/`set_param`/…)
-- [ ] LLM orchestrates structure; differentiable layer tunes parameters
+### Phase 2 — Agent control plane & visual workbench *(the differentiator)*
+> **Plan:** [`docs/85-phase2-agent-workbench-roadmap.md`](docs/85-phase2-agent-workbench-roadmap.md) — a browser **visual graph editor** + a **grounded LLM companion** + **agent self-extension** (authoring new nodes), all driving one live engine through one typed action space, grounded in one capability manifest. Ships as five releases (R1 see it · R2 edit it · R3 talk to it · R4 it tunes itself · R5 it extends itself). Local desktop; React + React Flow; full-RT authored nodes behind a mandatory RT-safety gate; personal nodes in a local registry.
+- [ ] Typed graph-edit action space (`add_node`/`connect`/`set_param`/…) — the shared substrate for UI, agent, and API (+ undo/replay action log)
+- [ ] Visual workbench in the browser — see the full graph (nodes/params/metering) and **edit it by hand**
+- [ ] Grounded LLM companion — design/change the graph in natural language, grounded in the real capability manifest
+- [ ] LLM orchestrates structure; differentiable layer (`match_target`) tunes parameters
 - [ ] Render → measure (CLAP/loudness/spectral) → self-correct loop
+- [ ] Agent self-extension — author new (full-RT, gated) nodes into a local personal registry, reusable thereafter
 
 ### Phase 3 — Real-time productionization
 - [ ] C++ RT executor: inline + off-thread pooled neural nodes
