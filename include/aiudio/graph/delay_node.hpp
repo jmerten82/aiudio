@@ -41,6 +41,13 @@ public:
         }
     }
 
+    [[nodiscard]] float paramValue(std::uint32_t index) const noexcept override {
+        if (index == kDelayFrames) return static_cast<float>(delay_.load(std::memory_order_relaxed));
+        if (index == kFeedback) return fb_.target();
+        if (index == kMix) return mix_.target();
+        return 0.0f;
+    }
+
     void prepare(double sampleRate, std::uint32_t /*maxBlock*/) override {
         cap_ = static_cast<std::uint32_t>(maxDelaySec_ * (sampleRate > 0.0 ? sampleRate : 48000.0)) + 1;
         if (cap_ < 2) cap_ = 2;

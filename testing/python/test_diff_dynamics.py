@@ -102,3 +102,92 @@ def test_dcblocker_gradient_flows_through_recursion():
     x = torch.randn(1, 1, 64, dtype=torch.float64, requires_grad=True)
     de(x).pow(2).sum().backward()
     assert x.grad is not None and torch.isfinite(x.grad).all() and torch.any(x.grad != 0)
+
+
+# ---------------------------------------------------------------- D3 finish: dynamics + delay
+
+def test_registry_has_dynamics_nodes():
+    assert {"CompressorNode", "GateNode", "DelayNode"} <= set(adiff.registered_types())
+
+
+def test_dynamics_differentiability_is_surrogate():
+    for build in (lambda g: g.add_compressor(-24.0, 4.0, 5.0, 80.0),
+                  lambda g: g.add_gate(-30.0, 1.0, 120.0, -60.0),
+                  lambda g: g.add_delay(0.1, 64, 0.5, 0.5)):
+        g, _ex, _n = _chain(build)
+        assert "surrogate" in adiff.DiffExecutor(g).differentiability_report().values()
+
+
+def _loud_transient(seed=7):
+    rng = np.random.default_rng(seed)
+    x = (0.5 * rng.standard_normal((1, BLOCK))).astype(np.float32)
+    x[0, 50:120] = 0.95                                    # a loud burst to trigger dynamics
+    return x
+
+
+def test_compressor_parity_and_reduces_gain():
+    g, ex, _c = _chain(lambda g: g.add_compressor(-24.0, 4.0, 5.0, 80.0))
+    de = adiff.DiffExecutor(g)                              # stateful → compare cold
+    x = _loud_transient()
+    assert adiff.assert_parity(ex, de, x, tol=1e-4, warmup=0) <= 1e-4
+    out = de(torch.from_numpy(x).unsqueeze(0)).squeeze(0).detach().numpy()
+    # the loud burst is attenuated (gain reduction) → its peak drops below the input's
+    assert np.max(np.abs(out[0, 60:120])) < np.max(np.abs(x[0, 60:120]))
+
+
+def test_compressor_gradients_flow():
+    g, _ex, c = _chain(lambda g: g.add_compressor(-24.0, 4.0, 5.0, 80.0))
+    de = adiff.DiffExecutor(g, dtype=torch.float64)
+    x = torch.from_numpy(_loud_transient()).unsqueeze(0).to(torch.float64)
+    de(x).pow(2).mean().backward()
+    p = dict(de.named_parameters())
+    for name in ("threshold_db", "ratio", "attack_ms", "release_ms", "makeup_db"):
+        assert p[f"_diff.{c}.{name}"].grad is not None
+        assert torch.isfinite(p[f"_diff.{c}.{name}"].grad).all()
+    assert p[f"_diff.{c}.threshold_db"].grad != 0            # active (signal exceeds threshold)
+
+
+def test_gate_parity_and_closes_below_threshold():
+    g, ex, _gt = _chain(lambda g: g.add_gate(-20.0, 1.0, 60.0, -60.0))
+    de = adiff.DiffExecutor(g)
+    x = (0.02 * np.random.default_rng(8).standard_normal((1, BLOCK))).astype(np.float32)  # quiet
+    assert adiff.assert_parity(ex, de, x, tol=1e-4, warmup=0) <= 1e-4
+    out = de(torch.from_numpy(x).unsqueeze(0)).squeeze(0).detach().numpy()
+    assert np.max(np.abs(out[0, -64:])) < np.max(np.abs(x[0, -64:]))   # gated down when quiet
+
+
+def test_gate_gradients_flow():
+    # A signal crossing the threshold both ways (quiet bed + loud burst) exercises opening
+    # (attack), closing (release) and the floor (range). NOTE: the gate's threshold_db appears only
+    # in the hard `where` *condition*, so it gets no gradient — matching the C++ hard knee (a soft
+    # knee would trade away exact parity); a documented limitation, not trained here.
+    x = np.full((1, BLOCK), 0.01, np.float32)
+    x[0, 60:140] = 0.9
+    g, _ex, gt = _chain(lambda g: g.add_gate(-20.0, 1.0, 60.0, -60.0))
+    de = adiff.DiffExecutor(g, dtype=torch.float64)
+    de(torch.from_numpy(x).unsqueeze(0).to(torch.float64)).pow(2).sum().backward()
+    p = dict(de.named_parameters())
+    for name in ("attack_ms", "release_ms", "range_db"):     # the differentiable gate params
+        grad = p[f"_diff.{gt}.{name}"].grad
+        assert grad is not None and torch.isfinite(grad).all()
+
+
+def test_delay_parity_and_produces_echo():
+    g, ex, _d = _chain(lambda g: g.add_delay(0.1, 64, 0.5, 0.5))     # 64-frame delay, observable
+    de = adiff.DiffExecutor(g)
+    x = np.zeros((1, BLOCK), np.float32)
+    x[0, 0] = 1.0                                          # an impulse → echoes at 64, 128, ...
+    assert adiff.assert_parity(ex, de, x, tol=1e-4, warmup=0) <= 1e-4
+    out = de(torch.from_numpy(x).unsqueeze(0)).squeeze(0).detach().numpy()
+    assert abs(out[0, 64]) > 0.1 and abs(out[0, 128]) > 0.01          # feedback echoes present
+
+
+def test_delay_gradients_flow():
+    g, _ex, d = _chain(lambda g: g.add_delay(0.1, 64, 0.5, 0.5))
+    de = adiff.DiffExecutor(g, dtype=torch.float64)
+    x = torch.from_numpy(_loud_transient(10)).unsqueeze(0).to(torch.float64)
+    de(x).pow(2).sum().backward()
+    p = dict(de.named_parameters())
+    for name in ("feedback", "mix"):
+        assert p[f"_diff.{d}.{name}"].grad is not None
+        assert torch.isfinite(p[f"_diff.{d}.{name}"].grad).all() and p[f"_diff.{d}.{name}"].grad != 0

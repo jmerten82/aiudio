@@ -254,3 +254,119 @@ class DcBlockerDiffNode(DiffNode):
             x1, y1 = xf, y
             outs.append(y)
         return torch.stack(outs, dim=-1)
+
+
+# ---- D3 (finish): stateful dynamics + feedback delay ----------------------------- #
+# These match the C++ nodes exactly and are differentiable via a per-frame scan (truncated BPTT).
+# Marked SURROGATE: the level detector (|·|, max, log10) and the hard threshold/attack-release
+# branches are only piecewise-smooth — autograd uses subgradients; parity is exact (torch.where
+# replicates the C++ branches). Stateful ⇒ compare cold (parity harness warmup=0).
+
+_LN10_OVER_20 = math.log(10.0) / 20.0  # dbToLin(db) = exp(db * ln10/20) == 10**(db*0.05)
+
+
+def _smoothing_coeff(ms: torch.Tensor, sample_rate: float) -> torch.Tensor:
+    """C++ CompressorNode/GateNode coeff(): t = ms·1e-3·sr; 1 if t<1 else 1 − exp(−1/t)."""
+    t = ms * 0.001 * sample_rate
+    return torch.where(t < 1.0, torch.ones_like(t), 1.0 - torch.exp(-1.0 / torch.clamp(t, min=1e-12)))
+
+
+@register_diff_node("CompressorNode")
+class CompressorDiffNode(DiffNode):
+    """Compressor/limiter (1→1), stateful. Linked peak detector → gain computer → attack/release
+    envelope, matching C++ `CompressorNode` (lookahead 0). Learnable threshold_db/ratio/attack_ms/
+    release_ms/makeup_db (indices 0–4)."""
+
+    differentiability = Differentiability.SURROGATE
+
+    def __init__(self, num_inputs, num_outputs, init=None, **kw):
+        super().__init__(num_inputs, num_outputs, init, **kw)
+        self.threshold_db = nn.Parameter(torch.tensor(self._param(0, -18.0), dtype=torch.float64))
+        self.ratio = nn.Parameter(torch.tensor(self._param(1, 4.0), dtype=torch.float64))
+        self.attack_ms = nn.Parameter(torch.tensor(self._param(2, 5.0), dtype=torch.float64))
+        self.release_ms = nn.Parameter(torch.tensor(self._param(3, 80.0), dtype=torch.float64))
+        self.makeup_db = nn.Parameter(torch.tensor(self._param(4, 0.0), dtype=torch.float64))
+
+    def forward(self, inputs: list[torch.Tensor]) -> torch.Tensor:
+        x = inputs[0]
+        dt = x.dtype
+        thr = self.threshold_db.to(dt)
+        slope = 1.0 - 1.0 / self.ratio.to(dt)
+        makeup = torch.exp(self.makeup_db.to(dt) * _LN10_OVER_20)
+        atk = _smoothing_coeff(self.attack_ms.to(dt), self.sample_rate)
+        rel = _smoothing_coeff(self.release_ms.to(dt), self.sample_rate)
+        peak = x.abs().amax(dim=1)                        # [batch, frames], linked over channels
+        env = torch.ones(x.shape[0], dtype=dt, device=x.device)
+        gains = []
+        for f in range(x.shape[-1]):
+            level_db = 20.0 * torch.log10(peak[:, f] + 1e-9)
+            over = level_db - thr
+            reduced = torch.exp((-slope * over) * _LN10_OVER_20)   # dbToLin(-slope·over)
+            target = torch.where(over > 0.0, reduced, torch.ones_like(over))
+            env = env + (target - env) * torch.where(target < env, atk, rel)
+            gains.append(env * makeup)
+        return x * torch.stack(gains, dim=-1).unsqueeze(1)          # lookahead 0 ⇒ delayed = x
+
+
+@register_diff_node("GateNode")
+class GateDiffNode(DiffNode):
+    """Noise gate / downward expander (1→1), stateful. Opens (gain→1) above threshold, closes to
+    the `range` floor below, attack/release-smoothed — matching C++ `GateNode`. Learnable
+    threshold_db/attack_ms/release_ms/range_db (indices 0–3)."""
+
+    differentiability = Differentiability.SURROGATE
+
+    def __init__(self, num_inputs, num_outputs, init=None, **kw):
+        super().__init__(num_inputs, num_outputs, init, **kw)
+        self.threshold_db = nn.Parameter(torch.tensor(self._param(0, -45.0), dtype=torch.float64))
+        self.attack_ms = nn.Parameter(torch.tensor(self._param(1, 1.0), dtype=torch.float64))
+        self.release_ms = nn.Parameter(torch.tensor(self._param(2, 120.0), dtype=torch.float64))
+        self.range_db = nn.Parameter(torch.tensor(self._param(3, -80.0), dtype=torch.float64))
+
+    def forward(self, inputs: list[torch.Tensor]) -> torch.Tensor:
+        x = inputs[0]
+        dt = x.dtype
+        thr = self.threshold_db.to(dt)
+        floor = torch.exp(self.range_db.to(dt) * _LN10_OVER_20)    # dbToLin(range_db)
+        atk = _smoothing_coeff(self.attack_ms.to(dt), self.sample_rate)
+        rel = _smoothing_coeff(self.release_ms.to(dt), self.sample_rate)
+        peak = x.abs().amax(dim=1)
+        env = torch.ones(x.shape[0], dtype=dt, device=x.device)
+        gains = []
+        for f in range(x.shape[-1]):
+            level_db = 20.0 * torch.log10(peak[:, f] + 1e-9)
+            target = torch.where(level_db >= thr, torch.ones_like(level_db), floor.expand_as(level_db))
+            env = env + (target - env) * torch.where(target > env, atk, rel)  # opening vs closing
+            gains.append(env)
+        return x * torch.stack(gains, dim=-1).unsqueeze(1)
+
+
+@register_diff_node("DelayNode")
+class DelayDiffNode(DiffNode):
+    """Feedback delay (1→1), recursive: ``ring[t] = x[t] + fb·ring[t−delay]``,
+    ``out[t] = (1−mix)·x[t] + mix·ring[t−delay]`` — matching C++ `DelayNode`. Learnable feedback
+    (index 1) + mix (index 2); the integer delay (index 0) is fixed (discrete → not differentiable
+    w.r.t. delay time; a fractional delay would be a later refinement)."""
+
+    differentiability = Differentiability.SURROGATE
+
+    def __init__(self, num_inputs, num_outputs, init=None, **kw):
+        super().__init__(num_inputs, num_outputs, init, **kw)
+        self._delay = int(round(self._param(0, 0.0)))
+        self.feedback = nn.Parameter(torch.tensor(self._param(1, 0.3), dtype=torch.float64))
+        self.mix = nn.Parameter(torch.tensor(self._param(2, 0.3), dtype=torch.float64))
+
+    def forward(self, inputs: list[torch.Tensor]) -> torch.Tensor:
+        x = inputs[0]                                     # [batch, ch, frames]
+        dt = x.dtype
+        fb = self.feedback.to(dt)
+        mix = self.mix.to(dt)
+        d = self._delay
+        ring: list[torch.Tensor] = []                     # ring[t] per (batch, ch); cold ⇒ 0 for t<0
+        outs = []
+        for f in range(x.shape[-1]):
+            xf = x[..., f]
+            delayed = ring[f - d] if (d > 0 and f - d >= 0) else torch.zeros_like(xf)
+            outs.append(xf * (1.0 - mix) + delayed * mix)
+            ring.append(xf + delayed * fb)
+        return torch.stack(outs, dim=-1)
