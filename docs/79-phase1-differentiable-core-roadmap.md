@@ -8,7 +8,8 @@
 > node-introspection enabler + D3 (complete) landed** (the `DiffExecutor` now auto-mirrors *any*
 > graph: `param_value`/`node_config`/`sample_rate` getters + auto-read, `init_params` optional).
 > D3 covers Waveshaper, DcBlocker, Compressor, Gate, and Delay (stateful/recursive via per-frame
-> scans, cold-parity with C++). **Next: D4** (multi-res STFT loss + trainer).
+> scans, cold-parity with C++). **D4** (multi-res STFT loss + `fit`/checkpoint harness) also
+> landed. **Next: D5** (parameter-match against a target render).
 > (D0: the differentiable executor spine + registry + C++↔torch parity harness, ADR-0016/0017, the
 > optional `aiudio.diff` / `aiudio[diff]` package; D1: the stateless linear nodes Mixer + Pan).
 > Phase 0 complete, Tier-1 DSP
@@ -145,7 +146,7 @@ milestone ships with a **parity test** (vs C++ where applicable), **pytest**, an
 | **D1** ✅ | Differentiable **stateless linear** nodes | Mixer (per-input learnable gains) + Pan (equal-power 1→2, learnable) — `forward` + gradcheck + parity. *Scope refined:* DcBlocker + Delay are recursive → moved to **D3**; ChannelMatrix needs channel-layout introspection → deferred (small follow-up). | D0 |
 | **D2** ✅ | Differentiable **filters** (the IIR problem) | `DiffBiquad` — design-param (log-freq/softplus-Q/gain_dB) magnitude-response training + design→biquad coeff export (ADR-0018). *Time-domain* recursive filtering in-graph → D3. | D1 |
 | **D3** ✅ | Differentiable **dynamics, nonlinear & recursive** | Waveshaper (tanh/softclip FULL; hardclip STE), DcBlocker (recursive scan), **Compressor/Gate** (linked-peak envelope, per-frame scan / truncated BPTT), **Delay** (feedback recurrence) — all match C++ (cold parity ≤ 2e-6) and auto-mirror via introspection. Limits (documented): gate `threshold_db` is a hard knee (non-diff); delay time is integer (non-diff). | D1, enabler |
-| **D4** | **Losses + training harness** | multi-res STFT (auraloss) + MSE/L1; `Trainer` (data→fwd→loss→bwd→step→checkpoint); reproducible | D0 |
+| **D4** ✅ | **Losses + training harness** | `MultiResolutionSTFTLoss` (torch.stft — dep-free, standard formula) + `mse`/`l1`; `fit` (data→fwd→loss→bwd→step) + `seed_everything` + `save/load_checkpoint`. | D0 |
 | **D5** | **Parameter optimization** ("match a target") — the headline slice | recover a graph's params from a target render by backprop (EQ+comp) | D1–D4 |
 | **D6** | **Round-trip to real time** | export trained params/coeffs → C++ `Graph`; golden parity: trained-torch vs C++-RT render | D2, D5 |
 | **D7** | **First neural node** | `NeuralNode` wrapping a torch `nn.Module`, trainable as a graph peer; TorchScript export; RT deploy stubbed (Phase 3) | D0, D4 |
@@ -184,9 +185,12 @@ delay 0), gradients flow through the recursions, differentiability status declar
 it's non-differentiable (a soft knee would sacrifice exact parity); the delay time is integer
 (a fractional/interpolating delay for a trainable delay-*time* is a later refinement).
 
-**D4 — Losses + trainer.** *Acceptance:* a toy target converges; the run is **deterministic**
-under a fixed seed; checkpoints save/restore params round-trip; CPU + (if available) GPU paths
-both run.
+**D4 — Losses + trainer.** ✅ *Delivered:* `MultiResolutionSTFTLoss` (spectral convergence +
+log-magnitude L1 over several FFT sizes, on `torch.stft` — dep-free; FFT sizes clamped for short
+blocks) + `mse`/`l1`; the `fit` loop, `seed_everything`, and `save_checkpoint`/`load_checkpoint`
+(the trained params export to C++ — D6). *Acceptance met:* a gain converges under both MSE and the
+STFT loss; the run is **deterministic** under a fixed seed (identical loss history); checkpoints
+round-trip params exactly. (`auraloss` is a drop-in alternative; we kept the extra to just torch.)
 
 **D5 — Parameter optimization.** *Acceptance:* given a target produced by *known* EQ+compressor
 params, recover them from a random init to within tolerance by gradient descent; monotone-ish loss

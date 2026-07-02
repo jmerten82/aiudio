@@ -25,6 +25,7 @@ except ModuleNotFoundError as exc:  # pragma: no cover - exercised only without 
 
 from .executor import DiffExecutor
 from .filters import DiffBiquad, FilterType, fit_magnitude
+from .losses import MultiResolutionSTFTLoss, l1, mse
 from .nodes import (
     DiffNode,
     Differentiability,
@@ -33,6 +34,7 @@ from .nodes import (
     registered_types,
 )
 from .parity import assert_parity, max_abs_diff
+from .train import fit, load_checkpoint, save_checkpoint, seed_everything
 
 __all__ = [
     "DiffExecutor",
@@ -46,4 +48,11 @@ __all__ = [
     "DiffBiquad",
     "FilterType",
     "fit_magnitude",
+    "MultiResolutionSTFTLoss",
+    "mse",
+    "l1",
+    "fit",
+    "seed_everything",
+    "save_checkpoint",
+    "load_checkpoint",
 ]
