@@ -48,7 +48,8 @@ def registered_types() -> list[str]:
 
 def make_diff_node(type_name: str, num_inputs: int, num_outputs: int,
                    init: dict[int, float] | None = None, *, param_reader=None,
-                   config: dict | None = None, sample_rate: float = 48000.0) -> "DiffNode":
+                   config: dict | None = None, sample_rate: float = 48000.0,
+                   module=None) -> "DiffNode":
     """Instantiate the registered `DiffNode` for ``type_name`` (raises if unregistered).
 
     ``param_reader(index) -> float`` reads the live C++ node's param value (node-introspection
@@ -61,7 +62,7 @@ def make_diff_node(type_name: str, num_inputs: int, num_outputs: int,
             f"registered: {registered_types()}"
         )
     return cls(num_inputs, num_outputs, dict(init or {}), param_reader=param_reader,
-               config=dict(config or {}), sample_rate=float(sample_rate))
+               config=dict(config or {}), sample_rate=float(sample_rate), module=module)
 
 
 class DiffNode(nn.Module):
@@ -81,7 +82,8 @@ class DiffNode(nn.Module):
     type_name: str = ""
 
     def __init__(self, num_inputs: int, num_outputs: int, init: dict[int, float] | None = None, *,
-                 param_reader=None, config: dict | None = None, sample_rate: float = 48000.0):
+                 param_reader=None, config: dict | None = None, sample_rate: float = 48000.0,
+                 module=None):
         super().__init__()
         self.num_inputs = int(num_inputs)
         self.num_outputs = int(num_outputs)
@@ -89,6 +91,7 @@ class DiffNode(nn.Module):
         self.config = dict(config or {})
         self.sample_rate = float(sample_rate)
         self._param_reader = param_reader
+        self._module = module  # a user torch nn.Module for neural nodes (auto-registered if set)
 
     def _param(self, index: int, default: float = 0.0) -> float:
         """Resolve a param: explicit ``init`` override → live C++ value → ``default``."""
@@ -400,3 +403,32 @@ class DelayDiffNode(DiffNode):
             outs.append(xf * (1.0 - mix) + delayed * mix)
             ring.append(xf + delayed * fb)
         return torch.stack(outs, dim=-1)
+
+
+# ---- D7: the neural graph peer --------------------------------------------------- #
+
+@register_diff_node("NeuralNode")
+class NeuralDiffNode(DiffNode):
+    """A neural graph peer (1→1): runs a user-supplied torch ``nn.Module`` on the block, so a
+    learned model composes and trains **jointly with DSP nodes** in the graph (ADR-0016 — DSP and
+    neural are peers). The module is injected per node id via ``DiffExecutor(modules={id: module})``
+    and auto-registered, so its weights appear in ``.parameters()`` and train like any other node's.
+
+    Its parameters are the module's weights, which don't map to C++ ``set_param`` (so
+    ``export_params`` is empty) — a trained neural node **deploys** to real time by exporting the
+    module (``torch.jit.script``/``trace`` → RTNeural / ONNX / LibTorch, ADR-0006, Phase 3), not by
+    writing scalar params. The C++ `NeuralNode` is an identity placeholder until then.
+    """
+
+    differentiability = Differentiability.FULL
+
+    def __init__(self, num_inputs, num_outputs, init=None, **kw):
+        super().__init__(num_inputs, num_outputs, init, **kw)
+        if self._module is None:
+            raise ValueError(
+                "NeuralNode requires a torch module — pass DiffExecutor(..., modules={node_id: "
+                "nn.Module}). The module maps [batch, channels, frames] → [batch, channels, frames]."
+            )
+
+    def forward(self, inputs: list[torch.Tensor]) -> torch.Tensor:
+        return self._module(inputs[0])

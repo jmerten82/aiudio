@@ -10,7 +10,8 @@
 > D3 covers Waveshaper, DcBlocker, Compressor, Gate, and Delay (stateful/recursive via per-frame
 > scans, cold-parity with C++). **D4** (multi-res STFT loss + `fit`/checkpoint harness) also
 > landed, **D5** (parameter-match — `match_target`) is in, and **D6** (round-trip to real time —
-> `export_to_graph`) closes ML-first → RT. **Remaining: D7** (first neural node) + **D8** (DDSP
+> `export_to_graph`) closes ML-first → RT. **D7** (first neural node — a torch `nn.Module` as a
+> graph peer, trained jointly with DSP, exported via `torch.export`) is in. **Remaining: D8** (DDSP
 > exemplar) — the research tail.
 > (D0: the differentiable executor spine + registry + C++↔torch parity harness, ADR-0016/0017, the
 > optional `aiudio.diff` / `aiudio[diff]` package; D1: the stateless linear nodes Mixer + Pan).
@@ -151,7 +152,7 @@ milestone ships with a **parity test** (vs C++ where applicable), **pytest**, an
 | **D4** ✅ | **Losses + training harness** | `MultiResolutionSTFTLoss` (torch.stft — dep-free, standard formula) + `mse`/`l1`; `fit` (data→fwd→loss→bwd→step) + `seed_everything` + `save/load_checkpoint`. | D0 |
 | **D5** ✅ | **Parameter optimization** ("match a target") — the headline slice | `match_target` recovers a graph's params from a target **render** by backprop through a multi-node audio-domain graph (gain → waveshaper → compressor); learned params push to C++. | D1–D4 |
 | **D6** ✅ | **Round-trip to real time** | `export_to_graph` writes trained params → C++ via `set_param`; golden parity: **C++ render == trained-torch render** (atomic/stateful compared cold; smoothed after settling). Closes ML-first → RT. | D2, D5 |
-| **D7** | **First neural node** | `NeuralNode` wrapping a torch `nn.Module`, trainable as a graph peer; TorchScript export; RT deploy stubbed (Phase 3) | D0, D4 |
+| **D7** ✅ | **First neural node** | C++ `NeuralNode` placeholder (identity in RT — inference is Phase 3) + `NeuralDiffNode` wrapping an injected torch `nn.Module`; trains **jointly with DSP nodes**; exports via `torch.export` (→ ONNX/ExecuTorch, ADR-0006). | D0, D4 |
 | **D8** | **DDSP exemplar + eval** | harmonic+noise DDSP (or learned EQ-match) end-to-end example, small dataset, metrics; notebook | D4, D5 |
 
 **D0 — Differentiable executor spine.** *Acceptance:* on `source→gain→sink`, `loss.backward()`
@@ -211,9 +212,15 @@ matches the trained-torch render within tol (atomic/stateful nodes like gain→c
 **cold**, `warmup=0`; smoothed nodes like gain→waveshaper after the smoother **settles**), and the
 end-to-end `match_target → export_to_graph → C++ process` reproduces a target. Closes ML-first → RT.
 
-**D7 — First neural node.** *Acceptance:* a small torch module (e.g. a tiny amp/tone model,
-NAM-/RAVE-class in spirit) trains end-to-end **inside a graph** alongside DSP nodes; exports to
-TorchScript; `realtime_capable=false` for now (RT deployment = Phase 3, ADR-0006).
+**D7 — First neural node.** ✅ *Delivered:* a C++ `NeuralNode` (a first-class graph peer,
+identity pass-through in RT — `config()` reports `realtime_capable=0`) + a Python `NeuralDiffNode`
+that runs an injected torch `nn.Module` (`DiffExecutor(modules={id: module})`, auto-registered so
+its weights train). *Acceptance met:* a tiny per-sample MLP (NAM-flavored) trains **inside a graph
+alongside a DSP gain** — both receive gradients and jointly learn to match a target nonlinearity;
+the trained module **exports via `torch.export`** (the modern, non-deprecated replacement for
+TorchScript; lowers to ONNX/ExecuTorch → RTNeural/ANIRA/LibTorch, ADR-0006). RT inference of the
+model stays Phase 3 (the C++ node is a placeholder). Neural weights deploy by export, not
+`set_param` (so `export_params` is empty for the neural node).
 
 **D8 — DDSP exemplar.** *Acceptance:* a runnable, documented end-to-end example (DDSP synth or
 EQ-match) with a small dataset and reported metrics (multi-res STFT distance; CLAP hook); shipped
