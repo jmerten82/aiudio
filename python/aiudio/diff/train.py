@@ -45,6 +45,17 @@ def fit(model: torch.nn.Module, loss_fn: Callable[[torch.Tensor, torch.Tensor], 
     return history
 
 
+def match_target(model: torch.nn.Module, x: torch.Tensor, target: torch.Tensor, *,
+                 loss_fn: Callable[[torch.Tensor, torch.Tensor], torch.Tensor] | None = None,
+                 steps: int = 300, lr: float = 0.05, seed: int | None = None) -> list[float]:
+    """Recover ``model``'s parameters so ``model(x)`` matches a fixed ``target`` render, by
+    gradient descent (Phase 1 · D5 — the "match a target / brighten the vocal" slice). ``loss_fn``
+    defaults to MSE; pass `MultiResolutionSTFTLoss()` for a spectral objective. Returns the loss
+    history. The recovered params then export into the C++ graph for real time (D6)."""
+    from .losses import mse
+    return fit(model, loss_fn or mse, lambda: (x, target), steps=steps, lr=lr, seed=seed)
+
+
 def save_checkpoint(model: torch.nn.Module, path: str) -> None:
     """Save the model's trained parameters (state_dict) to ``path``."""
     torch.save(model.state_dict(), path)
