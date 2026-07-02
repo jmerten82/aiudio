@@ -98,6 +98,11 @@ class DiffNode(nn.Module):
             return float(self._param_reader(index))
         return float(default)
 
+    def export_params(self) -> dict[int, float]:
+        """Learnable params as ``{c++ param index: value}`` for writing back into the C++ node via
+        ``set_param`` (the round-trip to real time, D6). Default: none (Source/Sink/Sum/DcBlocker)."""
+        return {}
+
     def forward(self, inputs: list[torch.Tensor]) -> torch.Tensor:  # noqa: D401
         raise NotImplementedError
 
@@ -138,6 +143,9 @@ class GainDiffNode(DiffNode):
         super().__init__(num_inputs, num_outputs, init, **kw)
         self.gain = nn.Parameter(torch.tensor(self._param(0, 1.0), dtype=torch.float64))
 
+    def export_params(self) -> dict[int, float]:
+        return {0: self.gain.detach().item()}
+
     def forward(self, inputs: list[torch.Tensor]) -> torch.Tensor:
         return inputs[0] * self.gain.to(inputs[0].dtype)
 
@@ -170,6 +178,9 @@ class MixerDiffNode(DiffNode):
         gains = [self._param(i, 1.0) for i in range(self.num_inputs)]  # default 1.0 per input
         self.gains = nn.Parameter(torch.tensor(gains, dtype=torch.float64))
 
+    def export_params(self) -> dict[int, float]:
+        return {i: self.gains[i].detach().item() for i in range(self.num_inputs)}
+
     def forward(self, inputs: list[torch.Tensor]) -> torch.Tensor:
         out = inputs[0] * self.gains[0].to(inputs[0].dtype)
         for i in range(1, len(inputs)):
@@ -188,6 +199,9 @@ class PanDiffNode(DiffNode):
     def __init__(self, num_inputs, num_outputs, init=None, **kw):
         super().__init__(num_inputs, num_outputs, init, **kw)
         self.pan = nn.Parameter(torch.tensor(self._param(0, 0.0), dtype=torch.float64))
+
+    def export_params(self) -> dict[int, float]:
+        return {0: self.pan.detach().item()}
 
     def forward(self, inputs: list[torch.Tensor]) -> torch.Tensor:
         x = inputs[0][:, :1, :]                       # mono source = channel 0
@@ -213,6 +227,9 @@ class WaveshaperDiffNode(DiffNode):
         self._shape = int(round(self.config.get("shape", 0)))  # 0=tanh 1=softclip 2=hardclip
         self.differentiability = (
             Differentiability.SURROGATE if self._shape == 2 else Differentiability.FULL)
+
+    def export_params(self) -> dict[int, float]:
+        return {0: self.drive.detach().item(), 1: self.mix.detach().item()}
 
     def _shaped(self, u: torch.Tensor) -> torch.Tensor:
         if self._shape == 1:                              # softclip: x / (1 + |x|)
@@ -287,6 +304,11 @@ class CompressorDiffNode(DiffNode):
         self.release_ms = nn.Parameter(torch.tensor(self._param(3, 80.0), dtype=torch.float64))
         self.makeup_db = nn.Parameter(torch.tensor(self._param(4, 0.0), dtype=torch.float64))
 
+    def export_params(self) -> dict[int, float]:
+        return {0: self.threshold_db.detach().item(), 1: self.ratio.detach().item(),
+                2: self.attack_ms.detach().item(), 3: self.release_ms.detach().item(),
+                4: self.makeup_db.detach().item()}
+
     def forward(self, inputs: list[torch.Tensor]) -> torch.Tensor:
         x = inputs[0]
         dt = x.dtype
@@ -323,6 +345,10 @@ class GateDiffNode(DiffNode):
         self.release_ms = nn.Parameter(torch.tensor(self._param(2, 120.0), dtype=torch.float64))
         self.range_db = nn.Parameter(torch.tensor(self._param(3, -80.0), dtype=torch.float64))
 
+    def export_params(self) -> dict[int, float]:
+        return {0: self.threshold_db.detach().item(), 1: self.attack_ms.detach().item(),
+                2: self.release_ms.detach().item(), 3: self.range_db.detach().item()}
+
     def forward(self, inputs: list[torch.Tensor]) -> torch.Tensor:
         x = inputs[0]
         dt = x.dtype
@@ -355,6 +381,10 @@ class DelayDiffNode(DiffNode):
         self._delay = int(round(self._param(0, 0.0)))
         self.feedback = nn.Parameter(torch.tensor(self._param(1, 0.3), dtype=torch.float64))
         self.mix = nn.Parameter(torch.tensor(self._param(2, 0.3), dtype=torch.float64))
+
+    def export_params(self) -> dict[int, float]:
+        # index 0 (delay time) is a fixed integer, not learned; only feedback/mix are trainable
+        return {1: self.feedback.detach().item(), 2: self.mix.detach().item()}
 
     def forward(self, inputs: list[torch.Tensor]) -> torch.Tensor:
         x = inputs[0]                                     # [batch, ch, frames]
