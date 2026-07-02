@@ -56,6 +56,20 @@ def match_target(model: torch.nn.Module, x: torch.Tensor, target: torch.Tensor, 
     return fit(model, loss_fn or mse, lambda: (x, target), steps=steps, lr=lr, seed=seed)
 
 
+def export_to_graph(diff_executor, executor) -> int:
+    """Write a trained `DiffExecutor`'s parameters into the compiled C++ `GraphExecutor` via
+    `set_param` — the ML-first → real-time round-trip (Phase 1 · D6). Returns the number of params
+    written. `set_param` is queued, so run a `process()` block afterward to drain + apply it (any
+    smoothed params — waveshaper/mixer/pan/delay — settle over a few blocks; atomic params —
+    gain/compressor/gate — apply on the first block)."""
+    written = 0
+    for node_id, params in diff_executor.export_params().items():
+        for index, value in params.items():
+            if executor.set_param(node_id, index, value):
+                written += 1
+    return written
+
+
 def save_checkpoint(model: torch.nn.Module, path: str) -> None:
     """Save the model's trained parameters (state_dict) to ``path``."""
     torch.save(model.state_dict(), path)

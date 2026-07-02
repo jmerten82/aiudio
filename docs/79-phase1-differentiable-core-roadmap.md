@@ -9,8 +9,9 @@
 > graph: `param_value`/`node_config`/`sample_rate` getters + auto-read, `init_params` optional).
 > D3 covers Waveshaper, DcBlocker, Compressor, Gate, and Delay (stateful/recursive via per-frame
 > scans, cold-parity with C++). **D4** (multi-res STFT loss + `fit`/checkpoint harness) also
-> landed, and **D5** (parameter-match against a target render — `match_target`) is in. **Next: D6**
-> (round-trip to real time; already proven for filters in D2).
+> landed, **D5** (parameter-match — `match_target`) is in, and **D6** (round-trip to real time —
+> `export_to_graph`) closes ML-first → RT. **Remaining: D7** (first neural node) + **D8** (DDSP
+> exemplar) — the research tail.
 > (D0: the differentiable executor spine + registry + C++↔torch parity harness, ADR-0016/0017, the
 > optional `aiudio.diff` / `aiudio[diff]` package; D1: the stateless linear nodes Mixer + Pan).
 > Phase 0 complete, Tier-1 DSP
@@ -149,7 +150,7 @@ milestone ships with a **parity test** (vs C++ where applicable), **pytest**, an
 | **D3** ✅ | Differentiable **dynamics, nonlinear & recursive** | Waveshaper (tanh/softclip FULL; hardclip STE), DcBlocker (recursive scan), **Compressor/Gate** (linked-peak envelope, per-frame scan / truncated BPTT), **Delay** (feedback recurrence) — all match C++ (cold parity ≤ 2e-6) and auto-mirror via introspection. Limits (documented): gate `threshold_db` is a hard knee (non-diff); delay time is integer (non-diff). | D1, enabler |
 | **D4** ✅ | **Losses + training harness** | `MultiResolutionSTFTLoss` (torch.stft — dep-free, standard formula) + `mse`/`l1`; `fit` (data→fwd→loss→bwd→step) + `seed_everything` + `save/load_checkpoint`. | D0 |
 | **D5** ✅ | **Parameter optimization** ("match a target") — the headline slice | `match_target` recovers a graph's params from a target **render** by backprop through a multi-node audio-domain graph (gain → waveshaper → compressor); learned params push to C++. | D1–D4 |
-| **D6** | **Round-trip to real time** | export trained params/coeffs → C++ `Graph`; golden parity: trained-torch vs C++-RT render | D2, D5 |
+| **D6** ✅ | **Round-trip to real time** | `export_to_graph` writes trained params → C++ via `set_param`; golden parity: **C++ render == trained-torch render** (atomic/stateful compared cold; smoothed after settling). Closes ML-first → RT. | D2, D5 |
 | **D7** | **First neural node** | `NeuralNode` wrapping a torch `nn.Module`, trainable as a graph peer; TorchScript export; RT deploy stubbed (Phase 3) | D0, D4 |
 | **D8** | **DDSP exemplar + eval** | harmonic+noise DDSP (or learned EQ-match) end-to-end example, small dataset, metrics; notebook | D4, D5 |
 
@@ -203,8 +204,12 @@ slice (README Phase 1). *Note:* EQ (filter) matching uses D2's magnitude-domain 
 time-domain filter node *inside* an audio-domain graph is the D6/enabler refinement flagged earlier
 (entangled params match the render, not always the exact values).
 
-**D6 — Round-trip.** *Acceptance:* a golden test — the trained torch render and the C++ `Graph`
-(with the exported params) produce matching output within tolerance. Closes ML-first → RT.
+**D6 — Round-trip.** ✅ *Delivered:* `export_to_graph(diff_executor, executor)` writes every
+trained param back into the C++ graph via `set_param` (each diff node declares its
+`{c++ index: value}` via `export_params()`). *Acceptance met:* golden tests — the C++ render
+matches the trained-torch render within tol (atomic/stateful nodes like gain→compressor compared
+**cold**, `warmup=0`; smoothed nodes like gain→waveshaper after the smoother **settles**), and the
+end-to-end `match_target → export_to_graph → C++ process` reproduces a target. Closes ML-first → RT.
 
 **D7 — First neural node.** *Acceptance:* a small torch module (e.g. a tiny amp/tone model,
 NAM-/RAVE-class in spirit) trains end-to-end **inside a graph** alongside DSP nodes; exports to

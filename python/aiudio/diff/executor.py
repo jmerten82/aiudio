@@ -116,3 +116,13 @@ class DiffExecutor(nn.Module):
     def differentiability_report(self) -> dict[int, str]:
         """node id → differentiability status ('full' | 'surrogate' | 'nondiff')."""
         return {nid: self._diff[str(nid)].differentiability.value for nid in self._meta}
+
+    def export_params(self) -> dict[int, dict[int, float]]:
+        """Trained params as ``{node_id: {c++ param index: value}}`` for every node that has any —
+        feed to `export_to_graph` to write them back into the C++ graph (D6)."""
+        out: dict[int, dict[int, float]] = {}
+        for nid in self._meta:
+            params = self._diff[str(nid)].export_params()
+            if params:
+                out[nid] = params
+        return out
