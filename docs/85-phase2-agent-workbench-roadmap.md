@@ -124,15 +124,21 @@ params-by-gradient; the render→measure(CLAP/loudness/spectral)→self-correct 
 
 ## 5. The hard problems
 
-1. **Agent-authored C++ on the sacred audio thread** *(the crux — "full RT from day one")*.
-   *Mitigation — the D2 gate, defense-in-depth:* (a) **static analysis** of `process()` — reject
-   forbidden calls (heap alloc, locks, syscalls, logging, exceptions, unbounded loops); (b) the
-   existing **sanitizers** (ASan/UBSan/TSan) + a **real-time-safety check** (RTSan / allocation hook
-   on `process()`) in a build+test harness; (c) **golden-render + parity/contract tests**; (d) a
-   **quarantine**: an authored node runs only in the *non-RT* executors until it passes the gate;
-   (e) **human confirmation** before any agent-generated node is loaded on the audio thread; (f)
-   **provenance + rollback** (every authored node is logged, versioned, revertible). ADR-0004 is
-   never relaxed — the gate *enforces* it on generated code.
+1. **Agent-authored C++ on the audio thread** *("full RT from day one")*. **Isolation is the
+   primary safety property, not a gate:** authored nodes live in the **local registry**, **never
+   auto-merge to `main`**, and are **disposable** — if one is bad, delete it; nothing leaks into the
+   shipping product or other users. The residual risk is therefore narrow and *recoverable*: a node
+   that allocates/locks in `process()` glitches or crashes **your own local audio session** (restart
+   → gone). So D2 is a **cheap automatic pre-flight**, not a fortress — its job is to catch the
+   obvious RT violations *before* the node hits the live audio thread (so a bad node isn't
+   discovered as a mid-session dropout), and its failure path *is* "throw it away":
+   (a) **static analysis** of `process()` — reject forbidden calls (alloc/locks/syscalls/logging/
+   exceptions/unbounded loops); (b) the existing **sanitizers** (ASan/UBSan/TSan) + a **real-time-
+   safety check** (RTSan / allocation hook on `process()`); (c) **golden-render + contract tests**.
+   Fail → **auto-discard, or quarantine to the non-RT executors**; no human ceremony for *local*
+   use. The **heavyweight human review is at promote-to-`main`** (the PR — the only path that
+   affects the shipping product), *not* at local use. ADR-0004 is never relaxed — the pre-flight
+   *enforces* it on generated code before RT-load; provenance + one-click rollback throughout.
 2. **Dynamic loading into a running RT engine.** *Mitigation:* a stable **node-plugin ABI**; `dlopen`
    + factory registration happen **off the audio thread**; insertion uses the existing **RCU
    recompile + atomic swap**; versioning + unload safety.
@@ -166,7 +172,7 @@ Four workstreams (A platform · B UI · C agent · D self-extension) + a kickoff
 | **C2** ⬜ | Measure → self-correct + diff tuning | render → measure (CLAP/LUFS/spectral) → self-correct; **structure by LLM, params by `match_target`** (Phase 1). *Completes the original Phase-2 vision.* | C1, Phase 1 |
 | **D0** ⬜ | Node-package format + local registry | Package (manifest + C++ src + tests + registration); git-ignored local dir, auto-discovered/loaded; versioning; *promote → PR* path. | A1 |
 | **D1** ⬜ | Scaffold + build pipeline | Spec → Node-contract C++ (templates) + tests + bindings → compile to a loadable plugin; off-thread build; load via RCU. | D0 |
-| **D2** ⬜ | RT-safety gate | The mandatory guardrail (§5.1): static checks + sanitizers/RTSan + golden/contract tests + quarantine + human confirm. Enforces ADR-0004 on authored code. | D1 |
+| **D2** ⬜ | RT-safety pre-flight | An **automatic** pre-flight (§5.1): static checks + sanitizers/RTSan + golden/contract tests, run before RT-load. Pass → usable (incl. RT); fail → **auto-discard / quarantine to non-RT** (no human ceremony for local use — throw-away *is* the failure path). Enforces ADR-0004 on generated code. | D1 |
 | **D3** ⬜ | Agent authors nodes end-to-end | Detect capability gap → author (spec→C++→tests) → gate → register locally → use in the graph; provenance/rollback; reusable next session. | D2, C1 |
 
 ## 7. Dependency graph
@@ -231,8 +237,10 @@ Phase 2 is "the agent workbench is built" when:
 
 ## 11. Risks
 
-- **RT safety of generated code** *(highest)* — mitigated by the D2 gate + quarantine + human
-  confirm + provenance/rollback; the invariant is enforced, not trusted.
+- **RT correctness of generated code** *(bounded, recoverable)* — isolation removes the shipping/
+  supply-chain risk (local registry, no auto-merge, disposable); the residual is a glitch/crash of
+  *your own local session*, caught before RT-load by the D2 automatic pre-flight and fail-safed by
+  discard/quarantine. Not a blocker — the review that matters is at promote-to-`main`.
 - **Agent produces plausible-but-wrong graphs/nodes** — validation vs. manifest, human-in-the-loop,
   undo/replay, contract + golden tests on authored nodes.
 - **Scope is large** — the release ladder (R1→R5) delivers value incrementally; each release is
