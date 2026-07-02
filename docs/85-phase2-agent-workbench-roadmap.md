@@ -8,7 +8,8 @@
 > `set_param` + RCU recompile) and Phase-1's differentiable layer (`match_target`). · **Status:**
 > 📋 **planned** — Phase 1 (D0–D8) complete; this is the Phase-2 design. Locked scope decisions
 > below. The audio-thread invariant (ADR-0004) is **never** relaxed — the self-extension path
-> *enforces* it on generated code (workstream D).
+> *enforces* it on generated code (workstream D), and **no invasive change to the live RT audio
+> thread is ever applied without active user notification + explicit confirmation** (§5.1a).
 
 ---
 
@@ -135,20 +136,46 @@ params-by-gradient; the render→measure(CLAP/loudness/spectral)→self-correct 
    (a) **static analysis** of `process()` — reject forbidden calls (alloc/locks/syscalls/logging/
    exceptions/unbounded loops); (b) the existing **sanitizers** (ASan/UBSan/TSan) + a **real-time-
    safety check** (RTSan / allocation hook on `process()`); (c) **golden-render + contract tests**.
-   Fail → **auto-discard, or quarantine to the non-RT executors**; no human ceremony for *local*
-   use. The **heavyweight human review is at promote-to-`main`** (the PR — the only path that
-   affects the shipping product), *not* at local use. ADR-0004 is never relaxed — the pre-flight
-   *enforces* it on generated code before RT-load; provenance + one-click rollback throughout.
+   Fail → **auto-discard, or quarantine to the non-RT executors** (throwing away broken code needs
+   no approval). ADR-0004 is never relaxed — the pre-flight *enforces* it on generated code before
+   RT-load; provenance + one-click rollback throughout.
+
+   **Three distinct gates, by concern — don't conflate them:**
+   - **Automatic pre-flight** *(code correctness)* — the D2 checks above; fail ⇒ silent discard.
+   - **Inform + confirm** *(committing an invasive change to the live audio thread)* — see §5.1a.
+   - **Heavyweight review** *(shipping)* — at **promote-to-`main`** (the PR — the only path that
+     affects the product or other users).
+
+**5.1a — RT-invasive changes require active notification + explicit confirmation.** Even code that
+passed pre-flight must never be pushed onto the **sacred RT audio thread or its components** without
+the user being *told what is about to happen* and *actively approving it*. The workbench (UI + agent)
+**must**: (1) **surface**, before applying, a clear description of the impending change and its
+impact — which node/subgraph, that it is (or contains) **agent-authored native code**, the latency/
+PDC delta, and any xrun/dropout risk; and (2) require an **explicit user confirmation** — the agent
+may *propose* and stage an invasive change but **cannot commit it to the RT thread on its own**.
+
+*RT-invasive* (⇒ inform + confirm) vs. *routine* (⇒ applies live, no prompt):
+
+| Invasive — needs consent | Routine — no prompt |
+|---|---|
+| Loading/running an **agent-authored node** on the audio thread | `set_param` on an existing node (click-free, bounded — G7) |
+| Inserting a node that **changes latency / PDC** of a live output path | Automation/ramps within a node's declared range |
+| Changing **sample rate / block size / device / clock** of the running engine | Reading back state / metering |
+| Replacing/removing a node or **subgraph in a live path carrying audio to hardware** | Editing a graph that is **not** currently driving output |
+
+Default posture: **auto-apply routine edits** (fast, reversible via the action log); **stage-and-
+confirm invasive ones**. This is enforced in the agent runtime + UI (ADR-0022) — orthogonal to the
+throw-away pre-flight and the promote-to-`main` review.
 2. **Dynamic loading into a running RT engine.** *Mitigation:* a stable **node-plugin ABI**; `dlopen`
    + factory registration happen **off the audio thread**; insertion uses the existing **RCU
    recompile + atomic swap**; versioning + unload safety.
 3. **Agent reliability / grounding drift.** *Mitigation:* the manifest is generated from the real
    registry (single source of truth) → no hallucinated nodes; **every action validated** against it
-   before apply; **human-in-the-loop** for destructive/RT changes; the **action log** gives undo +
-   replay + auditability.
+   before apply; **active inform + confirm for RT-invasive changes** (§5.1a); the **action log**
+   gives undo + replay + auditability.
 4. **Local code-execution security** (agent compiles + loads code locally). *Mitigation:* sandboxed
-   build; **explicit human confirm** before load; provenance; a policy that generated nodes take no
-   network/IO; local-only, single-user.
+   build; **explicit user confirmation before RT-load** (§5.1a — loading authored code is invasive);
+   provenance; a policy that generated nodes take no network/IO; local-only, single-user.
 5. **State sync (UI ⇄ engine ⇄ agent).** *Mitigation:* the engine holds the **authoritative** graph;
    the action log is the source of truth; the WS pushes diffs; optimistic UI with reconciliation.
 6. **Web-layer performance vs. the audio thread.** *Mitigation:* telemetry throttled/downsampled;
@@ -168,7 +195,7 @@ Four workstreams (A platform · B UI · C agent · D self-extension) + a kickoff
 | **B1** ⬜ | Hand editing | Add (manifest palette)/remove/connect/disconnect/param-edit via the action space → live recompile/`set_param`; undo/redo; connection validation. | B0 |
 | **B2** ⬜ | Workbench UX | Layout persistence, subgraph grouping, save/load a graph (JSON), metering/PDC visualizations, error surfaces. | B1 |
 | **C0** ⬜ | Grounded agent tools | Claude tool-use bound to the action space; system context from the manifest (A1); read-back/inspect tools. | A1, A0 |
-| **C1** ⬜ | NL companion | Chat window: NL → proposed actions → preview/apply (human-in-the-loop); shared action log with the hand editor; explanations. | C0, B1 |
+| **C1** ⬜ | NL companion | Chat window: NL → proposed actions → preview/apply; shared action log with the hand editor; explanations. **Routine edits auto-apply; RT-invasive changes are staged and require active notification + explicit confirmation (§5.1a / ADR-0022).** | C0, B1 |
 | **C2** ⬜ | Measure → self-correct + diff tuning | render → measure (CLAP/LUFS/spectral) → self-correct; **structure by LLM, params by `match_target`** (Phase 1). *Completes the original Phase-2 vision.* | C1, Phase 1 |
 | **D0** ⬜ | Node-package format + local registry | Package (manifest + C++ src + tests + registration); git-ignored local dir, auto-discovered/loaded; versioning; *promote → PR* path. | A1 |
 | **D1** ⬜ | Scaffold + build pipeline | Spec → Node-contract C++ (templates) + tests + bindings → compile to a loadable plugin; off-thread build; load via RCU. | D0 |
@@ -211,8 +238,11 @@ To write at kickoff (K) — Phase 2 adds load-bearing, hard-to-reverse decisions
   only action log (undo/replay); the substrate for UI + agent + API.
 - **ADR-0021 — Capability manifest as grounding source of truth.** Node/param introspection schema;
   generated from the registry; consumed by UI + agent.
-- **ADR-0022 — Agent runtime & human-in-the-loop policy.** Claude tool-use; confirm gates for
-  destructive/RT operations; validation-against-manifest.
+- **ADR-0022 — Agent runtime & human-in-the-loop policy.** Claude tool-use; validation-against-
+  manifest; and the **RT-invasive consent rule** (§5.1a) — the agent may propose/stage but **cannot
+  commit a change to the live audio thread or its RT-critical components without active user
+  notification + explicit confirmation**; routine `set_param`/automation auto-applies. Defines the
+  invasive-vs-routine classification and the surfaced-impact contract.
 - **ADR-0023 — Personal node registry & isolation.** Local git-ignored plugin dir; package format;
   reuse; *promote → PR to `main`*.
 - **ADR-0024 — RT-safety gate & node-plugin loading ABI.** Enforces ADR-0004 on authored code
@@ -228,9 +258,13 @@ Phase 2 is "the agent workbench is built" when:
    loop, sharing one action log with the hand editor (R3).
 3. **The closed loop works** — render → measure (CLAP/loudness/spectral) → self-correct, with
    structure chosen by the LLM and parameters tuned by the differentiable layer (R4).
-4. **The agent can author a new node on the fly** — it passes the RT-safety gate, lands in the local
-   registry, and is reusable in a later session; the audio-thread invariant holds throughout (R5).
-5. **Docs/ADRs current** — `docs/00` scope + README Phase-2 updated; ADRs 0019–0024 accepted; a
+4. **The agent can author a new node on the fly** — it passes the RT-safety pre-flight, lands in the
+   local registry, and is reusable in a later session; the audio-thread invariant holds throughout
+   (R5).
+5. **No invasive RT change is ever applied silently** — every change that touches the live audio
+   thread or its RT-critical components (§5.1a) is surfaced with its impact and gated on **explicit
+   user confirmation**; routine edits auto-apply. Enforced across R3–R5 (ADR-0022).
+6. **Docs/ADRs current** — `docs/00` scope + README Phase-2 updated; ADRs 0019–0024 accepted; a
    workbench cookbook (the fifth in the `docs/81–84` series) added.
 
 **Explicit non-goals for Phase 2** — see §12.
