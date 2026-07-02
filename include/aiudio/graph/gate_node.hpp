@@ -37,6 +37,16 @@ public:
         }
     }
 
+    [[nodiscard]] float paramValue(std::uint32_t index) const noexcept override {
+        switch (index) {
+            case kThresholdDb: return thresholdDb_.load(std::memory_order_relaxed);
+            case kAttackMs: return attackMs_.load(std::memory_order_relaxed);
+            case kReleaseMs: return releaseMs_.load(std::memory_order_relaxed);
+            case kRangeDb: return rangeDb_.load(std::memory_order_relaxed);
+            default: return 0.0f;
+        }
+    }
+
     void prepare(double sampleRate, std::uint32_t /*maxBlock*/) override {
         sampleRate_ = sampleRate > 0.0 ? sampleRate : 48000.0;
         env_ = 1.0f;
