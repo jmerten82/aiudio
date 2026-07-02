@@ -246,7 +246,7 @@ mic ──► ADC ──► Core Audio input buffer            Core Audio output
 | Cross-thread transport | `RingBuffer<float>` | `ring_buffer.hpp` |
 | File encoding | int16 PCM, interleaved, LE | `WavWriter` (`example_support.hpp`) |
 | Level metering | dBFS = 20·log10(\|x\|) | `ex_capture_meter`, `ex_device_probe`, `ex_duplex_probe` |
-| Token domain (future) | discrete RVQ tokens | `docs/20-*` §4 (not in the I/O pipeline) |
+| Token domain (future) | discrete RVQ tokens | `docs/theory/20-*` §4 (not in the I/O pipeline) |
 
 ---
 
@@ -277,6 +277,6 @@ mic ──► ADC ──► Core Audio input buffer            Core Audio output
 - **RVQ** — residual vector quantization; the basis of neural audio codecs.
 
 ## References
-- `docs/71-io-layer-milestones.md` (the I/O layer), `docs/72-m1-aiudio-io-reference.md`
+- `docs/pipeline/71-io-layer-milestones.md` (the I/O layer), `docs/pipeline/72-m1-aiudio-io-reference.md`
   (`aiudio-io` types), ADR-0003/0004/0005/0007/0008.
-- `docs/20-differentiable-dsp-and-neural-audio.md` §4 (neural codecs / token domain).
+- `docs/theory/20-differentiable-dsp-and-neural-audio.md` §4 (neural codecs / token domain).

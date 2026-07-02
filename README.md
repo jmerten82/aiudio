@@ -17,7 +17,7 @@ offline use.
 > through autograd — the full DSP node library is differentiable, with losses + a
 > trainer, parameter-match against a target, a round-trip that writes trained params
 > back into the C++ real-time graph, a first neural node, and a DDSP synth exemplar
-> (D0–D8, [`docs/79`](docs/79-phase1-differentiable-core-roadmap.md)). Next: Phase 2
+> (D0–D8, [`docs/pipeline/79`](docs/pipeline/79-phase1-differentiable-core-roadmap.md)). Next: Phase 2
 > (agent control plane). **Last updated:** 2026-07-01.
 
 ---
@@ -80,7 +80,7 @@ driven by an agent. The two clearest open opportunities:
 - **One engine, DSP+neural peers, real-time + offline** — train/optimize a graph
   offline, then deploy the *same* graph live via streaming export.
 
-See [`docs/60-gaps-and-opportunities.md`](docs/60-gaps-and-opportunities.md).
+See [`docs/theory/60-gaps-and-opportunities.md`](docs/theory/60-gaps-and-opportunities.md).
 
 ## How it works
 
@@ -119,27 +119,27 @@ See [`docs/60-gaps-and-opportunities.md`](docs/60-gaps-and-opportunities.md).
   hosting). **No Python, no allocation, no locks** on the audio thread — ever.
 - **Python** owns research/ML: model authoring & training, the agent, dataset
   tooling, offline rendering, high-level scripting.
-- Details: [`docs/50-architecture-patterns.md`](docs/50-architecture-patterns.md).
+- Details: [`docs/theory/50-architecture-patterns.md`](docs/theory/50-architecture-patterns.md).
 
 ## Roadmap
 
 High-level phases (synthesis of
-[`docs/60-*` build order](docs/60-gaps-and-opportunities.md) and the
-[I/O milestones](docs/71-io-layer-milestones.md)). Checkboxes are the living
+[`docs/theory/60-*` build order](docs/theory/60-gaps-and-opportunities.md) and the
+[I/O milestones](docs/pipeline/71-io-layer-milestones.md)). Checkboxes are the living
 status — **kept current as we go**.
 
 ### Phase 0 — Foundations *(complete — foundation in place; M7/M9 non-gating)*
 - [x] Deep-research dossier & design docs (`docs/`)
-- [x] I/O layer foundation plan (`docs/71-*`) & macOS capture plan (`docs/70-*`)
+- [x] I/O layer foundation plan (`docs/pipeline/71-*`) & macOS capture plan (`docs/pipeline/70-*`)
 - [x] **I/O layer** — duplex device capture+playback, full-duplex clock (M0–M4)
   *(M0 spikes; M1 core; M2 output; M3 input; M4 full-duplex — all ✅ merged)*
-- [x] **Graph spine** — typed IR + eager executor + the node contract *(ADR-0009 + `docs/74`; G1 IR · G2 executor · G3 live · G4 nodes+offline · G5 live edits · G6 Python bindings — all ✅)*
+- [x] **Graph spine** — typed IR + eager executor + the node contract *(ADR-0009 + `docs/pipeline/74`; G1 IR · G2 executor · G3 live · G4 nodes+offline · G5 live edits · G6 Python bindings — all ✅)*
 - [x] First end-to-end: capture → trivial graph (gain/meter) → playback, live *(G3 ✅ — graph driven by the Core Audio duplex backend)*
 - [x] **Python control plane** — drive a *running* pipeline as a frontend: lock-free param command queue + atomic telemetry, and the RT output backend exposed control-only *(ADR-0010; G7 ✅ — Python never touches the audio thread)*
 - [x] **Testing strategy** — documented C++ + Python layers (RT-safety/allocation, sanitizers, golden, cross-backend, live-device, packaging, notebooks) + one-command runner + CI *(`testing/README.md` ✅ CI-green)*
 
 ### Phase 1 — Differentiable core *(complete — D0–D8 landed)*
-> **Implementation roadmap:** [`docs/79-phase1-differentiable-core-roadmap.md`](docs/79-phase1-differentiable-core-roadmap.md) — the third executor (Python/PyTorch, off-thread) over the same IR; milestones **D0–D8** (executor spine · linear nodes · trainable SVF filters · dynamics · losses+trainer · parameter-match slice · round-trip to RT · first neural node · DDSP exemplar), with the hard-problem mitigations, ADRs (0016/0017/0018), dependency graph, and definition of done.
+> **Implementation roadmap:** [`docs/pipeline/79-phase1-differentiable-core-roadmap.md`](docs/pipeline/79-phase1-differentiable-core-roadmap.md) — the third executor (Python/PyTorch, off-thread) over the same IR; milestones **D0–D8** (executor spine · linear nodes · trainable SVF filters · dynamics · losses+trainer · parameter-match slice · round-trip to RT · first neural node · DDSP exemplar), with the hard-problem mitigations, ADRs (0016/0017/0018), dependency graph, and definition of done.
 - [x] Differentiable end-to-end graph execution — the optional `aiudio.diff` executor (PyTorch, off-thread; ADR-0016/0017) runs the same `Graph` IR through autograd with **C++↔torch parity**, auto-mirroring *any* graph (D0 + node-introspection enabler).
 - [x] Classic DSP nodes as peers, **differentiable** — the full Tier-1 library (gain/mixer/pan, parametric EQ, waveshaper, DC blocker, compressor/gate, delay) has a differentiable form matching its C++ node (D1–D3); Tier 2/3 (spectral/convolution reverb) remains for later phases.
 - [x] Losses + reproducible trainer — multi-res STFT loss + MSE/L1, `fit`/`seed_everything`/checkpoints (D4).
@@ -149,7 +149,7 @@ status — **kept current as we go**.
 - [x] Process-tap & offline/file backends (I/O M5–M6) *(M5 ✅ taps; M6 ✅ offline/file backend — both merged)*
 
 ### Phase 2 — Agent control plane & visual workbench *(the differentiator)*
-> **Plan:** [`docs/85-phase2-agent-workbench-roadmap.md`](docs/85-phase2-agent-workbench-roadmap.md) — a browser **visual graph editor** + a **grounded LLM companion** + **agent self-extension** (authoring new nodes), all driving one live engine through one typed action space, grounded in one capability manifest. Ships as five releases (R1 see it · R2 edit it · R3 talk to it · R4 it tunes itself · R5 it extends itself). Local desktop; React + React Flow; full-RT authored nodes behind a mandatory RT-safety gate; personal nodes in a local registry.
+> **Plan:** [`docs/pipeline/85-phase2-agent-workbench-roadmap.md`](docs/pipeline/85-phase2-agent-workbench-roadmap.md) — a browser **visual graph editor** + a **grounded LLM companion** + **agent self-extension** (authoring new nodes), all driving one live engine through one typed action space, grounded in one capability manifest. Ships as five releases (R1 see it · R2 edit it · R3 talk to it · R4 it tunes itself · R5 it extends itself). Local desktop; React + React Flow; full-RT authored nodes behind a mandatory RT-safety gate; personal nodes in a local registry.
 - [ ] Typed graph-edit action space (`add_node`/`connect`/`set_param`/…) — the shared substrate for UI, agent, and API (+ undo/replay action log)
 - [ ] Visual workbench in the browser — see the full graph (nodes/params/metering) and **edit it by hand**
 - [ ] Grounded LLM companion — design/change the graph in natural language, grounded in the real capability manifest
@@ -161,7 +161,7 @@ status — **kept current as we go**.
 - [ ] C++ RT executor: inline + off-thread pooled neural nodes
 - [ ] Streaming / cached-conv export (non-causal → causal)
 - [ ] Plugin-host backend + VST3/CLAP packaging (I/O M7)
-- [x] **True multi-source I/O** — N inputs + M outputs, one graph, from Python *(plan: [`docs/76`](docs/76-multi-source-io-roadmap.md) §11; **feature-complete — the full chain is merged**: G10 · G8 · G9 · M9.1 · M11a · M10 · master-clock adapter · M9.4 · M9.3 resampler (#21) · M9.5 off-clock drift servo (#22) · M9.6 cross-clock multi-device (#23) · M9.2 boundary channel mapping + real HAL device-died listener (#24) · **`LiveMultiSource`** N-source cross-clock engine (#30/#31) · **numpy WAV I/O** `WavReader`/`WavWriter` (#32) · **off-thread WAV recorder** `attach_wav_recorder` (#33) · signed **`aiudio-recorder.app`** — mic + system tap → mix → WAV, tap-testable without a loopback (#34). N sources → mix/route → M sinks via per-stream rings, on one or separate clocks, optionally recorded to a WAV. Only the physical hardware triggers (a real unplug; two devices on separate clocks) remain on-device, their logic proven headlessly via the mock)*
+- [x] **True multi-source I/O** — N inputs + M outputs, one graph, from Python *(plan: [`docs/pipeline/76`](docs/pipeline/76-multi-source-io-roadmap.md) §11; **feature-complete — the full chain is merged**: G10 · G8 · G9 · M9.1 · M11a · M10 · master-clock adapter · M9.4 · M9.3 resampler (#21) · M9.5 off-clock drift servo (#22) · M9.6 cross-clock multi-device (#23) · M9.2 boundary channel mapping + real HAL device-died listener (#24) · **`LiveMultiSource`** N-source cross-clock engine (#30/#31) · **numpy WAV I/O** `WavReader`/`WavWriter` (#32) · **off-thread WAV recorder** `attach_wav_recorder` (#33) · signed **`aiudio-recorder.app`** — mic + system tap → mix → WAV, tap-testable without a loopback (#34). N sources → mix/route → M sinks via per-stream rings, on one or separate clocks, optionally recorded to a WAV. Only the physical hardware triggers (a real unplug; two devices on separate clocks) remain on-device, their logic proven headlessly via the mock)*
 
 ### Phase 4 — Breadth
 - [ ] Source separation, more neural FX, neural-codec node
@@ -169,8 +169,8 @@ status — **kept current as we go**.
 - [ ] Offline generation path (diffusion/transformer)
 
 > Milestone-level detail and acceptance criteria live in
-> [`docs/71-io-layer-milestones.md`](docs/71-io-layer-milestones.md) and
-> [`docs/60-gaps-and-opportunities.md`](docs/60-gaps-and-opportunities.md).
+> [`docs/pipeline/71-io-layer-milestones.md`](docs/pipeline/71-io-layer-milestones.md) and
+> [`docs/theory/60-gaps-and-opportunities.md`](docs/theory/60-gaps-and-opportunities.md).
 
 ## Repository structure
 
@@ -182,13 +182,11 @@ aiudio/
 │   ├── README.md          ← ADR process, lifecycle, index
 │   ├── template.md        ← copy this for a new ADR
 │   └── NNNN-*.md          ← one file per decision (append-only)
-├── docs/                  ← research dossier + design + implementation plans
-│   ├── README.md          ← documentation index
-│   ├── 00-vision-and-scope.md
-│   ├── 10..60-*.md        ← research dossier (landscape → gaps)
-│   ├── 70-macos-audio-capture-plan.md
-│   ├── 71-io-layer-milestones.md
-│   └── 90-references.md
+├── docs/                  ← documentation (index: docs/README.md)
+│   ├── 00-vision-and-scope.md   · 90-references.md · _research-report.md
+│   ├── theory/            ← research dossier (10–60) + fundamentals primers (73, 75)
+│   ├── pipeline/          ← plans, milestones, capabilities, phase roadmaps (70–80, 85)
+│   └── cookbooks/         ← runnable recipe guides (81–84)
 ├── examples/              ← cpp/ (C++ usage) + python/ (Python API) + M0 spikes
 ├── notebooks/             ← guided Jupyter tour of the Python-controllable pipeline
 ├── include/aiudio/io/     ← aiudio-io headers (devices, taps, duplex, WAV, offline)
@@ -207,7 +205,7 @@ aiudio/
 ## Documentation
 
 **New here / want to use it?** Start with the **[Pipeline Capabilities & Usage Guide
-(`docs/80`)](docs/80-pipeline-capabilities.md)** — everything the pipeline does today (end of
+(`docs/pipeline/80`)](docs/pipeline/80-pipeline-capabilities.md)** — everything the pipeline does today (end of
 Phase 0) with runnable **C++ and Python** examples.
 
 For the design dossier, start at [`docs/README.md`](docs/README.md). It is grounded in a
@@ -316,7 +314,7 @@ full node library with frequency-response & waveform plots, the live control pla
 editing, and the boundary DSP utilities). The shorter [`aiudio_pipeline_tour.ipynb`](notebooks/aiudio_pipeline_tour.ipynb)
 is a gentler first pass; the terse feature+shortcomings checklist (and CI acceptance test) is
 [`testing/notebooks/aiudio_acceptance_walkthrough.ipynb`](testing/notebooks/aiudio_acceptance_walkthrough.ipynb).
-Prose reference: [`docs/80`](docs/80-pipeline-capabilities.md).
+Prose reference: [`docs/pipeline/80`](docs/pipeline/80-pipeline-capabilities.md).
 
 ```bash
 pip install . jupyter matplotlib
@@ -334,7 +332,7 @@ python examples/m0_passthrough.py --device-in Sennheiser --device-out Kanto
 ```
 
 See [`examples/README.md`](examples/README.md) and
-[`docs/71-io-layer-milestones.md`](docs/71-io-layer-milestones.md).
+[`docs/pipeline/71-io-layer-milestones.md`](docs/pipeline/71-io-layer-milestones.md).
 
 ## Tech stack & key decisions
 
@@ -370,4 +368,4 @@ citations in [`docs/90-references.md`](docs/90-references.md).
 ## License
 
 TBD — to be chosen before first public release (note: VST3/JUCE/CLAP have
-distinct licensing implications; see `docs/30-*` §7).
+distinct licensing implications; see `docs/theory/30-*` §7).

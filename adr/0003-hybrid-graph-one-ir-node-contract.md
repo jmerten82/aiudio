@@ -3,15 +3,15 @@
 - **Status:** Accepted
 - **Date:** 2026-06-28
 - **Deciders:** Project owner
-- **Related:** `docs/50-architecture-patterns.md` §1–§3, `docs/20-*` §1, ADR-0004, ADR-0005
+- **Related:** `docs/theory/50-architecture-patterns.md` §1–§3, `docs/theory/20-*` §1, ADR-0004, ADR-0005
 
 ## Context
 
-The core thesis (`docs/00-*`, `docs/60-*`) is that classic DSP and neural models
+The core thesis (`docs/00-*`, `docs/theory/60-*`) is that classic DSP and neural models
 should be **first-class peers** in one graph, usable in real-time *and* offline,
 *and* differentiable for training, *and* editable by an agent. These four demands
 (RT / offline / differentiable / editable) pull in different directions. DDSP
-(`docs/20-*`, ✓) proves DSP blocks and neural nets can be jointly trained when
+(`docs/theory/20-*`, ✓) proves DSP blocks and neural nets can be jointly trained when
 both expose differentiable parameters; the differentiable mixing-graph result
 (arXiv:2406.01049, ✓) proves a whole processor DAG can be optimized by gradients.
 
@@ -55,4 +55,4 @@ whole graph.
 
 ## References
 
-- `docs/50-architecture-patterns.md`, `docs/20-*` §1/§3, `docs/60-*` §2.
+- `docs/theory/50-architecture-patterns.md`, `docs/theory/20-*` §1/§3, `docs/theory/60-*` §2.

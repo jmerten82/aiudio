@@ -5,7 +5,7 @@
 - **Deciders:** Project owner
 - **Related:** **makes ADR-0008 §5 concrete** (the deferred "multi-source manager that owns N
   backends + N ring buffers"); builds on ADR-0009/ADR-0011 (graph spine + multi-stream
-  executor, G10), ADR-0004 (RT safety). Plan: `docs/76` (multi-source I/O) **Phase C / M10**.
+  executor, G10), ADR-0004 (RT safety). Plan: `docs/pipeline/76` (multi-source I/O) **Phase C / M10**.
 
 ## Context
 
@@ -59,7 +59,7 @@ to generate a copy (the `vector<unique_ptr<>>` "copyable-per-trait-but-ill-forme
 
 **Positive**
 - The capstone: **N independent sources → one graph (mix/route) → M sinks**, composable and
-  RT-safe. The headline goal of `docs/76` is reachable.
+  RT-safe. The headline goal of `docs/pipeline/76` is reachable.
 - Reuses everything already merged (multi-stream executor, channel widths, PDC, xrun rings) —
   the manager is mostly *wiring*, which is why it stays small and testable.
 - Deterministic + headless-testable (Python/threads play the source/sink roles); the live
@@ -87,7 +87,7 @@ to generate a copy (the `vector<unique_ptr<>>` "copyable-per-trait-but-ill-forme
   from processing (graph) — they evolve independently (ADR-0008 §4).
 
 ## References
-- ADR-0008 (§2/§4/§5), ADR-0011 (multi-stream executor), ADR-0009, ADR-0004; `docs/76`
+- ADR-0008 (§2/§4/§5), ADR-0011 (multi-stream executor), ADR-0009, ADR-0004; `docs/pipeline/76`
   (Phase C / M10); `include/aiudio/graph/multi_source_manager.hpp`,
   `src/graph/multi_source_manager.cpp`, `bindings/aiudio_bindings.cpp`;
   tests `tests/test_multi_source_manager.cpp`, `testing/python/test_multisource.py`;

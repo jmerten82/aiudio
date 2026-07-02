@@ -4,7 +4,7 @@
 - **Date:** 2026-06-29
 - **Deciders:** Project owner
 - **Related:** **extends ADR-0009** (graph spine — uniform channel count fixed at compile);
-  ADR-0004 (RT safety). Plan: `docs/76` (multi-source I/O) **Phase A / G8**.
+  ADR-0004 (RT safety). Plan: `docs/pipeline/76` (multi-source I/O) **Phase A / G8**.
 
 ## Context
 
@@ -13,7 +13,7 @@ executor allocated every port buffer at the one `numChannels` passed to `compile
 makes channel-count-*changing* operations — down-mix (stereo→mono), up-mix (mono→stereo),
 split/merge, mixdown — impossible to express, because no port can be a different width than
 any other. It is also a prerequisite for placing several sources side-by-side as channels in
-true multi-source I/O (`docs/76`). G8 lifts the uniform-width restriction while keeping the
+true multi-source I/O (`docs/pipeline/76`). G8 lifts the uniform-width restriction while keeping the
 real-time path untouched.
 
 The change is cheap by construction (noted in the feasibility analysis): `AudioBuffer`
@@ -57,7 +57,7 @@ constructor `maxChannels`, passthrough beyond it — pre-existing behavior).
 
 **Positive**
 - Channel-count-changing routing (down/up-mix, and the split/merge/mixdown family) is now
-  expressible — a building block for mixers and for multi-source composition (`docs/76`).
+  expressible — a building block for mixers and for multi-source composition (`docs/pipeline/76`).
 - **Zero behavior change for uniform-width graphs**: every port resolves to the host width,
   reproducing the old uniform allocation exactly (the bit-exact golden render still passes).
 - No RT-path cost: widths are baked into the compiled schedule; `process()` is untouched and
@@ -84,7 +84,7 @@ constructor `maxChannels`, passthrough beyond it — pre-existing behavior).
   current consumer (the demonstrators are stateless); add it when a stateful node needs it.
 
 ## References
-- ADR-0009; `docs/76` (Phase A / G8), `docs/74` (spine);
+- ADR-0009; `docs/pipeline/76` (Phase A / G8), `docs/pipeline/74` (spine);
   `include/aiudio/graph/{node,downmix_node,upmix_node}.hpp`, `src/graph/graph_executor.cpp`
   (the propagation pass), `bindings/aiudio_bindings.cpp`; tests
   `tests/test_graph_channels.cpp`, `testing/python/test_channels.py`.

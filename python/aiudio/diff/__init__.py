@@ -8,7 +8,7 @@ only — heavy, batched, GPU/MPS-friendly.
 **Optional** — requires PyTorch. Install with:  ``pip install "aiudio[diff]"``. torch is imported
 lazily here so the base ``aiudio`` package (the RT core + control frontend) needs no torch.
 
-Phase 1 is **complete** (D0–D8, see ``docs/79``): the executor spine + node registry + C++↔torch
+Phase 1 is **complete** (D0–D8, see ``docs/pipeline/79``): the executor spine + node registry + C++↔torch
 parity harness (D0); the full DSP node library — linear (D1), filters (D2), dynamics/nonlinear/
 recursive (D3); losses + a trainer (D4); the parameter-match slice (D5); the round-trip to RT (D6);
 the first neural node (D7); and a DDSP synth exemplar (D8, `HarmonicSynth`).

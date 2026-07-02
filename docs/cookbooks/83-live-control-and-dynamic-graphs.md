@@ -2,10 +2,10 @@
 
 > **Last updated:** 2026-06-30 · **Scope:** how to *change a running graph* — parameters and
 > topology — from the control side, safely, in **C++ and Python**. Grounded in merged code
-> (**✓ Verified**). This is the third cookbook: `docs/81` is *topology* (clocks/sources/output),
-> `docs/82` is *nodes* (DSP chains), and this one is **control** — the "aiudio is a control
+> (**✓ Verified**). This is the third cookbook: `docs/cookbooks/81` is *topology* (clocks/sources/output),
+> `docs/cookbooks/82` is *nodes* (DSP chains), and this one is **control** — the "aiudio is a control
 > frontend over a real-time C++ core" story (ADR-0002/0004/0010). Per-function API:
-> [`docs/80`](80-pipeline-capabilities.md).
+> [`docs/pipeline/80`](../pipeline/80-pipeline-capabilities.md).
 
 ---
 
@@ -50,7 +50,7 @@ not when a knob moves.
 
 > In the examples below the graph is driven synchronously with `ex.process(block)` so each snippet
 > is runnable/verifiable stand-alone; in production the same calls happen while a backend's IOProc
-> drives `process()` (see `docs/81`) — you just `set_param`/`compile` from your control loop
+> drives `process()` (see `docs/cookbooks/81`) — you just `set_param`/`compile` from your control loop
 > instead of between `process()` calls. `import aiudio as a` (Python), `namespace aiudio` (C++).
 
 ---
@@ -60,7 +60,7 @@ not when a knob moves.
 `ex.set_param(node, index, value)` queues a control-rate change applied at the next block. It
 returns `False` only if the command queue is momentarily full (see §2). Convenience wrappers:
 `set_gain` (a `Gain`), `set_cutoff`/`set_q` (any `Biquad`). Param indices are in
-[`docs/82`](82-node-usage-patterns.md#appendix--parameter-index-quick-reference).
+[`docs/cookbooks/82`](82-node-usage-patterns.md#appendix--parameter-index-quick-reference).
 
 **Python**
 ```python
@@ -309,7 +309,7 @@ const auto v = g.validate();            // v.ok, v.error
 
 Control without feedback is open-loop. Read telemetry to drive decisions: `ex.render_count`
 (is the audio thread actually running / how many blocks?), a `Meter` node's level
-(`g.meter_mean_square(node)`), and the xrun/telemetry counters from `docs/81` (source ring fill,
+(`g.meter_mean_square(node)`), and the xrun/telemetry counters from `docs/cookbooks/81` (source ring fill,
 drift ratio, device/executor xruns). A closed control loop = *read a meter → set a param*.
 
 **Python** — a crude auto-gain that reads the level and trims toward a target:
@@ -372,10 +372,10 @@ it.** Consequences:
 
 ## Appendix C — Cross-references
 
-- **Per-function API + the control setters:** [`docs/80`](80-pipeline-capabilities.md) §6–§7.
-- **Node param indices:** [`docs/82`](82-node-usage-patterns.md#appendix--parameter-index-quick-reference).
-- **Where these graphs run (clocks/backends):** [`docs/81`](81-pipeline-usage-patterns.md).
+- **Per-function API + the control setters:** [`docs/pipeline/80`](../pipeline/80-pipeline-capabilities.md) §6–§7.
+- **Node param indices:** [`docs/cookbooks/82`](82-node-usage-patterns.md#appendix--parameter-index-quick-reference).
+- **Where these graphs run (clocks/backends):** [`docs/cookbooks/81`](81-pipeline-usage-patterns.md).
 - **Why (decisions):** ADR-0002 (C++ core + Python control), ADR-0004 (audio thread sacred),
   ADR-0005 (compiled schedule / swappable clock), ADR-0009 (graph IR), ADR-0010 (control plane).
-- **Milestones:** G5 (atomic schedule swap), G7 (control command queue) — `docs/74`.
+- **Milestones:** G5 (atomic schedule swap), G7 (control command queue) — `docs/pipeline/74`.
 - **Runnable examples:** `examples/python/ex_live_control.py`, `examples/cpp/ex_graph_live_edit.cpp`.

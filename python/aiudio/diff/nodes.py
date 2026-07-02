@@ -8,7 +8,7 @@ a differentiable torch ``forward()`` (training). A registry maps ``type_name`` (
 
 D0 registers the trivial set (Source, Sink, Gain, Sum) that proves the executor spine; later
 milestones (D1–D3) register the rest of the library, some as ``Surrogate`` (e.g. filters via the
-SVF form — ``docs/20`` §2.2 / candidate ADR-0018) or with straight-through gradients (hard clip).
+SVF form — ``docs/theory/20`` §2.2 / candidate ADR-0018) or with straight-through gradients (hard clip).
 """
 from __future__ import annotations
 
@@ -134,7 +134,7 @@ class SinkDiffNode(DiffNode):
 
 @register_diff_node("GainNode")
 class GainDiffNode(DiffNode):
-    """Scalar gain (1→1). Param index 0 = gain (``docs/82``). Learnable.
+    """Scalar gain (1→1). Param index 0 = gain (``docs/cookbooks/82``). Learnable.
 
     Note: the C++ ``GainNode`` *smooths* gain changes (click-free, an RT detail); the diff face is
     a plain multiply — parity therefore holds in **steady state** (the parity harness warms up the
@@ -171,7 +171,7 @@ class SumDiffNode(DiffNode):
 @register_diff_node("MixerNode")
 class MixerDiffNode(DiffNode):
     """Weighted sum of N inputs (N→1), each with its own **learnable** gain. Param index ``i`` =
-    gain of input ``i`` (``docs/82``); width-preserving. Matches C++ ``MixerNode``:
+    gain of input ``i`` (``docs/cookbooks/82``); width-preserving. Matches C++ ``MixerNode``:
     ``out = Σ_i in_i · gain_i``."""
 
     differentiability = Differentiability.FULL

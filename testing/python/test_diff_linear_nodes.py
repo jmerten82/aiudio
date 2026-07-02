@@ -2,7 +2,7 @@
 
 Mixer (N→1, per-input learnable gains, width-preserving) and Pan (1→2 equal-power, learnable pan
 — a channel-width change, G8). Each: C++↔torch parity + gradient checks. (DcBlocker/Delay are
-recursive → D3; ChannelMatrix needs channel-layout introspection → deferred; see docs/79.)
+recursive → D3; ChannelMatrix needs channel-layout introspection → deferred; see docs/pipeline/79.)
 
 Gated on PyTorch, like the D0 suite.
 """

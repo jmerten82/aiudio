@@ -5,7 +5,7 @@ actual processing **pipeline**: a typed graph IR + a node contract + an eager
 executor. It is the substrate every later capability — DSP/neural nodes, the
 differentiable executor, the agent — attaches to. Decisions: **ADR-0009**.
 
-> Relationship to the I/O plan (`docs/71`): the I/O layer is the *edges*
+> Relationship to the I/O plan (`docs/pipeline/71`): the I/O layer is the *edges*
 > (sources/sinks); the spine is the *middle*. They meet at `SourceNode`/`SinkNode`
 > and at the Python bindings (this plan's G6 = I/O M8). The spine does **not**
 > require the remaining I/O milestones (M6/M7/M9) — it pulls them in when useful.
@@ -31,7 +31,7 @@ differentiable executor, the agent — attaches to. Decisions: **ADR-0009**.
        SourceNode ─► GainNode ─► MeterNode ─► SinkNode      (planar float32 blocks)
 ```
 
-Audio format on every edge is the engine lingua franca from `docs/73`: **planar
+Audio format on every edge is the engine lingua franca from `docs/theory/73`: **planar
 float32, block-based, ±1.0**.
 
 ---

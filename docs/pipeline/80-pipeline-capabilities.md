@@ -3,10 +3,10 @@
 > **Last updated:** 2026-06-30 · **Scope:** everything the aiudio pipeline can do **today**
 > (end of Phase 0), with runnable C++ and Python examples. Grounded in the merged code
 > (**✓ Verified**). For *why* it's built this way see the ADRs (`adr/`); for what's *next* see
-> `docs/76` (multi-source), `docs/78` (node library), and the README roadmap. For **end-to-end
+> `docs/pipeline/76` (multi-source), `docs/pipeline/78` (node library), and the README roadmap. For **end-to-end
 > topology patterns** (offline/live × one/many sources × single/multi clock × live/recorded
 > output) assembled from these pieces, see the cookbook in
-> [`docs/81`](81-pipeline-usage-patterns.md).
+> [`docs/cookbooks/81`](../cookbooks/81-pipeline-usage-patterns.md).
 
 ---
 
@@ -130,10 +130,10 @@ device backend to run live (§8) — no graph changes.
 
 Every node is added with `Graph.add_*` (Python) or `addNode(std::make_unique<…>)` (C++). Live
 control uses `GraphExecutor.set_param(node, index, value)` with the indices below; continuous
-gain-like params are **click-free** (smoothed). Full catalog + roadmap: `docs/78`. For **typical
+gain-like params are **click-free** (smoothed). Full catalog + roadmap: `docs/pipeline/78`. For **typical
 node chains + idioms** (channel strips, parallel compression, synth voices, delay sends, stereo,
 routing) with runnable C++/Python, see the node-usage cookbook in
-[`docs/82`](82-node-usage-patterns.md).
+[`docs/cookbooks/82`](../cookbooks/82-node-usage-patterns.md).
 
 | Node | Python factory | Ports | Live params (index) |
 |---|---|---|---|
@@ -209,7 +209,7 @@ Edits are enqueued on a lock-free queue and applied at the next block — safe t
 device is running**. Returns `False`/`false` only if the queue is momentarily full. For the full
 control story — automation, control surfaces, and *dynamic-graph* edits (insert/bypass/remove
 nodes live via the atomic swap) — see the cookbook in
-[`docs/83`](83-live-control-and-dynamic-graphs.md).
+[`docs/cookbooks/83`](../cookbooks/83-live-control-and-dynamic-graphs.md).
 
 ```python
 ex.set_gain(gain_node, 0.25)            # convenience for GainNode
@@ -431,7 +431,7 @@ mic.start(); other.start(); speakers.start()                 # speakers' IOProc 
 print(lms.source_ratio(1), lms.source_fill(1), lms.source_underruns(1))   # per-source telemetry
 ```
 Mock-verified headlessly and validated with one real source live (mic→speakers); the N-real-
-device long drift soak is the remaining hardware step (`docs/76`).
+device long drift soak is the remaining hardware step (`docs/pipeline/76`).
 
 **Recording the mix to a WAV.** `attach_wav_recorder(path)` taps the mixed master output to a
 file **off the audio thread** (ADR-0004): the pump pushes each block into a lock-free ring, a
@@ -451,7 +451,7 @@ In C++ this is `graph::LiveMultiSource::recordToWav()` / `stopRecording()`, back
 reusable **`io::WavRecorder`** unit (the RT-ring + writer-thread that any block source can push
 into). The signed **`aiudio-recorder.app`** example (`examples/cpp/ex_record_mic_tap.cpp`) is the
 end-to-end tool — **mic + system/per-app tap → per-source gain → mix → WAV**, playback-free — for
-testing the process tap **without a loopback device** (see `docs/70` §6 and `examples/cpp/README.md`).
+testing the process tap **without a loopback device** (see `docs/pipeline/70` §6 and `examples/cpp/README.md`).
 
 ---
 
@@ -544,7 +544,7 @@ dup.start();   // mic → gate → EQ → compressor → speakers, live
 ```
 
 More runnable examples: [`examples/cpp/`](../examples/cpp) and [`examples/python/`](../examples/python);
-a guided every-feature pass: [`testing/notebooks/aiudio_acceptance_walkthrough.ipynb`](../testing/notebooks/aiudio_acceptance_walkthrough.ipynb).
+a guided every-feature pass: [`testing/notebooks/aiudio_acceptance_walkthrough.ipynb`](../../testing/notebooks/aiudio_acceptance_walkthrough.ipynb).
 
 ---
 
@@ -553,9 +553,9 @@ a guided every-feature pass: [`testing/notebooks/aiudio_acceptance_walkthrough.i
 Honest boundaries (the audio thread stays C++/allocation-free, and Phase 0 built the
 **spine + control frontend**, not the ML/agent layers):
 
-- **No differentiable / trainable execution and no neural nodes** — Phase 1 / Tier 3 (`docs/78`).
+- **No differentiable / trainable execution and no neural nodes** — Phase 1 / Tier 3 (`docs/pipeline/78`).
 - **No agent (NL → graph)** — Phase 2.
-- **No reverb / spectral (FFT) / convolution / loudness meters** — Tier 2 (`docs/78`, needs an FFT primitive).
+- **No reverb / spectral (FFT) / convolution / loudness meters** — Tier 2 (`docs/pipeline/78`, needs an FFT primitive).
 - **Graphs are DAG-only and single-rate**; feedback effects use internal state; cross-rate work
   happens at the I/O boundary (§10).
 - **Live device backends are macOS-only** (Core Audio); capture/taps need TCC (+ signing for taps).
@@ -564,6 +564,6 @@ Honest boundaries (the audio thread stays C++/allocation-free, and Phase 0 built
 - **RT internals are not exposed to Python** (`RingBuffer`, `AudioBuffer`, `RenderCallback`) — by
   design (ADR-0004).
 - The cross-clock multi-device path's logic is proven headlessly via the mock; **two real devices
-  on separate physical clocks** is the hardware-verified remainder (`docs/76`).
+  on separate physical clocks** is the hardware-verified remainder (`docs/pipeline/76`).
 
-For the planned path forward: README **Roadmap**, `docs/76` (multi-source), `docs/78` (node tiers).
+For the planned path forward: README **Roadmap**, `docs/pipeline/76` (multi-source), `docs/pipeline/78` (node tiers).

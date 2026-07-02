@@ -17,10 +17,10 @@
 > **[delivery plan / PR chain in §11](#11-delivery-plan--the-pr-chain-live-status)** for live status. (Post-Phase-0; the I/O parts cluster in Phase 3 productionization, the
 > spine parts are general and can land earlier.)
 >
-> This plan **absorbs the M9 robustness/hardening plan** (formerly `docs/75`) as its
+> This plan **absorbs the M9 robustness/hardening plan** (formerly `docs/theory/75`) as its
 > Phase B, and **aligns** with: ADR-0008 (multi-input model), ADR-0009 (graph spine),
-> ADR-0004/0005 (RT safety / swappable clock), ADR-0010 (control plane), `docs/71`
-> (I/O M-milestones), `docs/74` (graph-spine G-milestones), and the `README` roadmap.
+> ADR-0004/0005 (RT safety / swappable clock), ADR-0010 (control plane), `docs/pipeline/71`
+> (I/O M-milestones), `docs/pipeline/74` (graph-spine G-milestones), and the `README` roadmap.
 >
 > Provenance (`CLAUDE.md` §8): **✓ Verified** = grounded in current code; **○ Background**
 > = standard DSP/Core Audio knowledge to confirm.
@@ -88,7 +88,7 @@ clock source is one backend (ADR-0008 §5); mixing is a graph node (ADR-0008 §4
 
 ## 4. Phases & milestones
 
-Estimates are order-of-magnitude for one developer (same scale as `docs/71`/`docs/74`).
+Estimates are order-of-magnitude for one developer (same scale as `docs/pipeline/71`/`docs/pipeline/74`).
 RT: 🟢 off-thread/compile-time · 🟡 light per-block · 🔴 real per-sample DSP on the audio
 thread. **New milestone IDs** extend the existing M/G numbering.
 
@@ -112,7 +112,7 @@ recombine in phase.
 
 ### Phase B — Source alignment & hardening (**= M9, absorbed in full**)
 
-This is the former `docs/75`. M9 makes each individual source robust and clock-alignable.
+This is the former `docs/theory/75`. M9 makes each individual source robust and clock-alignable.
 RT/est/deps per sub-milestone; **do M9.1 first** (it makes every later live test trustworthy).
 
 | ID | Deliverable | RT | Est | Deps |
@@ -220,8 +220,8 @@ start first.
 | **ADR-0009** (graph spine; single in/out; uniform channels) | Extended by **G8** (per-port channels) + **G10** (multi-stream executor). Both need a **superseding/extending ADR**. |
 | **ADR-0004/0005** (RT safety / swappable clock) | Unchanged and binding: every new transport is off-thread rings/atomics; each clock = one backend. |
 | **ADR-0010** (Python control plane) | Extended by **M11** (input-side + multi-source bindings) on the same lock-free hooks. |
-| **`docs/71`** (I/O M0–M9) | **M9 absorbed here (Phase B)**; adds **M10** (manager) and **M11** (Python). M7 (plugin host) is unrelated/parallel. |
-| **`docs/74`** (graph spine G1–G7) | Adds **G8/G9/G10** as spine extensions (this is their home). |
+| **`docs/pipeline/71`** (I/O M0–M9) | **M9 absorbed here (Phase B)**; adds **M10** (manager) and **M11** (Python). M7 (plugin host) is unrelated/parallel. |
+| **`docs/pipeline/74`** (graph spine G1–G7) | Adds **G8/G9/G10** as spine extensions (this is their home). |
 | **`README` roadmap** | Lands as a **Phase 3 — productionization** track (multi-source I/O); the spine prerequisites (G8–G10) are general and pullable into Phase 1's timeframe. |
 | **Node-library list / per-port channels / latency** (earlier discussions) | G8 + G9 are exactly those engine prerequisites, promoted to milestones here; the mixer (`SumNode`) and routing nodes are the composition layer. |
 
@@ -317,7 +317,7 @@ comp. (PRs 1, 5, 6 + optionally 2, 4 — the `~4–6 wk` single-clock MVP of §8
 ---
 
 ## References
-ADR-0004/0005/0008/0009/0010; `docs/71` (I/O milestones, M9 row → here), `docs/74`
-(graph spine, G8–G10 extend it), `docs/60` (build order / gaps), `testing/README.md`
+ADR-0004/0005/0008/0009/0010; `docs/pipeline/71` (I/O milestones, M9 row → here), `docs/pipeline/74`
+(graph spine, G8–G10 extend it), `docs/theory/60` (build order / gaps), `testing/README.md`
 (verification), `include/aiudio/io/ring_buffer.hpp`, `src/io/coreaudio_duplex_backend.cpp`
 (aggregate-device precedent), `src/graph/graph_executor.cpp` (the single-`in` feed this changes).

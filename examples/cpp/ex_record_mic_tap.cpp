@@ -19,7 +19,7 @@
 //
 // SIGNING: the tap needs NSAudioCaptureUsageDescription + a code signature; the mic needs
 // NSMicrophoneUsageDescription. CMake packages this binary into a signed `aiudio-recorder.app`
-// (stable bundle id → stable TCC grant). See docs/70 §6.
+// (stable bundle id → stable TCC grant). See docs/pipeline/70 §6.
 
 #include <atomic>
 #include <cmath>

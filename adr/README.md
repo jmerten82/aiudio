@@ -100,10 +100,10 @@ Proposed ──▶ Accepted ──▶ Deprecated
 | [0015](0015-boundary-resampling-and-cross-clock-drift.md) | Boundary sample-rate conversion + cross-clock drift compensation (realizes ADR-0008; M9.3/M9.5/M9.6) | Accepted | 2026-06-29 |
 | [0016](0016-differentiable-execution-strategy.md) | Differentiable execution — a Python/PyTorch executor over the same IR (Phase 1, D0; dual node face + parity harness + differentiability status) | Accepted | 2026-07-01 |
 | [0017](0017-autodiff-framework-pytorch.md) | Autodiff framework — PyTorch, as the optional `aiudio[diff]` extra | Accepted | 2026-07-01 |
-| [0018](0018-trainable-filter-form.md) | Trainable-filter form — reparameterized design params (log-freq/softplus-Q) + magnitude-response training + design→biquad export (resolves docs/20 §2.2; Phase 1 D2) | Accepted | 2026-07-01 |
+| [0018](0018-trainable-filter-form.md) | Trainable-filter form — reparameterized design params (log-freq/softplus-Q) + magnitude-response training + design→biquad export (resolves docs/theory/20 §2.2; Phase 1 D2) | Accepted | 2026-07-01 |
 
 ### Backlog (decisions to record when made)
-- Agent control-plane design (LLM-orchestrates-structure + differentiable param tuning) — currently *research direction* in `docs/40-*`, promote to an ADR when locked (it will build on ADR-0010's queue + atomic-swap hooks).
+- Agent control-plane design (LLM-orchestrates-structure + differentiable param tuning) — currently *research direction* in `docs/theory/40-*`, promote to an ADR when locked (it will build on ADR-0010's queue + atomic-swap hooks).
 - Plugin format priority (VST3 vs CLAP vs AU) for first release.
 - Open-source **license** choice.
 - Graph IR serialization format.

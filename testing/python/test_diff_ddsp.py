@@ -2,7 +2,7 @@
 
 `HarmonicSynth` (harmonic + filtered-noise, fixed f0) trains to match a target **timbre** via the
 multi-resolution STFT loss — recovering the spectral envelope. Fixed pitch by design (STFT loss is
-poor at pitch, docs/20 §2.1). Gated on PyTorch.
+poor at pitch, docs/theory/20 §2.1). Gated on PyTorch.
 """
 from __future__ import annotations
 

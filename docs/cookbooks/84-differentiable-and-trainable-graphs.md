@@ -3,7 +3,7 @@
 > **Last updated:** 2026-07-01 · **Scope:** how to *train* an aiudio graph — make its parameters
 > (and neural models) learnable, optimize them against a target, and deploy the result back to the
 > real-time C++ core. Grounded in the merged `aiudio.diff` layer (Phase 1 · D0–D8, **✓ Verified**).
-> This is the **fourth cookbook**: `docs/81` is *topology*, `docs/82` is *nodes*, `docs/83` is
+> This is the **fourth cookbook**: `docs/cookbooks/81` is *topology*, `docs/cookbooks/82` is *nodes*, `docs/cookbooks/83` is
 > *live control*, and this one is **training** — the "ML-first" pillar (ADR-0016/0017/0018). The
 > diff layer is **Python-only** and optional: `pip install "aiudio[diff]"` (PyTorch).
 
@@ -222,14 +222,14 @@ Each diff node declares a status (`de.differentiability_report()` → `full`/`su
 | Waveshaper (hardclip) | **surrogate** | straight-through estimator through the clip |
 | DcBlocker | **full** | recursive one-pole scan |
 | Compressor, Gate, Delay | **surrogate** | level detector / hard threshold / feedback scan — a.e.-differentiable via subgradients + BPTT |
-| Biquad (`DiffBiquad`) | **full** | trained via the **frequency-domain magnitude response** (direct-form IIR has poor time-domain gradients — `docs/20`); coeffs export to the C++ node (ADR-0018) |
+| Biquad (`DiffBiquad`) | **full** | trained via the **frequency-domain magnitude response** (direct-form IIR has poor time-domain gradients — `docs/theory/20`); coeffs export to the C++ node (ADR-0018) |
 | NeuralNode | **full** | the wrapped torch module |
 
 ---
 
 ## Appendix B — The pitch caveat
 
-A multi-res STFT loss is **poor at pitch** (`docs/20` §2.1): an oscillator's frequency is not
+A multi-res STFT loss is **poor at pitch** (`docs/theory/20` §2.1): an oscillator's frequency is not
 learned by naive gradient descent (the loss surface is riddled with local minima at harmonic
 spacings). Consequences:
 
@@ -246,12 +246,12 @@ codec / source-separation nodes (Phase 4), and the CLAP perceptual objective (Ph
 
 ## Appendix C — Cross-references
 
-- **Roadmap & status:** [`docs/79`](79-phase1-differentiable-core-roadmap.md) (Phase 1 · D0–D8).
-- **Node library / tiers:** [`docs/78`](78-node-library-roadmap.md) (Tier 3 = differentiable + neural).
-- **Why (ADRs):** [0016](../adr/0016-differentiable-execution-strategy.md) (differentiable executor),
-  [0017](../adr/0017-autodiff-framework-pytorch.md) (PyTorch), [0018](../adr/0018-trainable-filter-form.md)
-  (trainable-filter form), [0006](../adr/0006-runtime-agnostic-neural-inference.md) (RT neural inference).
-- **Research grounding:** [`docs/20`](20-differentiable-dsp-and-neural-audio.md) (DDSP, filter gradients,
-  the pitch caveat), [`docs/40`](40-ai-agents-for-audio.md) (agents; the CLAP perceptual-objective direction).
-- **Sibling cookbooks:** [`docs/81`](81-pipeline-usage-patterns.md) · [`docs/82`](82-node-usage-patterns.md) · [`docs/83`](83-live-control-and-dynamic-graphs.md).
+- **Roadmap & status:** [`docs/pipeline/79`](../pipeline/79-phase1-differentiable-core-roadmap.md) (Phase 1 · D0–D8).
+- **Node library / tiers:** [`docs/pipeline/78`](../pipeline/78-node-library-roadmap.md) (Tier 3 = differentiable + neural).
+- **Why (ADRs):** [0016](../../adr/0016-differentiable-execution-strategy.md) (differentiable executor),
+  [0017](../../adr/0017-autodiff-framework-pytorch.md) (PyTorch), [0018](../../adr/0018-trainable-filter-form.md)
+  (trainable-filter form), [0006](../../adr/0006-runtime-agnostic-neural-inference.md) (RT neural inference).
+- **Research grounding:** [`docs/theory/20`](../theory/20-differentiable-dsp-and-neural-audio.md) (DDSP, filter gradients,
+  the pitch caveat), [`docs/theory/40`](../theory/40-ai-agents-for-audio.md) (agents; the CLAP perceptual-objective direction).
+- **Sibling cookbooks:** [`docs/cookbooks/81`](81-pipeline-usage-patterns.md) · [`docs/cookbooks/82`](82-node-usage-patterns.md) · [`docs/cookbooks/83`](83-live-control-and-dynamic-graphs.md).
 - **Examples:** `examples/python/ex_diff_param_match.py` · `ex_diff_neural_node.py` · `ex_ddsp_synth_match.py`.

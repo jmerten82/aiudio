@@ -5,7 +5,7 @@
 - **Deciders:** Project owner
 - **Related:** **extends ADR-0009** (graph spine — single in/out executor); ADR-0008
   (multi-input model — per-source rings + a future manager), ADR-0004 (RT safety),
-  ADR-0005 (one duplex callback). Plan: `docs/76` (multi-source I/O) **Phase D / G10**.
+  ADR-0005 (one duplex callback). Plan: `docs/pipeline/76` (multi-source I/O) **Phase D / G10**.
 
 ## Context
 
@@ -14,7 +14,7 @@ ADR-0009 built the executor around a **single** input and a **single** output bu
 fed **every** `SourceNode` the same `in` and **every** `SinkNode` the same `out`. That is
 correct for one capture stream → graph → one playback stream, but it cannot express **true
 multi-source I/O** (N independent input sources, M output sinks in one graph) — the goal of
-`docs/76`. ADR-0008 already decided the *transport* model (one backend per clock, one SPSC
+`docs/pipeline/76`. ADR-0008 already decided the *transport* model (one backend per clock, one SPSC
 ring per source, mixing as a graph node) and deferred the manager that coordinates them.
 The piece missing on the **graph side** is an executor that can *receive* N inputs and
 *drive* M outputs and let nodes bind to a specific one. This is G10, the first PR of the
@@ -70,7 +70,7 @@ about the *number of streams*, not their channel widths.
 **Neutral / follow-ups**
 - The **multi-source manager (M10)** will drive this entry point from N device-backed SPSC
   rings on one master clock; off-clock sources are aligned by M9 (resample/drift). G10 is the
-  graph-side half; M10 is the I/O-side half (`docs/76` Phases C/D).
+  graph-side half; M10 is the I/O-side half (`docs/pipeline/76` Phases C/D).
 
 ## Alternatives considered
 
@@ -85,7 +85,7 @@ about the *number of streams*, not their channel widths.
   bind to streams; interior nodes are stream-agnostic.
 
 ## References
-- ADR-0008/0009; `docs/76` (Phase D / G10), `docs/74` (spine);
+- ADR-0008/0009; `docs/pipeline/76` (Phase D / G10), `docs/pipeline/74` (spine);
   `include/aiudio/graph/{source_node,sink_node,graph_executor}.hpp`,
   `src/graph/graph_executor.cpp`, `bindings/aiudio_bindings.cpp`;
   tests `tests/test_graph_multistream.cpp`, `testing/python/test_multistream.py`.

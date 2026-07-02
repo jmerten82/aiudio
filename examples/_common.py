@@ -1,7 +1,7 @@
 """Shared helpers for the M0 audio I/O spikes.
 
 These spikes exist only to prove permissions + device plumbing end-to-end before
-any C++ is written (see ``docs/71-io-layer-milestones.md`` M0). ``numpy`` is the
+any C++ is written (see ``docs/pipeline/71-io-layer-milestones.md`` M0). ``numpy`` is the
 only import needed for ``--self-test``; ``sounddevice`` is imported lazily, so the
 offline self-tests run even without PortAudio installed.
 """

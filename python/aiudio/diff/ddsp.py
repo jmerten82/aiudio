@@ -5,7 +5,7 @@ DDSP additive model, ICLR 2020). Its per-harmonic amplitudes and a noise gain ar
 trains — with the multi-resolution STFT loss (D4) — to **match the timbre / spectral envelope** of a
 target sound.
 
-Why fixed pitch: a multi-res STFT loss is poor at pitch (docs/20 §2.1) — f0 is not learned by naive
+Why fixed pitch: a multi-res STFT loss is poor at pitch (docs/theory/20 §2.1) — f0 is not learned by naive
 descent. Fixing f0 and learning the spectral envelope is exactly what the STFT loss is good at, and
 is the honest, tractable D8 slice. Pitch-aware / staged training is a Phase 2+ concern.
 

@@ -59,9 +59,9 @@ self-extension are **additive**.
 Phase 2 is a **control/UX + self-extension layer over machinery that already exists**:
 
 - **Phase 0 (G7 live edit).** The engine already applies parameter changes via a lock-free command
-  queue and topology changes via an off-thread **RCU recompile + atomic swap** (`docs/83`,
+  queue and topology changes via an off-thread **RCU recompile + atomic swap** (`docs/cookbooks/83`,
   ADR-0010). Phase 2 *drives* this from the UI and the agent — it does not re-invent live editing.
-- **Phase 1 (differentiable core).** `match_target` / gradient descent (`docs/84`) is how the agent
+- **Phase 1 (differentiable core).** `match_target` / gradient descent (`docs/cookbooks/84`) is how the agent
   **tunes parameters** once it has chosen structure — the "LLM orchestrates structure; the
   differentiable layer tunes parameters" split.
 - **Invariants preserved.** Python/JS is a *control frontend* only (ADR-0002); the **audio thread
@@ -265,7 +265,7 @@ Phase 2 is "the agent workbench is built" when:
    thread or its RT-critical components (§5.1a) is surfaced with its impact and gated on **explicit
    user confirmation**; routine edits auto-apply. Enforced across R3–R5 (ADR-0022).
 6. **Docs/ADRs current** — `docs/00` scope + README Phase-2 updated; ADRs 0019–0024 accepted; a
-   workbench cookbook (the fifth in the `docs/81–84` series) added.
+   workbench cookbook (the fifth in the `docs/cookbooks/81–84` series) added.
 
 **Explicit non-goals for Phase 2** — see §12.
 
@@ -294,12 +294,12 @@ an explicit, reviewed PR.
 ---
 
 ### Cross-references
-- **Builds on:** [`docs/79`](79-phase1-differentiable-core-roadmap.md) (Phase 1) ·
-  [`docs/84`](84-differentiable-and-trainable-graphs.md) (diff workflow) ·
-  [`docs/83`](83-live-control-and-dynamic-graphs.md) (live edit / RCU) ·
-  [`docs/78`](78-node-library-roadmap.md) (node library).
-- **Vision & research:** [`docs/00`](00-vision-and-scope.md) (scope) ·
-  [`docs/40`](40-ai-agents-for-audio.md) (agents) · [`docs/50`](50-architecture-patterns.md) (graph engine).
-- **Why (ADRs):** [0002](../adr/0002-cpp-realtime-core-python-ml-layer.md) ·
-  [0004](../adr/0004-realtime-safety-audio-thread.md) · [0010](../adr/0010-python-control-plane.md) ·
+- **Builds on:** [`docs/pipeline/79`](79-phase1-differentiable-core-roadmap.md) (Phase 1) ·
+  [`docs/cookbooks/84`](../cookbooks/84-differentiable-and-trainable-graphs.md) (diff workflow) ·
+  [`docs/cookbooks/83`](../cookbooks/83-live-control-and-dynamic-graphs.md) (live edit / RCU) ·
+  [`docs/pipeline/78`](78-node-library-roadmap.md) (node library).
+- **Vision & research:** [`docs/00`](../00-vision-and-scope.md) (scope) ·
+  [`docs/theory/40`](../theory/40-ai-agents-for-audio.md) (agents) · [`docs/theory/50`](../theory/50-architecture-patterns.md) (graph engine).
+- **Why (ADRs):** [0002](../../adr/0002-cpp-realtime-core-python-ml-layer.md) ·
+  [0004](../../adr/0004-realtime-safety-audio-thread.md) · [0010](../../adr/0010-python-control-plane.md) ·
   plus 0019–0024 (this phase, §9).

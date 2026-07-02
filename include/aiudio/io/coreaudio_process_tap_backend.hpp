@@ -1,7 +1,7 @@
 // aiudio-io — Core Audio process-tap backend (macOS 14.4+). Milestone M5.
 //
 // Captures system or per-process OUTPUT audio with NO virtual device, using the
-// Core Audio process-tap API (ADR-0007, docs/70): a CATapDescription → process
+// Core Audio process-tap API (ADR-0007, docs/pipeline/70): a CATapDescription → process
 // tap → private aggregate device → IOProc. The tapped audio is delivered to a
 // RenderCallback as `in` (empty `out`), same contract as the input backend (M3).
 //

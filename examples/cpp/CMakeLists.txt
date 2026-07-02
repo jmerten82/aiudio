@@ -35,7 +35,7 @@ if(APPLE)
 
     # M5 tap capture: embed NSAudioCaptureUsageDescription into the binary and
     # ad-hoc sign it, so macOS shows the audio-capture (purple-dot) TCC prompt
-    # and tracks the grant (docs/70 §6). Without this the tap captures silence.
+    # and tracks the grant (docs/pipeline/70 §6). Without this the tap captures silence.
     aiudio_add_example(ex_tap_capture aiudio::io)
     target_link_options(ex_tap_capture PRIVATE
         "-Wl,-sectcreate,__TEXT,__info_plist,${CMAKE_CURRENT_SOURCE_DIR}/Info.plist")
@@ -50,7 +50,7 @@ if(APPLE)
     # End-to-end signed recorder: mic (M3) + system/per-app tap (M5) → graph → WAV, no
     # playback. Embeds NSMicrophoneUsageDescription + NSAudioCaptureUsageDescription, then
     # packages the binary into a signed `aiudio-recorder.app` (stable bundle id → stable TCC
-    # grant). Links aiudio::graph (pulls io + the Core Audio frameworks). See docs/70 §6.
+    # grant). Links aiudio::graph (pulls io + the Core Audio frameworks). See docs/pipeline/70 §6.
     aiudio_add_example(ex_record_mic_tap aiudio::graph)
     target_link_options(ex_record_mic_tap PRIVATE
         "-Wl,-sectcreate,__TEXT,__info_plist,${CMAKE_CURRENT_SOURCE_DIR}/aiudio-recorder.Info.plist")

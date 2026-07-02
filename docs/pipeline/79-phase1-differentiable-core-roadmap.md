@@ -13,16 +13,16 @@
 > (`export_to_graph` — C++ render == trained-torch render); D7 = first neural node (a torch
 > `nn.Module` as a graph peer, trained jointly with DSP, exported via `torch.export`); D8 = a DDSP
 > `HarmonicSynth` exemplar (timbre match, multi-res-STFT-distance metric). **Next: Phase 2** (agent
-> control plane) — see [README Roadmap](../README.md#roadmap).
+> control plane) — see [README Roadmap](../../README.md#roadmap).
 > (D0: the differentiable executor spine + registry + C++↔torch parity harness, ADR-0016/0017, the
 > optional `aiudio.diff` / `aiudio[diff]` package; D1: the stateless linear nodes Mixer + Pan).
 > Phase 0 complete, Tier-1 DSP nodes landed. Research grounding is **✓ Verified** (from
-> `docs/20`/`docs/50`); the milestone work (D0–D8) is now **implemented and tested** (each ADR
+> `docs/theory/20`/`docs/theory/50`); the milestone work (D0–D8) is now **implemented and tested** (each ADR
 > 0016/0017/0018 accepted at implementation).
 >
-> Extends the README **Phase 1 — Differentiable core** and [`docs/78`](78-node-library-roadmap.md)
-> (Tier 3). *Why* the pillar exists: [`docs/50`](50-architecture-patterns.md) §3 and
-> [`docs/00`](00-vision-and-scope.md). The hard problems: [`docs/20`](20-differentiable-dsp-and-neural-audio.md) §2.
+> Extends the README **Phase 1 — Differentiable core** and [`docs/pipeline/78`](78-node-library-roadmap.md)
+> (Tier 3). *Why* the pillar exists: [`docs/theory/50`](../theory/50-architecture-patterns.md) §3 and
+> [`docs/00`](../00-vision-and-scope.md). The hard problems: [`docs/theory/20`](../theory/20-differentiable-dsp-and-neural-audio.md) §2.
 
 ---
 
@@ -51,7 +51,7 @@ the **third executor demanded by invariant §4.3** — a **differentiable** one:
 > **The same `Graph` IR, evaluated through an autodiff framework, so the whole graph is
 > differentiable end-to-end and its parameters can be optimized against an audio objective.**
 
-This is pillar 3 of the vision (ML-first). Its verified precedent (`docs/50` §3): a **DAG of audio
+This is pillar 3 of the vision (ML-first). Its verified precedent (`docs/theory/50` §3): a **DAG of audio
 processors can be reverse-engineered from input/output pairs by making the processors *and* the
 routing differentiable** (arXiv:2406.01049), and **Text2FX** tunes effect params against a
 perceptual (CLAP) objective by gradient descent. Generalize both to the aiudio graph and you get
@@ -109,7 +109,7 @@ Get these five interfaces right before writing training loops.
 3. **Learnable parameters + reparameterization.** Node params become `torch.nn.Parameter`s, but
    **constrained** so optimization stays well-posed: frequencies in **log space**, gains in dB,
    ratios via **softplus**, mix/pan via **sigmoid/tanh**. A thin mapping layer translates between
-   the C++ **index-based** params (`docs/82` appendix) and named torch parameters.
+   the C++ **index-based** params (`docs/cookbooks/82` appendix) and named torch parameters.
 4. **The parity harness (the "one IR" guarantee across the third backend).** For every node, the
    diff `forward()` must match the C++ `process()` within tolerance on the same input+params — a
    **golden parity test** per node. This is what keeps the two implementations honest and lets a
@@ -117,17 +117,17 @@ Get these five interfaces right before writing training loops.
    identically, do so; where it can't (surrogate filters), document the intended divergence.
 5. **Losses.** **Multi-resolution STFT loss** (the DDSP/neural-audio standard — via `auraloss` /
    `torchaudio`, *don't reinvent*), plus MSE/L1 for direct signal matching, and a hook for a
-   **perceptual (CLAP) loss** to connect to Phase 2. (`docs/20` §7: multi-scale spectral loss is
+   **perceptual (CLAP) loss** to connect to Phase 2. (`docs/theory/20` §7: multi-scale spectral loss is
    the workhorse — but see §4 on its blind spots.)
 
 ---
 
 ## 4. The hard problems
 
-Differentiability is **not free** (`docs/20` §2). Each hazard has a chosen mitigation; the plan
+Differentiability is **not free** (`docs/theory/20` §2). Each hazard has a chosen mitigation; the plan
 budgets for them explicitly rather than discovering them mid-training.
 
-| Hazard (✓ from `docs/20`) | Why it bites | Mitigation in this plan |
+| Hazard (✓ from `docs/theory/20`) | Why it bites | Mitigation in this plan |
 |---|---|---|
 | **Oscillator frequency gradients are uninformative** (§2.1) | audio/spectral losses are non-convex in pitch; naïve descent won't estimate frequency | pitch-aware losses / **staged training** / self-supervised init; **don't** train pitch on bare multi-res STFT (D8 note) |
 | **IIR / recursive filters impede autodiff** (§2.2) | direct-form biquad recursion → poor/unstable gradients | train through the **SVF form** (`SvfNode`) or **frequency-sampling**; declare direct-form biquad `Surrogate`/`NonDiff` and export SVF→biquad coeffs for RT (D2) |
@@ -174,7 +174,7 @@ formula parity with the C++ `BiquadNode::design()` (analytic |H| vs the impulse-
 `add_biquad_*`); `fit_magnitude` recovers a target response by gradient descent (loss ↓ ≥100×,
 freq within 10%, gain within 0.6 dB); exporting the trained coeffs via `add_biquad_coeffs`
 reproduces the response within tolerance (feeds D6). Trains through the analytic **magnitude
-response** — the IIR-autodiff workaround (`docs/20` §2.2, ADR-0018). Running a filter *inside* a
+response** — the IIR-autodiff workaround (`docs/theory/20` §2.2, ADR-0018). Running a filter *inside* a
 differentiable graph forward (time-domain recursion) lands with the recursive nodes in **D3**.
 
 **D3 — Dynamics, nonlinear & recursive.** ✅ *Delivered (complete):* `WaveshaperDiffNode`
@@ -229,9 +229,9 @@ per-harmonic amplitudes + a noise gain. It trains, via the multi-res STFT loss (
 **match a target timbre**, recovering the spectral envelope (harmonic-amplitude error ≲ 2e-3 on a
 1/n target; STFT distance collapses ~300×). Shipped as `examples/python/ex_ddsp_synth_match.py`
 with the reported metric (multi-res STFT distance). *Pitch is fixed by design* — a multi-res STFT
-loss is poor at pitch (`docs/20` §2.1), so f0 is not learned by naive descent; learning *timbre* at
+loss is poor at pitch (`docs/theory/20` §2.1), so f0 is not learned by naive descent; learning *timbre* at
 known pitch is exactly the loss's strength, and pitch-aware / staged training is a Phase-2+ concern.
-A perceptual **CLAP-embedding** distance is the noted Phase-2 metric hook (`docs/40`).
+A perceptual **CLAP-embedding** distance is the noted Phase-2 metric hook (`docs/theory/40`).
 
 ---
 
@@ -278,7 +278,7 @@ numbers continue from **ADR-0015**:
   natural fit for ADR-0002's Python ML layer, TorchScript/ONNX export paths toward RT (ADR-0006).
 - **ADR-0018 — Trainable-filter form** ✅ **(Accepted, with D2).** Design-parameter
   (reparameterized: log-freq/softplus-Q/gain_dB) magnitude-response training + design→biquad
-  coefficient export for RT — resolves `docs/20` §2.2 in the codebase.
+  coefficient export for RT — resolves `docs/theory/20` §2.2 in the codebase.
 - **ADR-0006 revisited (with D7):** ADR-0006 already covers RT neural *inference* (RTNeural inline
   / ANIRA off-thread). D7 adds the **training** side (torch) + **export**; note the split rather
   than superseding, unless deployment specifics force a new ADR.
@@ -304,10 +304,10 @@ The node contract already reserves "**differentiable parameters**" and an explic
 5. **At least one neural node trains as a first-class peer** (D7).
 6. **A reproducible training harness + multi-res STFT loss + a DDSP exemplar** exist, tested and
    documented (D4/D8), mirroring the Phase-0 cookbooks.
-7. **Docs/ADRs current** — README Phase-1 boxes ticked; ADR-0016/0017/0018 accepted; `docs/78`
+7. **Docs/ADRs current** — README Phase-1 boxes ticked; ADR-0016/0017/0018 accepted; `docs/pipeline/78`
    Tier-3 status advanced; and the Phase-1 cookbook
-   [`docs/84 — Differentiable & Trainable Graphs`](84-differentiable-and-trainable-graphs.md) added
-   (the fourth in the `docs/81–83` cookbook series).
+   [`docs/cookbooks/84 — Differentiable & Trainable Graphs`](../cookbooks/84-differentiable-and-trainable-graphs.md) added
+   (the fourth in the `docs/cookbooks/81–83` cookbook series).
 
 **Explicit non-goals for Phase 1** (deferred): the neural-model *zoo* (source separation, codecs,
 generation — Phase 4); **RT neural deployment** (streaming/cached-conv, RTNeural/ONNX on the audio
@@ -381,15 +381,15 @@ work dominate.
 | **ADR-0003/0009** (one IR, node contract) | Phase 1 adds the **third executor** over the same IR and *enforces* the contract's differentiability fields; extended by candidate ADR-0016. |
 | **ADR-0004** (audio thread sacred) | Untouched — training is off-thread/offline; the RT path gains no code. |
 | **ADR-0006** (runtime-agnostic neural inference) | Covers RT *deployment* (Phase 3); D7 adds the *training* + export side. |
-| **`docs/78`** (node-library roadmap) | Phase 1 = docs/78 **Tier 3** ("makes Tier 1 differentiable + adds neural peers"); this doc is its milestone-level plan. |
-| **`docs/20`** (differentiable-DSP research) | Supplies the verified hazards (§4) and techniques (DDSP, SVF, multi-res STFT). |
-| **`docs/50` §3** (differentiable rendering) | The architectural thesis + precedent (arXiv:2406.01049, Text2FX) this roadmap operationalizes. |
-| **Phase 2** (agent) | Consumes Phase 1: "agent proposes structure → differentiable core tunes params" (`docs/40`, ADR-0010 hooks). |
+| **`docs/pipeline/78`** (node-library roadmap) | Phase 1 = docs/pipeline/78 **Tier 3** ("makes Tier 1 differentiable + adds neural peers"); this doc is its milestone-level plan. |
+| **`docs/theory/20`** (differentiable-DSP research) | Supplies the verified hazards (§4) and techniques (DDSP, SVF, multi-res STFT). |
+| **`docs/theory/50` §3** (differentiable rendering) | The architectural thesis + precedent (arXiv:2406.01049, Text2FX) this roadmap operationalizes. |
+| **Phase 2** (agent) | Consumes Phase 1: "agent proposes structure → differentiable core tunes params" (`docs/theory/40`, ADR-0010 hooks). |
 
 ---
 
-**Cross-references:** README **Roadmap** (Phase 1); [`docs/00`](00-vision-and-scope.md) (vision);
-[`docs/20`](20-differentiable-dsp-and-neural-audio.md), [`docs/50`](50-architecture-patterns.md) §3
-(design); [`docs/78`](78-node-library-roadmap.md) (Tier 3); the usage cookbooks
-[`docs/81`](81-pipeline-usage-patterns.md)/[`docs/82`](82-node-usage-patterns.md)/[`docs/83`](83-live-control-and-dynamic-graphs.md)
+**Cross-references:** README **Roadmap** (Phase 1); [`docs/00`](../00-vision-and-scope.md) (vision);
+[`docs/theory/20`](../theory/20-differentiable-dsp-and-neural-audio.md), [`docs/theory/50`](../theory/50-architecture-patterns.md) §3
+(design); [`docs/pipeline/78`](78-node-library-roadmap.md) (Tier 3); the usage cookbooks
+[`docs/cookbooks/81`](../cookbooks/81-pipeline-usage-patterns.md)/[`docs/cookbooks/82`](../cookbooks/82-node-usage-patterns.md)/[`docs/cookbooks/83`](../cookbooks/83-live-control-and-dynamic-graphs.md)
 (a Phase-1 "Differentiable & Trainable Graphs" cookbook joins them at D8).

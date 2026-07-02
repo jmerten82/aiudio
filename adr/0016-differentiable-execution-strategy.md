@@ -3,15 +3,15 @@
 - **Status:** Accepted
 - **Date:** 2026-07-01
 - **Deciders:** Project owner + Claude Code
-- **Related:** [`docs/79`](../docs/79-phase1-differentiable-core-roadmap.md) (Phase 1 roadmap, D0),
-  [`docs/50`](../docs/50-architecture-patterns.md) §3, [`docs/20`](../docs/20-differentiable-dsp-and-neural-audio.md) §2,
+- **Related:** [`docs/pipeline/79`](../docs/pipeline/79-phase1-differentiable-core-roadmap.md) (Phase 1 roadmap, D0),
+  [`docs/theory/50`](../docs/theory/50-architecture-patterns.md) §3, [`docs/theory/20`](../docs/theory/20-differentiable-dsp-and-neural-audio.md) §2,
   ADR-0002, ADR-0003, ADR-0004, ADR-0009, ADR-0006, ADR-0017
 
 ## Context
 
 Phase 1 delivers pillar 3 of the vision (`docs/00`): the graph is **differentiable**, so its
 parameters can be optimized against an audio objective (✓ precedent: differentiable
-mixing-graph reverse-engineering, arXiv:2406.01049; Text2FX param tuning — `docs/50` §3). Invariant
+mixing-graph reverse-engineering, arXiv:2406.01049; Text2FX param tuning — `docs/theory/50` §3). Invariant
 §4.3 already commits to "one IR, many backends: real-time, offline, **and differentiable**
 executors run the same IR," and the node contract reserves "differentiable parameters" +
 "differentiability status" (§4.4/§4.7). Phase 1 must *realize* that third executor.
@@ -22,7 +22,7 @@ Forces:
   (ADR-0002), never on the audio thread.
 - **One IR, not two** (ADR-0003/0009): the differentiable executor must derive from the *same*
   `Graph`, not a hand-maintained parallel description that can silently diverge.
-- **Some DSP is hard to differentiate** (✓ `docs/20` §2): recursive IIR filters resist autodiff;
+- **Some DSP is hard to differentiate** (✓ `docs/theory/20` §2): recursive IIR filters resist autodiff;
   oscillator-frequency gradients are uninformative; hard clips have no gradient. A node must be
   able to **declare** how differentiable it is.
 - **The point is to reach real time**: trained parameters have to end up back in the C++ RT graph.
@@ -65,7 +65,7 @@ Specifically:
 - **Dual implementation per node** (C++ `process()` + torch `forward()`) — duplicated math that
   can drift. *Mitigation:* the mandatory parity harness in CI; share/derive coefficient math where
   possible; document intended divergences (surrogates).
-- Hard/ill-conditioned ops need surrogates/STE and honest `NonDiff` labels (`docs/20` §2).
+- Hard/ill-conditioned ops need surrogates/STE and honest `NonDiff` labels (`docs/theory/20` §2).
 - A heavy optional dependency (PyTorch) enters the project (ADR-0017).
 
 **Neutral / follow-ups**
@@ -86,7 +86,7 @@ Specifically:
 - **Defer differentiability entirely** — rejected: it is pillar 3 of the locked vision.
 
 ## References
-- [`docs/79`](../docs/79-phase1-differentiable-core-roadmap.md) (D0–D8, foundation abstractions, hard problems),
-  [`docs/50`](../docs/50-architecture-patterns.md) §3, [`docs/20`](../docs/20-differentiable-dsp-and-neural-audio.md) §2.
+- [`docs/pipeline/79`](../docs/pipeline/79-phase1-differentiable-core-roadmap.md) (D0–D8, foundation abstractions, hard problems),
+  [`docs/theory/50`](../docs/theory/50-architecture-patterns.md) §3, [`docs/theory/20`](../docs/theory/20-differentiable-dsp-and-neural-audio.md) §2.
 - ADR-0003/0009 (one IR + node contract), ADR-0004 (audio thread sacred), ADR-0002 (C++ core + Python ML layer),
   ADR-0006 (runtime-agnostic neural inference — deployment), ADR-0017 (PyTorch).

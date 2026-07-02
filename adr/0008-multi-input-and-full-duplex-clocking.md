@@ -3,7 +3,7 @@
 - **Status:** Accepted
 - **Date:** 2026-06-28
 - **Deciders:** Project owner
-- **Related:** ADR-0004, ADR-0005, ADR-0007; `docs/71-io-layer-milestones.md` (M4, M5, M9); `docs/50-architecture-patterns.md`
+- **Related:** ADR-0004, ADR-0005, ADR-0007; `docs/pipeline/71-io-layer-milestones.md` (M4, M5, M9); `docs/theory/50-architecture-patterns.md`
 
 ## Context
 
@@ -92,6 +92,6 @@ owns N backends + N ring buffers.
 
 - ADR-0004 (RT safety / SPSC ring buffer), ADR-0005 (duplex callback / swappable
   clock), ADR-0007 (Core Audio).
-- `docs/71-io-layer-milestones.md` §M4 (full-duplex), §M9 (drift/multi-device).
+- `docs/pipeline/71-io-layer-milestones.md` §M4 (full-duplex), §M9 (drift/multi-device).
 - Apple Core Audio aggregate devices (`AudioHardwareCreateAggregateDevice`,
   `kAudioAggregateDevice*`/`kAudioSubDevice*` keys).

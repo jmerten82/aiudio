@@ -1,17 +1,17 @@
 # 75 — How ADCs and DACs Work (with aiudio references)
 
 A primer on the **analog↔digital boundary** — the converters that turn sound into
-numbers (ADC) and numbers back into sound (DAC). [`docs/73`](73-digital-audio-encoding.md)
+numbers (ADC) and numbers back into sound (DAC). [`docs/theory/73`](73-digital-audio-encoding.md)
 explains the *numbers* (sampling, quantization, PCM, float); this opens the
-**black box** docs/73 treats as external — how the conversion physically happens,
+**black box** docs/theory/73 treats as external — how the conversion physically happens,
 and **where each idea touches aiudio's pipeline**. Every section ends with a
 *"→ in aiudio"* pointer.
 
 > This is established electronics/DSP background, not from the research pass. The
 > aiudio references describe the pipeline as built through the multi-source I/O
 > work (Core Audio backends, the drift servo, latency reporting). Confirm exact
-> symbols against the headers when in doubt. Companion to [`docs/73`](73-digital-audio-encoding.md)
-> and [`docs/77`](77-combining-multiple-audio-io.md).
+> symbols against the headers when in doubt. Companion to [`docs/theory/73`](73-digital-audio-encoding.md)
+> and [`docs/pipeline/77`](../pipeline/77-combining-multiple-audio-io.md).
 
 ---
 
@@ -24,7 +24,7 @@ two converters:
 - **ADC** (analog-to-digital converter): microphone/line voltage → PCM samples.
 - **DAC** (digital-to-analog converter): PCM samples → speaker/line voltage.
 
-Everything docs/73 describes (sample rate, bit depth, float ±1.0) is the
+Everything docs/theory/73 describes (sample rate, bit depth, float ±1.0) is the
 *language the converters speak on their digital side*. This doc is about what the
 converters do to cross the line, because two of their properties — **their sample
 clock** and **their latency** — reach directly into how aiudio schedules and
@@ -40,7 +40,7 @@ aligns audio.
 
 ## 2. The two conversions in one screen
 
-Both directions are the same three ideas from docs/73 (a **band-limiting filter**,
+Both directions are the same three ideas from docs/theory/73 (a **band-limiting filter**,
 a **sample clock**, and a **quantizer**) arranged in opposite order:
 
 ```
@@ -52,10 +52,10 @@ a **sample clock**, and a **quantizer**) arranged in opposite order:
 ```
 
 - The ADC must **remove** everything above Nyquist *before* sampling, or it
-  aliases (docs/73 §2). The DAC must **remove** the spectral **images** the
+  aliases (docs/theory/73 §2). The DAC must **remove** the spectral **images** the
   discrete samples create *above* Nyquist, or you hear/aggravate ultrasonic junk.
 - Both are anchored to a **sample clock** running at `Fs` (e.g. 48 kHz). That
-  clock is the single most important thing this document adds to docs/73 (§6).
+  clock is the single most important thing this document adds to docs/theory/73 (§6).
 
 > **→ in aiudio:** `StreamConfig.sampleRate` is that `Fs`, read from the device at
 > `open()`. Anti-aliasing/anti-imaging live in the converter; aiudio's own
@@ -73,7 +73,7 @@ Conceptually an ADC is: **anti-alias filter → sample-and-hold → quantizer.**
 2. **Sample-and-hold.** At each tick of the sample clock, freeze the instantaneous
    voltage so the quantizer has a stable value to measure.
 3. **Quantizer.** Round that voltage to the nearest of `2ᴺ` levels → an N-bit
-   integer (docs/73 §3). Rounding error = **quantization noise**.
+   integer (docs/theory/73 §3). Rounding error = **quantization noise**.
 
 ### The modern reality: sigma-delta (ΔΣ) + oversampling
 Almost no audio ADC quantizes straight to 24-bit at 48 kHz. Instead a **sigma-delta
@@ -110,19 +110,19 @@ A DAC reverses the chain: **reconstruct → anti-imaging filter → output.**
 4. **Output stage.** Analog gain/buffering drives the line or headphone/speaker.
 
 The DAC is where the numbers finally become sound — and the **only** place the
-signal is truly clamped to full scale (docs/73 §4: float can exceed ±1.0
+signal is truly clamped to full scale (docs/theory/73 §4: float can exceed ±1.0
 internally; the DAC cannot).
 
 > **→ in aiudio:** the block the master output backend writes to `out` is what the
 > DAC will reconstruct. Because the engine is float ±1.0, an internal over
 > (>±1.0) is harmless *until* it reaches the DAC, which clips it — so a limiter
-> before the sink (a `Compressor`, `docs/82` §4) protects the physical output.
+> before the sink (a `Compressor`, `docs/cookbooks/82` §4) protects the physical output.
 
 ---
 
 ## 5. Resolution, noise, and full scale
 
-The same measures from docs/73 §3–§4, now as *converter* specs:
+The same measures from docs/theory/73 §3–§4, now as *converter* specs:
 
 - **Dynamic range / SNR** ≈ `6.02·N + 1.76` dB for N ideal bits (16-bit ≈ 96 dB,
   24-bit ≈ 144 dB). Real converters fall short — the honest figure is **ENOB**
@@ -130,7 +130,7 @@ The same measures from docs/73 §3–§4, now as *converter* specs:
   distortion.
 - **Dither** — a tiny shaped noise added *before* the final quantization
   decorrelates the error so it sounds like benign hiss instead of harmonic
-  distortion (docs/73 §3). Good ADCs/DACs dither internally.
+  distortion (docs/theory/73 §3). Good ADCs/DACs dither internally.
 - **0 dBFS = the converter's full-scale clipping point.** "Headroom" is how far
   your peaks sit below it.
 
@@ -140,7 +140,7 @@ The same measures from docs/73 §3–§4, now as *converter* specs:
 > (`g.meter_mean_square` → `10·log10`), measuring level against that same
 > full-scale reference. aiudio's float→int16 path (`conversions.hpp`, used only at
 > **WAV** boundaries — the live device is float32) does **not** dither yet
-> (docs/73 §10).
+> (docs/theory/73 §10).
 
 ---
 
@@ -169,8 +169,8 @@ something to *reconcile*.
 >   crystals = inevitable drift → aiudio brings each off-clock source onto the
 >   master timeline through a `ResamplingSource` whose `DriftCompensator` servo
 >   tracks the ratio and keeps the ring bounded (**ADR-0008/0015**,
->   [`docs/76`](76-multi-source-io-roadmap.md)/[`docs/77`](77-combining-multiple-audio-io.md)).
->   The 44 100/48 000 examples in [`docs/81`](81-pipeline-usage-patterns.md) are
+>   [`docs/pipeline/76`](../pipeline/76-multi-source-io-roadmap.md)/[`docs/pipeline/77`](../pipeline/77-combining-multiple-audio-io.md)).
+>   The 44 100/48 000 examples in [`docs/cookbooks/81`](../cookbooks/81-pipeline-usage-patterns.md) are
 >   the *nominal-rate* case of the same machinery that also absorbs crystal drift.
 
 ---
@@ -187,7 +187,7 @@ round-trip measurement, delay compensation).
 > device's reported latency + **safety offset** (which include the converter and
 > driver delays; see `coreaudio_input_backend.cpp`). That figure feeds the
 > pipeline's delay-compensation story (PDC, G9) and the duplex monitor's
-> round-trip latency in [`docs/81`](81-pipeline-usage-patterns.md) §Pattern 3. The
+> round-trip latency in [`docs/cookbooks/81`](../cookbooks/81-pipeline-usage-patterns.md) §Pattern 3. The
 > converter is part of *why* `latency_frames` is nonzero even for a trivial graph.
 
 ---
@@ -205,14 +205,14 @@ the recorder patterns rely on:
 | **Speakers / line out** | **DAC** (PCM → analog) | the classic playback; `DeviceBackend` |
 | **WAV / file out / recorder** | **no** | PCM saved before any DAC; `WavWriter` / `WavRecorder` |
 
-So the signed **`aiudio-recorder`** (docs/81 Pattern 7) mixes a **post-ADC** mic
+So the signed **`aiudio-recorder`** (docs/cookbooks/81 Pattern 7) mixes a **post-ADC** mic
 with a **pre-DAC** system tap — two signals of totally different physical origin —
 into one float32 timeline, and writes PCM **without ever touching a DAC**. The
 converters bookend the *live* paths; the *file/tap* paths sidestep them.
 
 > **→ in aiudio:** because the tap is pre-DAC, it also can't feed back through the
-> DAC — one reason the recorder is playback-free (docs/81 Pattern 7). And because
-> a file is frozen PCM, offline rendering (docs/81 Pattern 1) involves **no
+> DAC — one reason the recorder is playback-free (docs/cookbooks/81 Pattern 7). And because
+> a file is frozen PCM, offline rendering (docs/cookbooks/81 Pattern 1) involves **no
 > converter and no clock** at all — it's pure arithmetic, which is why it runs
 > faster than real time.
 
@@ -232,9 +232,9 @@ The standard fix is **internal oversampling** around the nonlinear node (upsampl
 Nyquist before decimation.
 
 > **→ in aiudio:** relevant to `WaveshaperNode` and the band-limited-ness of
-> `OscillatorNode` (docs/82 §6/§7). aiudio does **not** oversample nodes today
-> (docs/73 §10 / docs/78) — a known refinement. It matters doubly for **Phase 1**:
-> a differentiable/neural node that generates harmonics (docs/20, `docs/79`) must
+> `OscillatorNode` (docs/cookbooks/82 §6/§7). aiudio does **not** oversample nodes today
+> (docs/theory/73 §10 / docs/pipeline/78) — a known refinement. It matters doubly for **Phase 1**:
+> a differentiable/neural node that generates harmonics (docs/theory/20, `docs/pipeline/79`) must
 > respect Nyquist or train against aliased targets. (Note: this internal
 > oversampling is *unrelated* to the ΔΣ oversampling in §3/§4 and to aiudio's
 > boundary `Resampler`/`ResamplingSource`, which convert between *nominal block
@@ -252,7 +252,7 @@ Nyquist before decimation.
    system audio (other apps) ─── tapped PRE-DAC (already digital) ───────────► float32 PCM
                                                                                     │
         ┌───────────── aiudio graph: RenderCallback.process(in,out,frames,time) ───┴──┐
-        │  PLANAR float32, ±1.0 — the engine lingua franca (docs/73)                   │
+        │  PLANAR float32, ±1.0 — the engine lingua franca (docs/theory/73)                   │
         │  clock = the master converter's crystal (ADR-0005); off-clock sources →      │
         │  ResamplingSource + drift servo (ADR-0015); limiter guards the DAC (§4)      │
         └───────────────────────────────┬───────────────────────────────┬────────────┘
@@ -270,8 +270,8 @@ Nyquist before decimation.
 | Converter + driver latency | `latencyFrames()` → PDC (G9) | `coreaudio_*_backend.cpp` |
 | Full-scale / 0 dBFS clip | float ±1.0 convention; only the DAC clamps | `audio_buffer.hpp`, a limiter node |
 | Native bit depth ↔ float | HAL delivers float32 live; int16⇄float only at WAV | `conversions.hpp` (files only) |
-| Pre-DAC digital tap | a source that never saw an ADC | `TapBackend` (docs/81 §7) |
-| Nyquist / anti-imaging | don't generate >Nyquist in-graph (oversample TBD) | `WaveshaperNode`/`OscillatorNode` (docs/82) |
+| Pre-DAC digital tap | a source that never saw an ADC | `TapBackend` (docs/cookbooks/81 §7) |
+| Nyquist / anti-imaging | don't generate >Nyquist in-graph (oversample TBD) | `WaveshaperNode`/`OscillatorNode` (docs/cookbooks/82) |
 
 ---
 
@@ -285,8 +285,8 @@ Nyquist before decimation.
   reconciles other converters' drift (ADR-0015). Jitter, ENOB, filter design are
   the hardware's job.
 - **Guards the DAC but doesn't dither it.** A limiter can protect the output;
-  aiudio's own float→int16 (WAV only) does not dither yet (docs/73 §10).
-- **Does not oversample nonlinear nodes yet** (§9) — a known refinement (docs/78).
+  aiudio's own float→int16 (WAV only) does not dither yet (docs/theory/73 §10).
+- **Does not oversample nonlinear nodes yet** (§9) — a known refinement (docs/pipeline/78).
 - **Sidesteps converters entirely** for file/offline and tap paths (§8).
 
 ## 12. Glossary
@@ -304,14 +304,14 @@ Nyquist before decimation.
 - **Jitter** — timing error in the sample clock; raises the noise floor.
 - **ENOB** — effective number of bits; the *real* resolution after noise/jitter/distortion.
 - **Clock drift** — two nominally-equal crystals running at slightly different real rates.
-- **Nyquist frequency** — `Fs/2`; the highest representable frequency (docs/73 §2).
+- **Nyquist frequency** — `Fs/2`; the highest representable frequency (docs/theory/73 §2).
 
 ## References
-- Companion: [`docs/73`](73-digital-audio-encoding.md) (the digital number formats),
-  [`docs/77`](77-combining-multiple-audio-io.md) (why many clocks are hard).
-- Pipeline: [`docs/71`](71-io-layer-milestones.md)/[`docs/72`](72-m1-aiudio-io-reference.md)
-  (I/O layer), [`docs/76`](76-multi-source-io-roadmap.md) (drift/multi-source),
-  [`docs/81`](81-pipeline-usage-patterns.md) (topologies & latency),
-  [`docs/82`](82-node-usage-patterns.md) (limiter / oscillator / waveshaper).
+- Companion: [`docs/theory/73`](73-digital-audio-encoding.md) (the digital number formats),
+  [`docs/pipeline/77`](../pipeline/77-combining-multiple-audio-io.md) (why many clocks are hard).
+- Pipeline: [`docs/pipeline/71`](../pipeline/71-io-layer-milestones.md)/[`docs/pipeline/72`](../pipeline/72-m1-aiudio-io-reference.md)
+  (I/O layer), [`docs/pipeline/76`](../pipeline/76-multi-source-io-roadmap.md) (drift/multi-source),
+  [`docs/cookbooks/81`](../cookbooks/81-pipeline-usage-patterns.md) (topologies & latency),
+  [`docs/cookbooks/82`](../cookbooks/82-node-usage-patterns.md) (limiter / oscillator / waveshaper).
 - Decisions: ADR-0005 (swappable clock = the converter clock), ADR-0007 (Core Audio I/O),
   ADR-0008/0015 (per-source rings + cross-clock drift).
