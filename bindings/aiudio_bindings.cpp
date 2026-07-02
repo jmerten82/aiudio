@@ -31,6 +31,7 @@
 #include "aiudio/graph/master_clock_adapter.hpp"
 #include "aiudio/graph/meter_node.hpp"
 #include "aiudio/graph/mixer_node.hpp"
+#include "aiudio/graph/neural_node.hpp"
 #include "aiudio/graph/multi_source_manager.hpp"
 #include "aiudio/graph/noise_node.hpp"
 #include "aiudio/graph/oscillator_node.hpp"
@@ -263,6 +264,11 @@ NB_MODULE(_aiudio, m) {
             return g.addNode(std::make_unique<graph::SumNode>(n));
         }, "num_inputs"_a = 2)
         .def("add_meter", [](graph::Graph& g) { return g.addNode(std::make_unique<graph::MeterNode>()); })
+        .def("add_neural_node", [](graph::Graph& g) {
+            return g.addNode(std::make_unique<graph::NeuralNode>());
+        }, "A neural graph peer (1→1). RT is an identity placeholder (real inference is Phase 3, "
+           "ADR-0006); the differentiable executor runs a torch nn.Module injected for this node "
+           "(aiudio.diff, D7).")
         .def("add_biquad_lowpass", [](graph::Graph& g, double freq, double q, double sr) {
             auto n = std::make_unique<graph::BiquadNode>();
             n->setLowpass(freq, q, sr);

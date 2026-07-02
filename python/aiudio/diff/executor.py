@@ -24,11 +24,13 @@ from .nodes import make_diff_node
 
 class DiffExecutor(nn.Module):
     def __init__(self, graph, *, init_params: dict[int, dict[int, float]] | None = None,
-                 dtype: torch.dtype = torch.float32, sample_rate: float = 48000.0):
+                 dtype: torch.dtype = torch.float32, sample_rate: float = 48000.0,
+                 modules: dict[int, torch.nn.Module] | None = None):
         super().__init__()
         self._dtype = dtype
         self._sample_rate = float(sample_rate)
         init_params = init_params or {}
+        modules = modules or {}  # {node_id: torch.nn.Module} for NeuralNode slots (D7)
 
         # --- read the IR: topology (nodes/edges) + per-node params & config (introspection) ---
         self._meta: dict[int, tuple[str, int, int]] = {
@@ -45,7 +47,8 @@ class DiffExecutor(nn.Module):
             config = dict(graph.node_config(nid))
             self._diff[str(nid)] = make_diff_node(
                 tname, nin, nout, init_params.get(nid, {}),
-                param_reader=reader, config=config, sample_rate=self._sample_rate)
+                param_reader=reader, config=config, sample_rate=self._sample_rate,
+                module=modules.get(nid))
             if tname == "SourceNode":
                 self._sources.append(nid)
             elif tname == "SinkNode":
