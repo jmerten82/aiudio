@@ -38,7 +38,7 @@ utilities — closing with a capstone pipeline that ties it together. After each
 callout flags the **shortcomings**, and a consolidated matrix ends the notebook.
 
 It executes end-to-end with **zero errors** on any machine (the live-device step self-guards),
-so it doubles as a runnable acceptance check. Narrative companion: **`docs/80`** (capabilities
+so it doubles as a runnable acceptance check. Narrative companion: **`docs/pipeline/80`** (capabilities
 guide); design rationale: the ADRs (`adr/`). See also `testing/README.md`.
 
 **Contents**
@@ -125,7 +125,7 @@ print("recompiled, source→boost(2.0):", float(exe.process(np.ones((1, 16), np.
 md(r"""> ⚠️ **Shortcoming.** This cell shows the spine primitives; the **Tier-1 library** (parametric
 > EQ, dynamics, delay, generators, pan/width, mixer, routing — see §4) is also available, but
 > there is still no parametric **reverb**, spectral/FFT, or **neural** node yet, and no generic
-> `add_node(...)` (`docs/78` Tier 2/3). Graph **editing is add/remove only** (no in-place node
+> `add_node(...)` (`docs/pipeline/78` Tier 2/3). Graph **editing is add/remove only** (no in-place node
 > mutation), graphs stay **DAG-only** and single-rate, and there is no graph **serialization** yet.""")
 
 # ---------------------------------------------------------------- 3. executor
@@ -154,7 +154,7 @@ md(r"""**Multiple input/output streams (G10).** A single graph can receive **N i
 streams** and drive **M output streams**: `add_source(stream=k)` / `add_sink(stream=k)` bind
 a node to a stream, and `process_multi([...])` takes one array per input stream and returns
 one per output stream. (`process(arr)` is the back-compatible 1-stream case.) This is the
-graph-side foundation of true multi-source I/O ([`docs/76`](../../docs/76-multi-source-io-roadmap.md)).""")
+graph-side foundation of true multi-source I/O ([`docs/pipeline/76`](../../docs/pipeline/76-multi-source-io-roadmap.md)).""")
 code(r"""g_ms = aiudio.Graph()
 a0, a1 = g_ms.add_source(stream=0), g_ms.add_source(stream=1)   # two input streams
 g_a, g_b = g_ms.add_gain(0.5), g_ms.add_gain(0.25)             # asymmetric → proves routing
@@ -280,7 +280,7 @@ exq2 = aiudio.GraphExecutor(); exq2.compile(ge2, channels=1, sample_rate=SR, max
 print("3-band EQ, +6 dB low shelf → DC gain:", round(float(exq2.process(np.ones((1, 4096), np.float32))[0, -1]), 4))""")
 md(r"""> ⚠️ **Shortcoming.** Still missing from the palette: spectral (STFT/FFT) effects,
 > convolution / algorithmic **reverb**, loudness/true-peak meters, and any **neural** node —
-> those are Tier 2/3 (`docs/78`). Live param control is index-based (`set_param`) rather than
+> those are Tier 2/3 (`docs/pipeline/78`). Live param control is index-based (`set_param`) rather than
 > named setters, and the EQ has no built-in spectrum analyzer (needs the Tier-2 FFT).""")
 
 md(r"""**The rest of the Tier-1 catalog — each verified.** The remaining nodes, exercised one
@@ -694,7 +694,7 @@ Everything the Python layer **cannot** do yet (or does with a caveat), and why:
 
 | Area | Shortcoming | Status / why |
 |---|---|---|
-| **Node library** | **Tier 1 ✅** — generators (oscillator/noise), EQ family (LP/HP/peaking/shelf/raw), dynamics (compressor+lookahead/gate), delay, waveshaper, pan/width, mixer, channel-matrix, DC blocker (+ source/sink/gain/sum/meter/down/up-mix/latency). Missing: spectral/convolution **reverb**, loudness meters, **neural** nodes (Tier 2/3, `docs/78`) | Tier 1 ✅ |
+| **Node library** | **Tier 1 ✅** — generators (oscillator/noise), EQ family (LP/HP/peaking/shelf/raw), dynamics (compressor+lookahead/gate), delay, waveshaper, pan/width, mixer, channel-matrix, DC blocker (+ source/sink/gain/sum/meter/down/up-mix/latency). Missing: spectral/convolution **reverb**, loudness meters, **neural** nodes (Tier 2/3, `docs/pipeline/78`) | Tier 1 ✅ |
 | **Graph introspection / editing** | `nodes()`/`edges()`/`node_type()` read-back **✅**; `disconnect()` + `remove_node()` (tombstone, stable ids) **✅**; add/remove only — no in-place node mutation | ✅ |
 | **Signal generation** | `add_oscillator` (sine/saw/square/tri) + `add_noise` (white/pink) **✅** (Tier 1) — a device with a generator now outputs sound; no file-source *node* yet (use `OfflineBackend`) | ✅ |
 | **Live input** | mic / full-duplex / process-tap backends **✅ bound** (`InputBackend`/`DuplexBackend`/`TapBackend`, M11a) — capture needs mic TCC; taps need a signed binary | ✅ |
@@ -718,7 +718,7 @@ Everything the Python layer **cannot** do yet (or does with a caveat), and why:
 **Why so much is "not yet":** the audio thread must stay C++ and allocation-free
 (ADR-0004), and Phase 0 deliberately built the *spine + control frontend* first. Phases 1–2
 add the differentiable core and the agent on top of exactly the hooks shown above (the
-command queue + the atomic graph swap). See `testing/README.md` and `docs/74`.""")
+command queue + the atomic graph swap). See `testing/README.md` and `docs/pipeline/74`.""")
 
 nb["cells"] = cells
 nb["metadata"]["kernelspec"] = {"display_name": "Python 3", "language": "python", "name": "python3"}

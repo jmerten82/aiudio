@@ -4,7 +4,7 @@
 - **Date:** 2026-06-29
 - **Deciders:** Project owner
 - **Related:** **extends ADR-0009** (graph spine — node contract, executor); ADR-0004 (RT
-  safety). Plan: `docs/76` (multi-source I/O) **Phase A / G9**. Reused by **M9.3** (boundary
+  safety). Plan: `docs/pipeline/76` (multi-source I/O) **Phase A / G9**. Reused by **M9.3** (boundary
   sample-rate conversion) and future lookahead/FFT/neural nodes.
 
 ## Context
@@ -81,7 +81,7 @@ like `BiquadNode`. Feedback cycles remain disallowed (DAG only, ADR-0009).
   executor-owned `DelayLine` is simpler and RT-safe.
 
 ## References
-- ADR-0009; `docs/76` (Phase A / G9), `docs/74` (spine);
+- ADR-0009; `docs/pipeline/76` (Phase A / G9), `docs/pipeline/74` (spine);
   `include/aiudio/graph/{node,delay_line,latency_node}.hpp`, `src/graph/graph_executor.cpp`
   (propagation + compensation), `bindings/aiudio_bindings.cpp`; tests
   `tests/test_graph_latency.cpp`, `testing/python/test_latency.py`.

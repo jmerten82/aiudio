@@ -12,7 +12,7 @@
 // HANDS-ON: macOS prompts for audio-recording permission on first run (the purple
 // dot). Play music in an app, then run this. The example binary embeds
 // NSAudioCaptureUsageDescription and is ad-hoc signed by CMake so the prompt
-// appears (see docs/70 §6).
+// appears (see docs/pipeline/70 §6).
 
 #include <atomic>
 #include <cmath>

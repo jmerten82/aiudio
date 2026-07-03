@@ -1,6 +1,6 @@
 // aiudio-io — minimal WAV file reader/writer (M6). Supports canonical PCM-16 and
 // 32-bit IEEE-float WAV, mono/multi-channel, with a planar float32 block API that
-// matches the engine's buffer convention (docs/73). Not real-time (file I/O); used
+// matches the engine's buffer convention (docs/theory/73). Not real-time (file I/O); used
 // by the offline backend and tooling. (Broader formats via AVFoundation/libsndfile
 // are a future enhancement.)
 #pragma once

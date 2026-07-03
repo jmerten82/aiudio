@@ -5,7 +5,7 @@
 - **Deciders:** Project owner
 - **Related:** **realizes ADR-0008** ("aggregate-then-resample"; one backend per clock) and
   builds on **ADR-0013** (latency reporting) + **ADR-0014** (multi-source manager). Bound by
-  ADR-0004 (RT safety) and ADR-0005 (swappable clock). Plan: `docs/76` (multi-source I/O)
+  ADR-0004 (RT safety) and ADR-0005 (swappable clock). Plan: `docs/pipeline/76` (multi-source I/O)
   **Phase B — M9.3 / M9.5 / M9.6**.
 
 ## Context
@@ -96,7 +96,7 @@ lock-free SPSC ring (ADR-0008 §2).
 
 ## References
 - ADR-0008 (aggregate-then-resample, one-backend-per-clock), ADR-0013 (latency), ADR-0014
-  (manager); `docs/76` Phase B (M9.3/M9.5/M9.6);
+  (manager); `docs/pipeline/76` Phase B (M9.3/M9.5/M9.6);
   `include/aiudio/io/resampler.hpp`, `include/aiudio/graph/drift_compensator.hpp` (M9.5);
   `bindings/aiudio_bindings.cpp`; tests `tests/test_resampler.cpp`,
   `testing/python/test_resampler.py`.

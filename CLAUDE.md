@@ -5,8 +5,10 @@ so it is kept **tight**; depth lives in [`docs/`](docs/). Keep this file and
 [`README.md`](README.md) **current** — see [§9 Living-documents protocol](#9-living-documents-protocol).
 
 > **Last updated:** 2026-07-01 · **Current phase:** Phase 1 — Differentiable core
-> **✅ COMPLETE (D0–D8)**; moving to **Phase 2** (agent control plane). Phase 0 (I/O layer +
-> graph spine) is complete, and the **true multi-source I/O** track (`docs/76`) was implemented
+> **✅ COMPLETE (D0–D8)**; moving to **Phase 2** (agent control plane + visual workbench — plan in
+> [`docs/pipeline/85`](docs/pipeline/85-phase2-agent-workbench-roadmap.md): browser graph editor + grounded LLM
+> companion + agent self-extension). Phase 0 (I/O layer +
+> graph spine) is complete, and the **true multi-source I/O** track (`docs/pipeline/76`) was implemented
 > off-schedule and merged. **Phase 1 (merged, #39–#48):** the optional `aiudio.diff` third
 > executor (PyTorch, off-thread; ADR-0016/0017) runs the *same* `Graph` IR through autograd, with
 > **C++↔torch parity** — auto-mirroring any graph (`param_value`/`node_config`/`sample_rate` +
@@ -16,7 +18,7 @@ so it is kept **tight**; depth lives in [`docs/`](docs/). Keep this file and
 > (write trained params back into the C++ RT graph — round-trip verified), a first **neural node**
 > (torch `nn.Module` as a graph peer, trained jointly with DSP, `torch.export` deploy), and a DDSP
 > `HarmonicSynth` timbre-match exemplar. Roadmap + status:
-> [`docs/79`](docs/79-phase1-differentiable-core-roadmap.md). See [README Roadmap](README.md#roadmap).
+> [`docs/pipeline/79`](docs/pipeline/79-phase1-differentiable-core-roadmap.md). See [README Roadmap](README.md#roadmap).
 
 ---
 
@@ -47,11 +49,11 @@ decision requires a **new superseding ADR** (§10), never a silent divergence.
 | Need | Go to |
 |---|---|
 | Vision, scope, non-goals | `docs/00-vision-and-scope.md` |
-| Research dossier (SOTA) | `docs/10-*` … `docs/60-*` |
-| Architecture & graph engine | `docs/50-architecture-patterns.md` |
-| macOS audio capture | `docs/70-macos-audio-capture-plan.md` |
-| **I/O foundation milestones** | `docs/71-io-layer-milestones.md` |
-| **Differentiable core (Phase 1)** | `docs/79-phase1-differentiable-core-roadmap.md` · `python/aiudio/diff/` |
+| Research dossier (SOTA) | `docs/theory/10-*` … `docs/theory/60-*` |
+| Architecture & graph engine | `docs/theory/50-architecture-patterns.md` |
+| macOS audio capture | `docs/pipeline/70-macos-audio-capture-plan.md` |
+| **I/O foundation milestones** | `docs/pipeline/71-io-layer-milestones.md` |
+| **Differentiable core (Phase 1)** | `docs/pipeline/79-phase1-differentiable-core-roadmap.md` · `python/aiudio/diff/` |
 | References | `docs/90-references.md` |
 | Roadmap & status | `README.md` §Roadmap |
 | **Why** a decision was made | `adr/` (index: `adr/README.md`) |
@@ -109,7 +111,7 @@ These are non-negotiable; violating them is a bug even if it "works":
 
 ## 7. Don't reinvent
 
-Lean on existing, proven pieces (see `docs/10-*`, `docs/30-*`): torchaudio /
+Lean on existing, proven pieces (see `docs/theory/10-*`, `docs/theory/30-*`): torchaudio /
 librosa (analysis), **RTNeural** + **ANIRA** (RT inference), **JUCE** (plugin
 hosting), libsndfile / AVFoundation (file I/O), **Neutone** / **nn~** (deploy &
 interop), Core Audio (macOS I/O). Build the *unification*, not the parts.
@@ -133,7 +135,7 @@ owner.
 
 **Update triggers — in the *same* change that causes them:**
 - **Completed/started a milestone** → tick the box in `README.md` §Roadmap and
-  update the milestone status in `docs/71-*` / `docs/60-*`.
+  update the milestone status in `docs/pipeline/71-*` / `docs/theory/60-*`.
 - **An architecturally-significant decision is made or changed** → write a new
   **ADR** (or supersede one) in `adr/`, and update the `adr/README.md` index +
   the `README.md` ADR table. See §10.
@@ -184,4 +186,4 @@ a **new** one and mark the old `Superseded by ADR-XXXX` — never rewrite histor
   (e.g. capture→gain→playback) over broad horizontal scaffolding.
 - **Verify on the real machine:** this is macOS 26 (Apple Silicon dev box).
   Capture/playback work needs TCC permissions and (for taps) a signed binary —
-  see `docs/70-*` §6.
+  see `docs/pipeline/70-*` §6.

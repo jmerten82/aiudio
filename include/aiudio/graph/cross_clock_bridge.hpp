@@ -16,7 +16,7 @@
 // on B's IOProc thread (SPSC, ADR-0008 §2). It is **not** N sources — that's Phase C; this is
 // the 1-in/1-out stepping stone. All process paths are wait-free (ADR-0004).
 //
-// Naming caution (carried from docs/76): M9.6 "multi-device" = ONE input + ONE output on
+// Naming caution (carried from docs/pipeline/76): M9.6 "multi-device" = ONE input + ONE output on
 // separate clocks, not N sources.
 #pragma once
 

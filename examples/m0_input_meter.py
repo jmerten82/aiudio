@@ -2,7 +2,7 @@
 """M0 spike (2/3): capture an input device and show a live level meter.
 
 Proves the *input* plumbing and the microphone TCC permission flow. Acceptance
-(docs/71 M0): see the meter respond to the chosen input (e.g. the Sennheiser).
+(docs/pipeline/71 M0): see the meter respond to the chosen input (e.g. the Sennheiser).
 
     python examples/m0_input_meter.py --list-devices
     python examples/m0_input_meter.py --device Sennheiser

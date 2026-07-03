@@ -3,12 +3,12 @@
 - **Status:** Accepted
 - **Date:** 2026-07-01
 - **Deciders:** Project owner + Claude Code
-- **Related:** ADR-0016 (differentiable execution), [`docs/79`](../docs/79-phase1-differentiable-core-roadmap.md) (D2),
-  [`docs/20`](../docs/20-differentiable-dsp-and-neural-audio.md) §2.2, `docs/82` (biquad params)
+- **Related:** ADR-0016 (differentiable execution), [`docs/pipeline/79`](../docs/pipeline/79-phase1-differentiable-core-roadmap.md) (D2),
+  [`docs/theory/20`](../docs/theory/20-differentiable-dsp-and-neural-audio.md) §2.2, `docs/cookbooks/82` (biquad params)
 
 ## Context
 
-Phase 1 needs **trainable filters**. But (✓ `docs/20` §2.2) the **recursive structure of IIR /
+Phase 1 needs **trainable filters**. But (✓ `docs/theory/20` §2.2) the **recursive structure of IIR /
 all-pole filters impedes end-to-end autodiff**, and training a direct-form biquad's **raw
 coefficients** is ill-conditioned (the coefficient→response map is non-convex and unstable; small
 coefficient nudges can even push poles outside the unit circle). aiudio's RT filter is the
@@ -36,7 +36,7 @@ not in raw-coefficient space through the time-domain recursion.** Concretely (`a
 
 **Positive**
 - Well-conditioned, stable filter training (log-freq + softplus-Q), sidestepping the direct-form
-  IIR-autodiff instability (`docs/20` §2.2).
+  IIR-autodiff instability (`docs/theory/20` §2.2).
 - Exact bridge to RT: the trained filter *is* a `BiquadNode` (same coefficient math) — closes the
   D6 round-trip for filters.
 - Interpretable params (cutoff/Q/gain) — agent- and human-legible (Phase 2).
@@ -56,7 +56,7 @@ not in raw-coefficient space through the time-domain recursion.** Concretely (`a
 
 ## Alternatives considered
 
-- **Train raw direct-form coefficients** — rejected: ill-conditioned, can go unstable (`docs/20` §2.2).
+- **Train raw direct-form coefficients** — rejected: ill-conditioned, can go unstable (`docs/theory/20` §2.2).
 - **Time-domain recursive training (BPTT through `lfilter`)** — viable but costlier/less stable for
   a pure response-match; deferred to D3 where recursion is the theme (needed for filters *inside* a
   graph forward, not for response matching).
@@ -65,6 +65,6 @@ not in raw-coefficient space through the time-domain recursion.** Concretely (`a
   added later for audio-rate modulation.
 
 ## References
-- [`docs/20`](../docs/20-differentiable-dsp-and-neural-audio.md) §2.2 (IIR autodiff is hard),
-  [`docs/79`](../docs/79-phase1-differentiable-core-roadmap.md) §4/§5 (D2), `docs/82` (biquad design params).
+- [`docs/theory/20`](../docs/theory/20-differentiable-dsp-and-neural-audio.md) §2.2 (IIR autodiff is hard),
+  [`docs/pipeline/79`](../docs/pipeline/79-phase1-differentiable-core-roadmap.md) §4/§5 (D2), `docs/cookbooks/82` (biquad design params).
 - ADR-0016 (differentiable execution + parity harness).

@@ -49,7 +49,7 @@ are peers under one node contract.
 | **Features** | the full node library (generators, EQ, dynamics, delay, saturation, pan/width, routing) · live control · graph edit/introspect · boundary DSP (resample / drift / channel-map) |
 
 **Setup:** `pip install . jupyter matplotlib` (the C++ core builds via scikit-build-core).
-Companion prose reference: [`docs/80`](../docs/80-pipeline-capabilities.md).""")
+Companion prose reference: [`docs/pipeline/80`](../docs/pipeline/80-pipeline-capabilities.md).""")
 
 code(r"""%matplotlib inline
 import numpy as np
@@ -668,8 +668,8 @@ You touched every Phase-0 mode and feature:
 
 **Not yet (Phases 1–2):** differentiable/trainable execution and neural nodes, the LLM agent,
 and Tier-2/3 nodes (reverb, spectral/FFT, loudness, convolution). See the
-[roadmap](../README.md#roadmap), [`docs/78`](../docs/78-node-library-roadmap.md) (node tiers),
-and [`docs/80`](../docs/80-pipeline-capabilities.md) (capabilities reference). The terse
+[roadmap](../README.md#roadmap), [`docs/pipeline/78`](../docs/pipeline/78-node-library-roadmap.md) (node tiers),
+and [`docs/pipeline/80`](../docs/pipeline/80-pipeline-capabilities.md) (capabilities reference). The terse
 feature+shortcomings checklist lives in `testing/notebooks/aiudio_acceptance_walkthrough.ipynb`.""")
 
 nb["cells"] = cells

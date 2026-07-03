@@ -147,7 +147,7 @@ this machine's real devices (default in = **Sennheiser Profile**, default out =
 > **`io::WavRecorder`** records a live block stream to a WAV **off the audio thread**
 > (RT ring → writer thread; ADR-0004), wired into `LiveMultiSource` as
 > `recordToWav()` / `attach_wav_recorder()` — PR #33. The signed **`aiudio-recorder.app`**
-> (mic + system tap → mix → WAV) exercises it end-to-end — PR #34 (`docs/70` §6).
+> (mic + system tap → mix → WAV) exercises it end-to-end — PR #34 (`docs/pipeline/70` §6).
 > M8 ✅ merged (PR #12, == graph **G6**) — **Python bindings** (nanobind `_aiudio`):
 > build/edit a `Graph`, drive a `GraphExecutor` with a **numpy `process()`**, and
 > render via `OfflineBackend`, all from Python. Verified: a Python
@@ -198,7 +198,7 @@ this machine's real devices (default in = **Sennheiser Profile**, default out =
 | M | Deliverable | Acceptance criteria | Est. |
 |---|---|---|---|
 | **M8** | **Python bindings (nanobind)** + graph wiring: `SourceNode`/`SinkNode` in the graph IR (`50-*`); backend drives the RT executor | From Python: `open_duplex(in=Sennheiser, out=Kanto)`, build `source → gain → sink`, hear it live; `open_process_tap("com.spotify.client")` yields numpy blocks in Jupyter | 3–4 d |
-| **M9** | **Robustness** — sample-rate conversion, device hot-plug/disconnect, xrun/underrun policy, drift compensation, channel mapping/routing, multi-device. **Full plan: [`docs/76`](76-multi-source-io-roadmap.md) Phase B** (sub-milestones M9.1–M9.6); it is the *alignment* layer of true multi-source I/O | Survives unplugging the USB interface mid-stream (clean fallback, no crash); SR mismatch (44.1↔48) resampled transparently; mono↔stereo mapping correct | ongoing |
+| **M9** | **Robustness** — sample-rate conversion, device hot-plug/disconnect, xrun/underrun policy, drift compensation, channel mapping/routing, multi-device. **Full plan: [`docs/pipeline/76`](76-multi-source-io-roadmap.md) Phase B** (sub-milestones M9.1–M9.6); it is the *alignment* layer of true multi-source I/O | Survives unplugging the USB interface mid-stream (clean fallback, no crash); SR mismatch (44.1↔48) resampled transparently; mono↔stereo mapping correct | ongoing |
 
 ---
 

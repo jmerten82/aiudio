@@ -1,7 +1,7 @@
 """Trainable filters (Phase 1 · D2, candidate ADR-0018).
 
 Direct-form IIR coefficients have poor gradients, and the recursive structure resists autodiff
-(``docs/20`` §2.2). The well-conditioned workaround: parameterize a biquad by its **design
+(``docs/theory/20`` §2.2). The well-conditioned workaround: parameterize a biquad by its **design
 parameters** (cutoff, Q, gain_dB) — *reparameterized* for optimization (log-frequency,
 softplus-Q) — and train through the **analytic magnitude response** ``|H(e^jω)|`` rather than the
 time-domain recursion. The design→coefficient math is **identical to the C++
@@ -38,7 +38,7 @@ class DiffBiquad(nn.Module):
         super().__init__()
         self.filter_type = filter_type if isinstance(filter_type, FilterType) else FilterType(filter_type)
         self.sample_rate = float(sample_rate)
-        # reparameterized so optimization is well-conditioned (docs/79 §3):
+        # reparameterized so optimization is well-conditioned (docs/pipeline/79 §3):
         self.log_freq = nn.Parameter(torch.tensor(math.log(float(freq)), dtype=dtype))
         self.raw_q = nn.Parameter(torch.tensor(math.log(math.expm1(max(float(q), 1e-3))), dtype=dtype))
         self.gain_db = nn.Parameter(torch.tensor(float(gain_db), dtype=dtype))
@@ -118,7 +118,7 @@ class DiffBiquad(nn.Module):
 def fit_magnitude(model: DiffBiquad, target_mag, freqs_hz, *, steps: int = 500,
                   lr: float = 0.05) -> list[float]:
     """Fit ``model``'s design params to a target magnitude response (log-magnitude MSE). Returns
-    the per-step loss history. The reparameterization keeps this well-conditioned (docs/20 §2.2)."""
+    the per-step loss history. The reparameterization keeps this well-conditioned (docs/theory/20 §2.2)."""
     opt = torch.optim.Adam(model.parameters(), lr=lr)
     target = torch.as_tensor(target_mag, dtype=model.log_freq.dtype)
     history: list[float] = []

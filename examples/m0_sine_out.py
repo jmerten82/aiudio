@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """M0 spike (1/3): play a phase-continuous sine to an output device.
 
-Proves the *output* plumbing. Acceptance (docs/71 M0): hear a clean 440 Hz tone
+Proves the *output* plumbing. Acceptance (docs/pipeline/71 M0): hear a clean 440 Hz tone
 from the chosen output (e.g. the Kanto ORA4).
 
     python examples/m0_sine_out.py --list-devices

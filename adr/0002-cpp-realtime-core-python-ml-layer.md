@@ -3,14 +3,14 @@
 - **Status:** Accepted
 - **Date:** 2026-06-28
 - **Deciders:** Project owner
-- **Related:** `docs/00-vision-and-scope.md` §3.4, `docs/50-architecture-patterns.md` §5
+- **Related:** `docs/00-vision-and-scope.md` §3.4, `docs/theory/50-architecture-patterns.md` §5
 
 ## Context
 
 aiudio must satisfy two conflicting needs: a **real-time-safe** audio engine
 (hard latency, no GC pauses, plugin hosting) and a **research-friendly ML
 workflow** (PyTorch/JAX, fast iteration, the agent). One language optimizes for
-neither end well. The verified landscape (`docs/30-*`) shows the entire
+neither end well. The verified landscape (`docs/theory/30-*`) shows the entire
 production RT-neural ecosystem (RTNeural, ANIRA, JUCE, LibTorch) is C++, while the
 ML/research ecosystem is Python.
 
@@ -43,8 +43,8 @@ cross via a lock-free queue.
 - **Pure Python** — cannot meet hard-real-time; GIL + allocation are disqualifying.
 - **Pure C++** — loses the ML/research velocity and the agent ecosystem.
 - **Rust core** — strong RT + WASM story, but a smaller plugin/DSP/ML-runtime
-  ecosystem; noted as a future alternative, not the path (`docs/10-*` §5).
+  ecosystem; noted as a future alternative, not the path (`docs/theory/10-*` §5).
 
 ## References
 
-- `docs/00-vision-and-scope.md`, `docs/50-architecture-patterns.md` §5, `docs/30-*`.
+- `docs/00-vision-and-scope.md`, `docs/theory/50-architecture-patterns.md` §5, `docs/theory/30-*`.

@@ -2,7 +2,7 @@
 //
 // Ties M1 together end-to-end: a SineSource node, the OfflineDriver "manual pump"
 // (the ADR-0005 offline clock), the conversion helpers, and a tiny WAV writer.
-// This is the shape of the future offline backend (docs/71 M6).
+// This is the shape of the future offline backend (docs/pipeline/71 M6).
 //
 // Run: ./ex_offline_render_wav [out.wav]   then:  afplay out.wav
 

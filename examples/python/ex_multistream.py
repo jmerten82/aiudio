@@ -4,7 +4,7 @@
 The multi-stream executor lets a single graph receive N independent input streams and
 drive M output streams — each SourceNode/SinkNode binds to a stream index, and
 `process_multi([...])` passes one numpy array per input stream and returns one per
-output stream. This is the graph-side foundation for true multi-source I/O (docs/76):
+output stream. This is the graph-side foundation for true multi-source I/O (docs/pipeline/76):
 the live multi-source manager (M10) will feed these streams from N device rings; here
 we feed them from numpy.
 

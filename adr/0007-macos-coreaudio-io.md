@@ -3,14 +3,14 @@
 - **Status:** Accepted
 - **Date:** 2026-06-28
 - **Deciders:** Project owner
-- **Related:** `docs/70-macos-audio-capture-plan.md`, ADR-0005
+- **Related:** `docs/pipeline/70-macos-audio-capture-plan.md`, ADR-0005
 
 ## Context
 
 The first development platform is macOS 26 (verified on the target machine,
-`docs/70-*`). aiudio needs input-device capture, **system-output** capture, and
+`docs/pipeline/70-*`). aiudio needs input-device capture, **system-output** capture, and
 **per-application** capture, plus device playback. macOS has no native loopback
-input. Three options exist for output/per-app capture (verified `docs/70-*`):
+input. Three options exist for output/per-app capture (verified `docs/pipeline/70-*`):
 Core Audio **process taps** (macOS 14.4+), **ScreenCaptureKit**, and virtual
 devices (**BlackHole**). Process taps are native, low-latency, pure-audio,
 per-process, and integrate with the HAL aggregate-device model.
@@ -34,7 +34,7 @@ needed; **BlackHole** is a zero-code prototyping fallback, not the shipping path
 **Negative / costs**
 - Taps require macOS 14.4+ and a **signed binary with
   `NSAudioCaptureUsageDescription`** + TCC approval — a real packaging constraint
-  (`docs/70-*` §6); bare CLI/Python fails silently.
+  (`docs/pipeline/70-*` §6); bare CLI/Python fails silently.
 - Core Audio is C-level and under-documented; budget for the tap setup ceremony.
 - macOS-specific; other platforms need their own backend behind the same
   interface.
@@ -48,5 +48,5 @@ needed; **BlackHole** is a zero-code prototyping fallback, not the shipping path
 
 ## References
 
-- `docs/70-macos-audio-capture-plan.md`; Apple Core Audio taps docs &
+- `docs/pipeline/70-macos-audio-capture-plan.md`; Apple Core Audio taps docs &
   insidegui/AudioCap (`docs/90-references.md`).

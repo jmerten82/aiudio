@@ -3,7 +3,7 @@
 - **Status:** Accepted
 - **Date:** 2026-06-28
 - **Deciders:** Project owner
-- **Related:** `docs/71-io-layer-milestones.md` §1–§2, `docs/70-*`, ADR-0003, ADR-0004
+- **Related:** `docs/pipeline/71-io-layer-milestones.md` §1–§2, `docs/pipeline/70-*`, ADR-0003, ADR-0004
 
 ## Context
 
@@ -38,7 +38,7 @@ deliberately.
   ossify around aiudio owning the device.
 
 **Neutral / follow-ups**
-- Defines the I/O milestone plan (`docs/71-*` M0–M9) and the `AudioBackend` /
+- Defines the I/O milestone plan (`docs/pipeline/71-*` M0–M9) and the `AudioBackend` /
   `RenderCallback` interfaces.
 
 ## Alternatives considered
@@ -50,4 +50,4 @@ deliberately.
 
 ## References
 
-- `docs/71-io-layer-milestones.md`, `docs/70-macos-audio-capture-plan.md`.
+- `docs/pipeline/71-io-layer-milestones.md`, `docs/pipeline/70-macos-audio-capture-plan.md`.

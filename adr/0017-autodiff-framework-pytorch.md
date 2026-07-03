@@ -4,8 +4,8 @@
 - **Date:** 2026-07-01
 - **Deciders:** Project owner + Claude Code
 - **Related:** ADR-0016 (differentiable execution), ADR-0002 (C++ core + Python ML layer),
-  ADR-0006 (runtime-agnostic neural inference), [`docs/79`](../docs/79-phase1-differentiable-core-roadmap.md),
-  [`docs/20`](../docs/20-differentiable-dsp-and-neural-audio.md)
+  ADR-0006 (runtime-agnostic neural inference), [`docs/pipeline/79`](../docs/pipeline/79-phase1-differentiable-core-roadmap.md),
+  [`docs/theory/20`](../docs/theory/20-differentiable-dsp-and-neural-audio.md)
 
 ## Context
 
@@ -13,7 +13,7 @@ ADR-0016 introduces a Python differentiable executor; it needs an **autodiff sub
 a major dependency choice (an ADR trigger per `adr/README.md`). Constraints/forces:
 - The differentiable layer is **Python** (ADR-0002: Python = research/ML). The substrate should be
   a mainstream Python autodiff/tensor library.
-- **Neural-audio gravity** (✓ `docs/20`): DDSP, RAVE, EnCodec/DAC, `auraloss` (multi-resolution
+- **Neural-audio gravity** (✓ `docs/theory/20`): DDSP, RAVE, EnCodec/DAC, `auraloss` (multi-resolution
   STFT loss), NAM, and most neural-audio research are **PyTorch**-first. Interop with that
   ecosystem is a first-order concern for pillars 1 and 3.
 - **Deployment path to RT** (ADR-0006): the RT inference story (RTNeural/ONNX/LibTorch, ANIRA) has
@@ -35,7 +35,7 @@ is unaffected.
 - Direct access to the neural-audio ecosystem: `auraloss`/`torchaudio` losses, DDSP/RAVE-class
   models, pretrained checkpoints, GPU/MPS acceleration.
 - Clean export routes toward RT deployment (TorchScript/ONNX → ADR-0006).
-- float32 tensors match the engine's canonical sample type (`docs/73` §4).
+- float32 tensors match the engine's canonical sample type (`docs/theory/73` §4).
 - Base package stays lightweight; torch is pulled only by those who train.
 
 **Negative / costs**
@@ -59,6 +59,6 @@ is unaffected.
 - **TensorFlow** — weaker fit with the neural-audio research corpus and the C++/export story.
 
 ## References
-- [`docs/20`](../docs/20-differentiable-dsp-and-neural-audio.md) (DDSP/RAVE/codecs/auraloss — PyTorch-centric),
-  [`docs/79`](../docs/79-phase1-differentiable-core-roadmap.md) §3/§7.
+- [`docs/theory/20`](../docs/theory/20-differentiable-dsp-and-neural-audio.md) (DDSP/RAVE/codecs/auraloss — PyTorch-centric),
+  [`docs/pipeline/79`](../docs/pipeline/79-phase1-differentiable-core-roadmap.md) §3/§7.
 - ADR-0016 (differentiable execution), ADR-0002 (Python ML layer), ADR-0006 (RT neural deployment).

@@ -9,7 +9,7 @@ Implemented directly on ``torch.stft`` (no extra dependency — the formula is s
 direct signal matching. All are differentiable (autograd) and shape-agnostic over
 ``[batch, channels, frames]`` or ``[batch, frames]``.
 
-Caveat (`docs/20` §2.1): a multi-res STFT loss is **poor at pitch** — it won't train an
+Caveat (`docs/theory/20` §2.1): a multi-res STFT loss is **poor at pitch** — it won't train an
 oscillator's frequency by naive descent (D8 needs pitch-aware losses / staged training).
 """
 from __future__ import annotations

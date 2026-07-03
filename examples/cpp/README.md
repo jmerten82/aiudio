@@ -105,7 +105,7 @@ sibling info, or just pass a name substring.
    (ring overrun). Record a few seconds, then `afplay capture.wav` to verify.
 
 > The mic permission attaches to the host (Terminal / the binary). See
-> `docs/70-macos-audio-capture-plan.md` §6.
+> `docs/pipeline/70-macos-audio-capture-plan.md` §6.
 
 ## How to test M4 (full-duplex / shared clock — macOS)
 
@@ -146,7 +146,7 @@ system or one process, with no virtual device (ADR-0007).
    **audio-recording (purple-dot) permission prompt** — grant it, then re-run.
    - This binary **embeds `NSAudioCaptureUsageDescription` and is ad-hoc signed**
      by CMake so the prompt appears. A bare unsigned CLI without that key would
-     silently capture nothing — see `docs/70-macos-audio-capture-plan.md` §6.
+     silently capture nothing — see `docs/pipeline/70-macos-audio-capture-plan.md` §6.
    - Then `afplay system.wav` to verify.
 
 ## End-to-end signed recorder — mic + system audio → gain → mix → WAV (`aiudio-recorder.app`)

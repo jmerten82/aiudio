@@ -40,8 +40,8 @@ constraints for the research and the first architecture pass.
 ### 3.1 AI's role — *Hybrid + Agent + ML-workflow* (all three)
 The framework must support traditional DSP and neural models as first-class
 peers, expose an LLM agent control plane, and provide an ML-first development
-workflow (train/fine-tune/deploy). See `40-ai-agents-for-audio.md` and
-`20-differentiable-dsp-and-neural-audio.md`.
+workflow (train/fine-tune/deploy). See `theory/40-ai-agents-for-audio.md` and
+`theory/20-differentiable-dsp-and-neural-audio.md`.
 
 ### 3.2 Domain — *Music production first, plus general audio research*
 Primary target is music production (mixing, mastering, effects, stem
@@ -58,19 +58,21 @@ The engine must support:
   non-causal models permitted.
 
 Configurability between these modes is a first-class design requirement, not a
-fork. See `30-realtime-neural-inference.md`.
+fork. See `theory/30-realtime-neural-inference.md`.
 
 ### 3.4 Implementation — *Python (research/ML) + C++ (real-time core)*
 - **C++** for the real-time-safe audio core, graph engine, and plugin hosting.
 - **Python** for the research/ML layer: model authoring, training, the agent
   orchestration, and high-level scripting.
 - Interop (pybind11/nanobind) and the boundary between the two is itself a
-  design problem. See `50-architecture-patterns.md`.
+  design problem. See `theory/50-architecture-patterns.md`.
 
 ## 4. Non-goals (for v1)
 
-- A full DAW with a timeline/arrangement UI. aiudio is a *framework/engine*,
-  not an end-user DAW (though it could power one).
+- A full DAW with a **timeline/arrangement** UI. aiudio is a *framework/engine*,
+  not an end-user linear arranger (though it could power one). *Note:* a **visual
+  signal-graph editor** in the browser **is in scope** from Phase 2 (see `docs/pipeline/85`) —
+  that's a node/flow workbench over the live engine, not a timeline DAW.
 - Speech-first features (TTS/STT/voice-conversion) as the primary product.
 - Mobile/embedded-only deployment as the first target.
 - Replacing PyTorch/JAX as a general ML framework — aiudio sits *on top of*
@@ -83,31 +85,29 @@ mind:
 
 1. **Real-time neural latency** — most high-quality neural audio models are
    non-causal and/or too slow for <20 ms block processing. Bridging this is the
-   central engineering challenge. (`30-realtime-neural-inference.md`)
+   central engineering challenge. (`theory/30-realtime-neural-inference.md`)
 2. **Differentiable-DSP stability** — making classic DSP blocks differentiable
    and numerically stable enough to train through (filters, feedback, FFT).
-   (`20-differentiable-dsp-and-neural-audio.md`)
+   (`theory/20-differentiable-dsp-and-neural-audio.md`)
 3. **Agent reliability** — getting an LLM to produce *correct, musically sane*
-   graph edits, with verification/guardrails. (`40-ai-agents-for-audio.md`)
+   graph edits, with verification/guardrails. (`theory/40-ai-agents-for-audio.md`)
 4. **Python↔C++ boundary** — real-time safety (no GIL, no allocations, no
-   locks on the audio thread) vs. Python's convenience. (`50-architecture-patterns.md`)
+   locks on the audio thread) vs. Python's convenience. (`theory/50-architecture-patterns.md`)
 5. **Graph engine semantics** — eager vs lazy, push vs pull, static vs dynamic
    graphs; how to support both real-time and differentiable execution from one
-   IR. (`50-architecture-patterns.md`)
+   IR. (`theory/50-architecture-patterns.md`)
 
 ## 6. Document map
 
-| Doc | Contents |
-|---|---|
-| `00-vision-and-scope.md` | *(this file)* vision, locked decisions, non-goals |
-| `10-landscape-and-frameworks.md` | existing frameworks/libraries and their architectures |
-| `20-differentiable-dsp-and-neural-audio.md` | DDSP, RAVE, codecs, separation, neural FX, generation |
-| `30-realtime-neural-inference.md` | latency, streaming models, runtimes, neural-plugin landscape, plugin standards |
-| `40-ai-agents-for-audio.md` | NL-to-DSP, music/audio copilots, tool-use orchestration |
-| `50-architecture-patterns.md` | graph engines, eval models, Python+C++ interop, RT-safe threading |
-| `60-gaps-and-opportunities.md` | what doesn't exist yet; design risks; where aiudio can win |
-| `90-references.md` | consolidated, deduplicated, cited source list |
-| `_research-report.md` | raw synthesized deep-research output (provenance) |
+Docs are organized into three folders (full index: [`docs/README.md`](README.md)):
+
+| Area | Where | Contents |
+|---|---|---|
+| **This file** | `00-vision-and-scope.md` | vision, locked decisions, non-goals |
+| **Theory & research** | [`theory/`](theory/) | the SOTA dossier (`10` landscape · `20` differentiable/neural audio · `30` RT neural inference · `40` AI agents · `50` architecture patterns · `60` gaps) + fundamentals primers (`73` digital-audio encoding · `75` how ADCs/DACs work) |
+| **Pipeline** | [`pipeline/`](pipeline/) | implementation plans, milestones, capabilities, phase roadmaps (`70`–`80`, `85`) — incl. the I/O layer, graph spine, node library, Phase 1 (differentiable core) and Phase 2 (agent workbench) roadmaps |
+| **Cookbooks** | [`cookbooks/`](cookbooks/) | runnable recipe guides (`81` topologies · `82` nodes · `83` live control · `84` differentiable/trainable graphs) |
+| **References** | `90-references.md` · `_research-report.md` | consolidated cited source list + raw deep-research provenance |
 
 ---
 

@@ -2,7 +2,7 @@
 
 Throwaway Python spikes that prove macOS audio **permissions + device plumbing**
 end-to-end before any C++ is written. They are milestone **M0** of the I/O layer
-([`docs/71-io-layer-milestones.md`](../docs/71-io-layer-milestones.md)) and are
+([`docs/pipeline/71-io-layer-milestones.md`](../docs/pipeline/71-io-layer-milestones.md)) and are
 intentionally *not* part of the framework — the real I/O layer is the C++
 `aiudio-io` library (M1+).
 
@@ -15,7 +15,7 @@ pip install -r examples/requirements.txt
 
 `sounddevice` bundles PortAudio, which uses Core Audio on macOS. PortAudio does
 **device I/O only** — it cannot do system/per-app process taps (that's why the
-real layer is Core Audio in C++; see `docs/70-*`).
+real layer is Core Audio in C++; see `docs/pipeline/70-*`).
 
 ## The three spikes
 
@@ -43,6 +43,6 @@ for s in sine_out input_meter passthrough; do python examples/m0_$s.py --self-te
 ## Notes / gotchas
 
 - **First run prompts for microphone access** (the input + passthrough spikes).
-  The prompt attaches to the host (Terminal / your Python). See `docs/70-*` §6.
+  The prompt attaches to the host (Terminal / your Python). See `docs/pipeline/70-*` §6.
 - **Use headphones for passthrough** — open speakers + open mic will feed back.
-- Acceptance criteria for M0 are in `docs/71-io-layer-milestones.md` §3.
+- Acceptance criteria for M0 are in `docs/pipeline/71-io-layer-milestones.md` §3.

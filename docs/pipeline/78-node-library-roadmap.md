@@ -75,7 +75,7 @@ graph peer; and a DDSP synth exemplar matches a target timbre. **RT deployment**
 
 | Node | What | Status |
 |---|---|---|
-| Trainable filters | differentiable-friendly form | ✅ Phase 1 · D2 — `DiffBiquad`: design-param + **frequency-domain magnitude** training (`docs/20`: direct-form IIR has poor gradients); coeffs export to the C++ `BiquadNode` (ADR-0018) |
+| Trainable filters | differentiable-friendly form | ✅ Phase 1 · D2 — `DiffBiquad`: design-param + **frequency-domain magnitude** training (`docs/theory/20`: direct-form IIR has poor gradients); coeffs export to the C++ `BiquadNode` (ADR-0018) |
 | DDSP synth (harmonic + filtered noise) | the canonical differentiable additive model | ✅ Phase 1 · D8 — `aiudio.diff.HarmonicSynth`, timbre match via multi-res STFT (learned reverb → later) |
 | `NeuralNode` wrapper | a torch model as a first-class node | ◑ Phase 1 · D7 — trains as a graph peer + `torch.export` deploy path; **RT inference** (streaming/cached-conv, RTNeural/ANIRA/LibTorch — ADR-0006) is **Phase 3**. C++ node is an identity placeholder for now. |
 | Codec node (EnCodec/DAC) | encode/decode to RVQ tokens | ⬜ Phase 4 — unlocks LLM/token workflows |
@@ -98,7 +98,7 @@ graph peer; and a DDSP synth exemplar matches a target timbre. **RT deployment**
 ---
 
 ## Alignment with existing plans
-- Extends `docs/74` (graph spine G1–G7) and the README **Phase 1 — differentiable core**
+- Extends `docs/pipeline/74` (graph spine G1–G7) and the README **Phase 1 — differentiable core**
   ("classic DSP nodes … as differentiable peers"). Tier 1 delivers the *classic* nodes; Tier 3
   makes them differentiable + adds neural peers.
 - Honours ADR-0003/0009 (node contract), ADR-0004 (RT safety), ADR-0006 (runtime-agnostic

@@ -5,7 +5,7 @@
 - **Deciders:** Project owner
 - **Related:** ADR-0002 (C++ RT core + Python research/control layer), ADR-0004 (the
   audio thread is sacred), ADR-0005 (one duplex callback, swappable clock), ADR-0009
-  (graph spine — recompile + atomic swap). Plan: `docs/74-graph-spine-milestones.md`
+  (graph spine — recompile + atomic swap). Plan: `docs/pipeline/74-graph-spine-milestones.md`
   (G7). Builds on G6's nanobind bindings.
 
 ## Context
@@ -100,7 +100,7 @@ backends (M3–M5) are bindable the same way later but are out of scope here. ma
   where a single scalar suffices).
 
 ## References
-- ADR-0002/0004/0005/0009; `docs/74-graph-spine-milestones.md` (G7);
+- ADR-0002/0004/0005/0009; `docs/pipeline/74-graph-spine-milestones.md` (G7);
   `include/aiudio/io/ring_buffer.hpp` (the SPSC mechanism), `bindings/aiudio_bindings.cpp`
   (`DeviceBackend`, `set_*`, telemetry), `examples/python/ex_live_control.py`,
   `notebooks/aiudio_pipeline_tour.ipynb` §7–§8.

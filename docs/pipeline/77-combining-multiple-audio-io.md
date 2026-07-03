@@ -4,7 +4,7 @@
 > outputs inside one pipeline is genuinely difficult — the independent hazards, how they
 > compound, why naïve approaches fail, and the architectural principles that tame them.
 > Companion to the [multi-source I/O plan](76-multi-source-io-roadmap.md) and the
-> [digital-audio-encoding primer](73-digital-audio-encoding.md).
+> [digital-audio-encoding primer](../theory/73-digital-audio-encoding.md).
 >
 > The audio-engineering facts here are established domain knowledge; references to
 > **aiudio**'s own design are ✓ grounded in this repo (ADR-0004/0005/0008/0009).
@@ -127,7 +127,7 @@ Even setting drift aside, real sources rarely agree on representation:
   **147:160**, which needs a real polyphase FIR (or a good library): it costs CPU, adds
   **latency** (filter group delay), and — done cheaply — adds aliasing/imaging artifacts.
 - **Bit depth / encoding.** int16, int24-packed, int32, float32; each must be converted to
-  the engine's working format (aiudio uses planar float32, ✓ `docs/73`). Conversions are
+  the engine's working format (aiudio uses planar float32, ✓ `docs/theory/73`). Conversions are
   cheap but must be exact and consistent (clipping, dither, byte order).
 - **Interleaving.** Devices hand you interleaved frames (`L R L R …`); most engines process
   **planar** (per-channel) buffers. De/re-interleaving at every edge.
@@ -135,7 +135,7 @@ Even setting drift aside, real sources rarely agree on representation:
   with different channel counts forces decisions — upmix, downmix, channel selection, a
   routing matrix — and an engine whose buffers are a *fixed* channel width can't even
   *represent* a source of a different width without a change to its core (✓ exactly the
-  "per-port channel count" extension aiudio's `docs/76` Phase A scopes).
+  "per-port channel count" extension aiudio's `docs/pipeline/76` Phase A scopes).
 - **Block size.** One device delivers 512-frame buffers, another 256, a software tap a
   variable size, a plugin host whatever it likes. The engine wants a fixed block, so you
   must **re-block** (accumulate and re-chunk), which adds buffering and latency.
@@ -161,7 +161,7 @@ alignment.
 So a serious multi-I/O engine needs:
 - **Per-path latency reporting** — every source, resampler, and node declares how many
   frames it delays the signal. (✓ aiudio's node contract has no latency field *yet* — it's
-  the G9 prerequisite in `docs/76`.)
+  the G9 prerequisite in `docs/pipeline/76`.)
 - **Delay compensation** — the engine delays the *shorter* paths so everything recombines in
   phase. DAWs call this **PDC (plug-in delay compensation)**; getting it right across a graph
   with feedback-free but latency-varying branches is fiddly bookkeeping.
@@ -240,7 +240,7 @@ That requires:
 
 And it is **hard to test**: reproducing "USB yanked at sample 2,000,000" reliably needs
 either physical hardware in the loop or a mocked device layer that can inject "device died"
-events. (✓ aiudio's `docs/76`/`testing` plan calls out building exactly such a mock backend.)
+events. (✓ aiudio's `docs/pipeline/76`/`testing` plan calls out building exactly such a mock backend.)
 
 ---
 
@@ -260,7 +260,7 @@ can't be filled or drained in time** — and the behavior must be real-time-safe
   is independent (its own ring, its own clock handling).
 
 With multiple sources, the **failure modes multiply**, and the policy has to make each one
-independent and recoverable. (✓ this is aiudio's M9.1 "xrun/underrun policy," `docs/76`
+independent and recoverable. (✓ this is aiudio's M9.1 "xrun/underrun policy," `docs/pipeline/76`
 Phase B.)
 
 ---
@@ -332,7 +332,7 @@ of these — see the references.)
 9. **Abstract the platform** behind one callback + swappable backend, and pay each OS's price
    inside the backend (✓ ADR-0005).
 10. **A multi-source *manager*** owns the N-backends/N-rings/one-clock coordination as an
-    explicit component, rather than scattering it (✓ the `docs/76` M10 manager).
+    explicit component, rather than scattering it (✓ the `docs/pipeline/76` M10 manager).
 
 Honor those, and the parts that remain hard — drift compensation, latency bookkeeping,
 hot-plug recovery — are bounded, well-understood problems with known solutions, instead of an
@@ -362,9 +362,9 @@ underneath, the hard problems are each solved in their own place.
 - aiudio decisions: ADR-0004 (RT safety), ADR-0005 (one duplex callback, swappable clock),
   ADR-0008 (multi-input: per-source rings, aggregate/resample, mixing-is-a-node),
   ADR-0009 (graph spine).
-- aiudio plans: [`docs/76`](76-multi-source-io-roadmap.md) (the multi-source roadmap that
-  applies these principles), [`docs/73`](73-digital-audio-encoding.md) (formats/latency/
-  channels primer), [`docs/71`](71-io-layer-milestones.md) (the I/O layer).
+- aiudio plans: [`docs/pipeline/76`](76-multi-source-io-roadmap.md) (the multi-source roadmap that
+  applies these principles), [`docs/theory/73`](../theory/73-digital-audio-encoding.md) (formats/latency/
+  channels primer), [`docs/pipeline/71`](71-io-layer-milestones.md) (the I/O layer).
 - Concepts to read further: Core Audio aggregate devices & drift compensation; word clock /
   AES/ADAT sync; polyphase sample-rate conversion (44.1↔48 = 147:160); JACK's graph model;
   plug-in delay compensation (PDC); wait-free SPSC ring buffers.

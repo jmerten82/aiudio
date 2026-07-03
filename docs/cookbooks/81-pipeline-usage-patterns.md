@@ -4,8 +4,8 @@
 > pipeline, along each design axis (**offline ↔ live**, **one ↔ many sources**, **single ↔
 > multiple clocks**, **live ↔ recorded output**), with **complete C++ and Python** for each.
 > Grounded in merged code (**✓ Verified** unless noted). This is the "how to assemble a
-> topology" doc; for the per-function API see [`docs/80`](80-pipeline-capabilities.md), for the
-> *why* see the ADRs, for the io primitives see [`docs/72`](72-m1-aiudio-io-reference.md).
+> topology" doc; for the per-function API see [`docs/pipeline/80`](../pipeline/80-pipeline-capabilities.md), for the
+> *why* see the ADRs, for the io primitives see [`docs/pipeline/72`](../pipeline/72-m1-aiudio-io-reference.md).
 
 ---
 
@@ -76,7 +76,7 @@ your own variants should too. This *is* "what you need to know to implement a pa
    stream count).
 6. **Platform / permissions?** Live device I/O is **macOS-only** (Core Audio). The mic needs the
    microphone TCC grant; the process **tap** needs `NSAudioCaptureUsageDescription` **and** a code
-   signature (see [`docs/70`](70-macos-audio-capture-plan.md) §6). Offline + numpy paths are
+   signature (see [`docs/pipeline/70`](../pipeline/70-macos-audio-capture-plan.md) §6). Offline + numpy paths are
    cross-platform.
 
 Conventions in the code below: audio is **planar float32**, shape `(channels, frames)`; `SR` is
@@ -163,7 +163,7 @@ feed the **multi-stream** executor, write the mix. This is the offline analogue 
   block *per input stream*, all the **same frame count**; readers hit EOF at different times, so
   **pad short blocks to the block size** and stop when *every* reader is empty. Bind
   `SourceNode(k)` to input stream `k`. Files must share a sample rate (resample at the boundary
-  first if not — `Resampler`, `docs/80` §10).
+  first if not — `Resampler`, `docs/pipeline/80` §10).
 
 **Python**
 ```python
@@ -417,7 +417,7 @@ the speakers.
   each source its `source_rate` (used as the nominal resample ratio); watch per-source telemetry
   (`source_ratio/fill/underruns/overruns`). Each device's IOProc is a *separate producer thread*;
   the master IOProc is the single consumer — the rings make that safe (SPSC). Real N-device drift
-  over long runs is the one hardware-tuning question ([`docs/76`](76-multi-source-io-roadmap.md)).
+  over long runs is the one hardware-tuning question ([`docs/pipeline/76`](../pipeline/76-multi-source-io-roadmap.md)).
 
 **Python**
 ```python
@@ -527,7 +527,7 @@ for the RT rules the engine callback must honor.
   constructor, reuse every block — it's the single producer of its own scratch). The tap runs on a
   *different* thread than the mic IOProc: `tap.push` on the tap thread, `tap.pull` on the mic
   thread — SPSC-safe. Permissions: mic TCC **and** a **signed binary** with
-  `NSAudioCaptureUsageDescription` for the tap (`docs/70` §6). This has **no Python equivalent**:
+  `NSAudioCaptureUsageDescription` for the tap (`docs/pipeline/70` §6). This has **no Python equivalent**:
   the tap requires a signed native binary, which the interpreter isn't — so the engine lives in
   C++. (Python drives the *output-master* variants — Patterns 5/6.)
 
@@ -587,7 +587,7 @@ micBackend.stop(); tapBackend.stop(); recorder.stop();    // recorder drains + f
 ```
 
 > The full, signed, argument-parsing version is `examples/cpp/ex_record_mic_tap.cpp` → packaged as
-> `aiudio-recorder.app`. See `examples/cpp/README.md` and `docs/70` §6.
+> `aiudio-recorder.app`. See `examples/cpp/README.md` and `docs/pipeline/70` §6.
 
 ---
 
@@ -620,7 +620,7 @@ inline and needs no ring.
   pops (Patterns 6–7).
 
 Ring depth is `ring_frames` (default 8192 frames ≈ 171 ms per source; 48000 ≈ 1 s for the
-recorder), rounded up to a power of two internally; see [`docs/80`](80-pipeline-capabilities.md)
+recorder), rounded up to a power of two internally; see [`docs/pipeline/80`](../pipeline/80-pipeline-capabilities.md)
 for sizing.
 
 ## Appendix C — RT-safety checklist
@@ -641,11 +641,11 @@ engine like `MicTapEngine` — must obey ADR-0004:
 
 ## Appendix D — Cross-references
 
-- **Per-function API + more recipes:** [`docs/80`](80-pipeline-capabilities.md).
+- **Per-function API + more recipes:** [`docs/pipeline/80`](../pipeline/80-pipeline-capabilities.md).
 - **io primitives** (`RingBuffer`, `AudioBuffer`, `RenderCallback`, `AudioBackend`, `WavRecorder`):
-  [`docs/72`](72-m1-aiudio-io-reference.md), [`docs/71`](71-io-layer-milestones.md).
-- **Multi-source / cross-clock design + status:** [`docs/76`](76-multi-source-io-roadmap.md).
-- **macOS capture, taps, permissions & signing:** [`docs/70`](70-macos-audio-capture-plan.md) §6.
+  [`docs/pipeline/72`](../pipeline/72-m1-aiudio-io-reference.md), [`docs/pipeline/71`](../pipeline/71-io-layer-milestones.md).
+- **Multi-source / cross-clock design + status:** [`docs/pipeline/76`](../pipeline/76-multi-source-io-roadmap.md).
+- **macOS capture, taps, permissions & signing:** [`docs/pipeline/70`](../pipeline/70-macos-audio-capture-plan.md) §6.
 - **Why (decisions):** ADR-0004 (audio thread sacred), ADR-0005 (one callback, swappable clock),
   ADR-0008 (per-source rings, aggregate-then-resample), ADR-0009 (one IR, many backends),
   ADR-0014 (multi-source manager), ADR-0015 (boundary resampling + drift).

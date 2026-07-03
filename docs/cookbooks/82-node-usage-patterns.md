@@ -3,11 +3,11 @@
 > **Last updated:** 2026-06-30 · **Scope:** how to *use the nodes* — typical DSP chains and
 > idioms built from the graph's node library, explained with runnable **C++ and Python**.
 > Grounded in the merged node library (**✓ Verified**). This is the "what to wire together"
-> companion to the per-node catalog in [`docs/80`](80-pipeline-capabilities.md) §4, the roadmap
-> in [`docs/78`](78-node-library-roadmap.md), and the *topology* cookbook in
-> [`docs/81`](81-pipeline-usage-patterns.md) (clocks/sources/output). Here the clock is
+> companion to the per-node catalog in [`docs/pipeline/80`](../pipeline/80-pipeline-capabilities.md) §4, the roadmap
+> in [`docs/pipeline/78`](../pipeline/78-node-library-roadmap.md), and the *topology* cookbook in
+> [`docs/cookbooks/81`](81-pipeline-usage-patterns.md) (clocks/sources/output). Here the clock is
 > irrelevant — every example is shown as a plain `ex.process(block)`; drop the same graph into
-> any backend from `docs/81` unchanged.
+> any backend from `docs/cookbooks/81` unchanged.
 
 ---
 
@@ -60,7 +60,7 @@ combinations.
 
 Conventions below: `import aiudio as a` (Python), `namespace aiudio` (C++); `SR` = sample rate.
 Each example builds a `Graph`, compiles a `GraphExecutor`, and runs one block via
-`ex.process(...)` — the same graph runs live/offline unchanged (see `docs/81`).
+`ex.process(...)` — the same graph runs live/offline unchanged (see `docs/cookbooks/81`).
 
 ---
 
@@ -601,10 +601,10 @@ Convenience: `set_gain` (Gain), `set_cutoff`/`set_q` (Biquad).
 
 ## Appendix — Cross-references
 
-- **Per-node catalog + factories:** [`docs/80`](80-pipeline-capabilities.md) §4.
-- **Node-library roadmap (tiers, planned nodes):** [`docs/78`](78-node-library-roadmap.md).
-- **Topology patterns (clocks/sources/output — where to run these graphs):** [`docs/81`](81-pipeline-usage-patterns.md).
+- **Per-node catalog + factories:** [`docs/pipeline/80`](../pipeline/80-pipeline-capabilities.md) §4.
+- **Node-library roadmap (tiers, planned nodes):** [`docs/pipeline/78`](../pipeline/78-node-library-roadmap.md).
+- **Topology patterns (clocks/sources/output — where to run these graphs):** [`docs/cookbooks/81`](81-pipeline-usage-patterns.md).
 - **Node contract, executor, live-control queue:** ADR-0009 (graph IR), ADR-0010 (control plane),
-  [`docs/50`](50-architecture-patterns.md), [`docs/74`](74-graph-spine-milestones.md).
+  [`docs/theory/50`](../theory/50-architecture-patterns.md), [`docs/pipeline/74`](../pipeline/74-graph-spine-milestones.md).
 - **Runnable examples:** `examples/python/ex_graph_numpy.py`, `ex_live_control.py`;
   `examples/cpp/ex_build_graph.cpp`, `ex_run_graph_offline.cpp`.

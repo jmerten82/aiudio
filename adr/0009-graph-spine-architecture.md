@@ -5,7 +5,7 @@
 - **Deciders:** Project owner
 - **Related:** ADR-0003 (hybrid graph / one IR / node contract — this *concretizes*
   it), ADR-0004 (RT safety), ADR-0005 (duplex callback / swappable clock),
-  ADR-0008 (multi-input). Plan: `docs/74-graph-spine-milestones.md`.
+  ADR-0008 (multi-input). Plan: `docs/pipeline/74-graph-spine-milestones.md`.
 
 ## Context
 
@@ -42,7 +42,7 @@ graph**, not just one node — no new backend work is needed for the spine.
 form** (for persistence + the agent) is designed-for but **deferred**.
 
 **4. Execution model: compile once to a static topological schedule, run eagerly
-per block.** Single sample rate, block-based, planar float32 (per `docs/73`).
+per block.** Single sample rate, block-based, planar float32 (per `docs/theory/73`).
 Topology is **static between recompiles** — the audio thread never mutates the
 graph. **DAG only**; feedback cycles (which need explicit unit-delay nodes) are
 deferred.
@@ -85,7 +85,7 @@ the spine executor is eager/RT only.
   and a reason to build the spine *before* more backends.
 
 **Neutral / follow-ups**
-- `docs/74` sequences the build (G1–G6); G6 is the Python-bindings step
+- `docs/pipeline/74` sequences the build (G1–G6); G6 is the Python-bindings step
   (= I/O M8). Differentiable executor is a Phase-1 ADR over the same IR.
 
 ## Alternatives considered
@@ -102,6 +102,6 @@ the spine executor is eager/RT only.
   Phase-1 executor over the same IR (ADR-0003 keeps the contract ready for it).
 
 ## References
-- ADR-0003/0004/0005/0008; `docs/50-architecture-patterns.md` §1–§3 (graph-engine
-  design axes), `docs/73-digital-audio-encoding.md` (buffer format),
-  `docs/74-graph-spine-milestones.md` (the plan).
+- ADR-0003/0004/0005/0008; `docs/theory/50-architecture-patterns.md` §1–§3 (graph-engine
+  design axes), `docs/theory/73-digital-audio-encoding.md` (buffer format),
+  `docs/pipeline/74-graph-spine-milestones.md` (the plan).

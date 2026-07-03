@@ -2,7 +2,7 @@
 """M0 spike (3/3): full-duplex passthrough — input straight to output.
 
 Proves the *duplex* path on one clock (input + output in a single callback) — the
-precursor to real-time effects. Acceptance (docs/71 M0): talk into the input and
+precursor to real-time effects. Acceptance (docs/pipeline/71 M0): talk into the input and
 hear yourself from the output with no audible dropouts at 48 kHz / 128 frames.
 
     python examples/m0_passthrough.py --device-in Sennheiser --device-out Kanto

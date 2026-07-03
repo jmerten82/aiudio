@@ -5,7 +5,7 @@ The Phase-1 capstone. A differentiable harmonic + filtered-noise synth (`Harmoni
 additive model) learns the **spectral envelope** of a target sound by gradient descent on the
 multi-resolution STFT loss — the ML-first workflow end to end (build → loss → train → metrics).
 
-Pitch is fixed (a multi-res STFT loss is poor at pitch — docs/20 §2.1); the synth learns *timbre*
+Pitch is fixed (a multi-res STFT loss is poor at pitch — docs/theory/20 §2.1); the synth learns *timbre*
 at a known f0, which is exactly what the loss is good at. A perceptual metric (CLAP embedding
 distance) is the Phase-2 hook noted below.
 

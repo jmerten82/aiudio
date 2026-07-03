@@ -4,7 +4,7 @@ Waveshaper (tanh/softclip = FULL; hardclip = straight-through SURROGATE) and the
 DcBlocker (per-frame scan). Both auto-mirror the graph via the introspection enabler (shape /
 corner_hz / sample_rate read from the IR — no init_params). Verifies parity + gradients.
 (Stateful Compressor/Gate + feedback Delay need careful differentiable-envelope/BPTT work → a
-D3 follow-up; see docs/79.)
+D3 follow-up; see docs/pipeline/79.)
 
 Gated on PyTorch.
 """

@@ -3,13 +3,13 @@
 - **Status:** Accepted
 - **Date:** 2026-06-28
 - **Deciders:** Project owner
-- **Related:** `docs/30-*` §2–§3, ADR-0004, ADR-0003
+- **Related:** `docs/theory/30-*` §2–§3, ADR-0004, ADR-0003
 
 ## Context
 
 Neural nodes vary enormously in cost: a small amp-model runs per-block in
 microseconds; a RAVE-class synth or separator cannot meet a 2.7 ms inline budget.
-Verified (`docs/30-*`, ✓): **RTNeural** runs small models RT-safe *inline* by
+Verified (`docs/theory/30-*`, ✓): **RTNeural** runs small models RT-safe *inline* by
 pre-allocating all memory; **ANIRA** runs heavy models by **decoupling inference
 to a static thread pool** off the audio callback, and proves **one RT-safe layer
 can wrap multiple ML runtimes (LibTorch / ONNX Runtime / TFLite)** selectable at
@@ -54,4 +54,4 @@ chosen per node.
 
 ## References
 
-- `docs/30-*`, RTNeural (arXiv:2106.03037), ANIRA (arXiv:2506.12665) — `docs/90-references.md`.
+- `docs/theory/30-*`, RTNeural (arXiv:2106.03037), ANIRA (arXiv:2506.12665) — `docs/90-references.md`.

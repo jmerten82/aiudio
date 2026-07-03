@@ -1,7 +1,7 @@
 // Example / hands-on test for M3 + the M1 ring buffer working together: capture
 // mic input on the audio thread and ferry it to the main thread via a lock-free
 // SPSC RingBuffer, which records it to a WAV file. This is the canonical
-// "input IOProc → ring buffer → consumer" pattern (docs/71 M3, ADR-0004).
+// "input IOProc → ring buffer → consumer" pattern (docs/pipeline/71 M3, ADR-0004).
 //
 //   ./ex_capture_to_ringbuffer --device Sennheiser --seconds 5 capture.wav
 //   afplay capture.wav

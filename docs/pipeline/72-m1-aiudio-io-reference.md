@@ -277,7 +277,7 @@ into.
 > (M6, Python-bound), `Resampler` + `DriftCompensator` + `ResamplingSource` (M9.3/M9.5),
 > `map_channels` (M9.2), and **`io::WavRecorder`** — a live WAV recorder built on the
 > `RingBuffer` (§3.5): the audio thread pushes blocks, a writer thread drains them to a
-> `WavWriter` off-thread (ADR-0004). See `docs/71` and `docs/80` for the current io surface.
+> `WavWriter` off-thread (ADR-0004). See `docs/pipeline/71` and `docs/pipeline/80` for the current io surface.
 
 ## 10. Acceptance status (vs `71-*` M1)
 
