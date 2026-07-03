@@ -101,12 +101,18 @@ Proposed ──▶ Accepted ──▶ Deprecated
 | [0016](0016-differentiable-execution-strategy.md) | Differentiable execution — a Python/PyTorch executor over the same IR (Phase 1, D0; dual node face + parity harness + differentiability status) | Accepted | 2026-07-01 |
 | [0017](0017-autodiff-framework-pytorch.md) | Autodiff framework — PyTorch, as the optional `aiudio[diff]` extra | Accepted | 2026-07-01 |
 | [0018](0018-trainable-filter-form.md) | Trainable-filter form — reparameterized design params (log-freq/softplus-Q) + magnitude-response training + design→biquad export (resolves docs/theory/20 §2.2; Phase 1 D2) | Accepted | 2026-07-01 |
+| [0019](0019-visual-workbench-architecture.md) | Visual workbench — localhost server (FastAPI/WS) + React Flow browser control frontend (Phase 2 · A2/B) | Accepted | 2026-07-03 |
+| [0020](0020-graph-edit-action-space.md) | Graph-edit action space & protocol — one typed edit substrate (UI + agent + wire) + append-only action log + graph↔JSON (Phase 2 · A0) | Accepted | 2026-07-03 |
+| [0021](0021-capability-manifest-grounding.md) | Capability manifest — registry-introspected node/param descriptors as the single grounding source for UI + agent (Phase 2 · A1) | Accepted | 2026-07-03 |
+| [0022](0022-agent-runtime-and-consent-policy.md) | Agent runtime & human-in-the-loop policy — grounded Claude tool-use; RT-invasive changes require active notify + explicit confirm; structure-by-LLM/params-by-gradient (Phase 2 · C) | Accepted | 2026-07-03 |
+| [0023](0023-personal-node-registry.md) | Personal node registry & isolation — local git-ignored plugin dir, reusable, never auto-merged, promote→PR (Phase 2 · D0) | Accepted | 2026-07-03 |
+| [0024](0024-rt-safety-gate-and-plugin-abi.md) | RT-safety gate & node-plugin loading ABI — automatic pre-flight enforcing ADR-0004 on authored code; off-thread dlopen + RCU insertion (Phase 2 · D2) | Accepted | 2026-07-03 |
 
 ### Backlog (decisions to record when made)
-- Agent control-plane design (LLM-orchestrates-structure + differentiable param tuning) — currently *research direction* in `docs/theory/40-*`, promote to an ADR when locked (it will build on ADR-0010's queue + atomic-swap hooks).
 - Plugin format priority (VST3 vs CLAP vs AU) for first release.
 - Open-source **license** choice.
-- Graph IR serialization format.
+- *(Agent control-plane design (LLM-orchestrates-structure + differentiable param tuning): now **[ADR-0022](0022-agent-runtime-and-consent-policy.md)**, Accepted — Phase 2.)*
+- *(Graph IR serialization format: now folded into **[ADR-0020](0020-graph-edit-action-space.md)** (graph↔JSON), Accepted — Phase 2.)*
 - *(Multi-source manager clocking (M10): now **[ADR-0014](0014-multi-source-manager.md)**, Accepted.)*
 - *(G10 multi-stream executor: now **[ADR-0011](0011-multi-stream-executor.md)**, Accepted.)*
 - *(G8 per-port channel counts: now **[ADR-0012](0012-per-port-channel-counts.md)**, Accepted.)*
