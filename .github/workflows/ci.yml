@@ -53,9 +53,10 @@ jobs:
       - name: Install package + dev deps
         run: |
           python -m pip install --upgrade pip
-          # .[diff] pulls PyTorch (ADR-0017) so the differentiable-layer tests (D0+) run in CI
-          # rather than skip; the base package itself needs no torch.
-          python -m pip install ".[diff]" -r testing/python/requirements-dev.txt
+          # .[diff] pulls PyTorch (ADR-0017) for the differentiable-layer tests; .[workbench] pulls
+          # FastAPI (ADR-0019) for the Phase-2 server tests — so both run in CI rather than skip.
+          # The base package itself needs neither.
+          python -m pip install ".[diff,workbench]" -r testing/python/requirements-dev.txt
           python -m ipykernel install --user --name python3
       - name: Lint (ruff)
         run: ruff check python bindings examples testing
