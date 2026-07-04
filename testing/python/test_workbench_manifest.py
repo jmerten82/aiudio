@@ -70,6 +70,22 @@ def test_mixer_params_scale_with_inputs():
     assert [d["name"] for d in g_params] == ["gain[0]", "gain[1]"]
 
 
+def test_manifest_includes_construction_defaults():
+    m = wb.capability_manifest()["kinds"]
+    assert m["gain"]["defaults"] == {"gain": 1.0}          # a factory that requires args
+    assert "freq" in m["biquad_peaking"]["defaults"]
+    assert m["compressor"]["defaults"] == {}               # all-default factory
+
+
+def test_add_any_kind_via_manifest_defaults():
+    # the "add node" path (B1): manifest defaults let you construct even required-arg factories
+    m = wb.capability_manifest()["kinds"]
+    s = wb.GraphSession()
+    for kind in ("gain", "biquad_peaking", "channel_matrix", "compressor", "source"):
+        s.add_node(kind, dict(m[kind]["defaults"]))
+    assert len(s.to_document()["nodes"]) == 5
+
+
 def test_param_issues():
     assert wb.param_issues("compressor", 1, 4.0) == []       # ratio in range
     assert wb.param_issues("compressor", 99, 0.0)            # unknown index

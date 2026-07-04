@@ -1,3 +1,4 @@
+import type { ClientMessage } from './actions'
 import type { ServerMessage } from './types'
 
 // Minimal WebSocket client to the aiudio server (A2). B0 is read-only, so it only receives
@@ -12,4 +13,9 @@ export function connect(
   ws.onclose = () => onStatus?.(false)
   ws.onmessage = (event) => onMessage(JSON.parse(event.data) as ServerMessage)
   return ws
+}
+
+/** Send a client message if the socket is open (no-op otherwise). */
+export function send(ws: WebSocket | null, message: ClientMessage): void {
+  if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(message))
 }

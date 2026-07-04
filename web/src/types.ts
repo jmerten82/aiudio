@@ -18,6 +18,7 @@ export interface NodeManifest {
   params: ParamDescriptor[]
   config: Record<string, number>
   realtime_capable: boolean
+  defaults: Record<string, unknown> // constructor args for "add this node"
 }
 
 export interface Manifest {

@@ -10,8 +10,29 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; c
 .app__status { font-size: 12px; padding: 2px 8px; border-radius: 10px; }
 .app__status--on { background: #d6f5df; color: #12602c; }
 .app__status--off { background: #f5d6d6; color: #7a1414; }
+.app__header button { font-size: 12px; padding: 2px 10px; cursor: pointer; }
 .app__count { margin-left: auto; font-size: 12px; color: #666; }
-.app__canvas { flex: 1; min-height: 0; }
+.app__error { font-size: 12px; color: #7a1414; cursor: pointer; }
+.app__body { flex: 1; min-height: 0; display: flex; }
+.app__canvas { flex: 1; min-width: 0; }
+
+.panel { width: 190px; overflow-y: auto; padding: 10px 12px; border-left: 1px solid #e2e2e2;
+  background: #fafafa; font-size: 13px; }
+.palette { border-left: none; border-right: 1px solid #e2e2e2; }
+.panel h3 { font-size: 13px; margin: 0 0 8px; }
+.muted { color: #888; font-size: 12px; }
+.palette__list { display: flex; flex-direction: column; gap: 4px; }
+.palette__item { text-align: left; padding: 4px 8px; border: 1px solid #ccc; border-radius: 4px;
+  background: #fff; cursor: pointer; font-size: 12px; }
+.palette__item:hover { background: #eef4fb; border-color: #1256a0; }
+
+.inspector .field { display: flex; flex-direction: column; gap: 3px; margin-bottom: 10px; }
+.field__name { font-size: 12px; color: #333; }
+.field__row { display: flex; align-items: center; gap: 6px; }
+.field__row input[type="range"] { flex: 1; }
+.field__num { width: 64px; }
+.inspector .danger { margin-top: 8px; color: #7a1414; border: 1px solid #d99; background: #fff;
+  border-radius: 4px; padding: 4px 8px; cursor: pointer; }
 
 .aiudio-node {
   min-width: 120px; padding: 6px 10px; border: 1px solid #8a8a8a; border-radius: 6px;
