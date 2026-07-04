@@ -54,9 +54,22 @@ class SetParam:
     OP: ClassVar[str] = "set_param"
 
 
-Action = Union[AddNode, RemoveNode, Connect, Disconnect, SetParam]
+@dataclass(frozen=True)
+class SetPosition:
+    """UI-layout only: where a node sits on the canvas. Persisted in the document (B2) so a layout
+    survives reload and is shared across clients; it has no effect on the audio graph."""
 
-_CLASSES: dict[str, type] = {c.OP: c for c in (AddNode, RemoveNode, Connect, Disconnect, SetParam)}
+    id: int
+    x: float
+    y: float
+    OP: ClassVar[str] = "set_position"
+
+
+Action = Union[AddNode, RemoveNode, Connect, Disconnect, SetParam, SetPosition]
+
+_CLASSES: dict[str, type] = {
+    c.OP: c for c in (AddNode, RemoveNode, Connect, Disconnect, SetParam, SetPosition)
+}
 
 
 def to_dict(action: Action) -> dict:

@@ -59,6 +59,32 @@ export default function App() {
     send(wsRef.current, message)
   }, [])
 
+  // Debounce set_param so dragging a slider coalesces to ~one message per param per 40 ms.
+  const paramTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
+  const emitSetParam = useCallback((node: number, index: number, value: number) => {
+    const key = `${node}:${index}`
+    clearTimeout(paramTimers.current[key])
+    paramTimers.current[key] = setTimeout(() => emit(A.setParam(node, index, value)), 40)
+  }, [emit])
+
+  const onNodeDragStop = useCallback((_e: unknown, node: Node) => {
+    emit(A.setPosition(Number(node.id), node.position.x, node.position.y)) // persist layout
+  }, [emit])
+
+  const saveGraph = useCallback(() => {
+    const blob = new Blob([JSON.stringify(doc, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'aiudio-graph.json'
+    a.click()
+    URL.revokeObjectURL(url)
+  }, [doc])
+
+  const loadGraph = useCallback((file: File) => {
+    file.text().then((text) => emit(A.loadDocument(JSON.parse(text)))).catch((e) => setError(String(e)))
+  }, [emit])
+
   const onConnect = useCallback((c: Connection) => {
     emit(A.connectNodes(Number(c.source), handlePort(c.sourceHandle),
                         Number(c.target), handlePort(c.targetHandle)))
@@ -92,6 +118,11 @@ export default function App() {
         </span>
         <button onClick={() => emit(A.undo())}>Undo</button>
         <button onClick={() => emit(A.redo())}>Redo</button>
+        <button onClick={saveGraph}>Save</button>
+        <label className="app__load">Load
+          <input type="file" accept="application/json" style={{ display: 'none' }}
+                 onChange={(e) => e.target.files?.[0] && loadGraph(e.target.files[0])} />
+        </label>
         <span className="app__count">{doc.nodes.length} nodes · {doc.edges.length} edges</span>
         {error && <span className="app__error" onClick={() => setError(null)}>⚠ {error}</span>}
       </header>
@@ -102,6 +133,7 @@ export default function App() {
             nodes={nodes} edges={edges} nodeTypes={nodeTypes}
             onNodesChange={onNodesChange} onEdgesChange={onEdgesChange}
             onConnect={onConnect} onNodesDelete={onNodesDelete} onEdgesDelete={onEdgesDelete}
+            onNodeDragStop={onNodeDragStop}
             onSelectionChange={({ nodes: sel }) => setSelected(sel[0] ? Number(sel[0].id) : null)}
             fitView
           >
@@ -112,7 +144,7 @@ export default function App() {
         <Inspector
           node={selectedNode}
           manifest={selectedNode ? manifest?.kinds[selectedNode.node] ?? null : null}
-          onSetParam={(index, value) => selected !== null && emit(A.setParam(selected, index, value))}
+          onSetParam={(index, value) => selected !== null && emitSetParam(selected, index, value)}
           onRemove={() => selected !== null && emit(A.removeNode(selected))}
         />
       </div>

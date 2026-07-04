@@ -25,8 +25,14 @@ describe('action builders (wire contract)', () => {
     expect(A.removeNode(3).action).toEqual({ op: 'remove_node', id: 3 })
   })
 
-  it('undo / redo are bare messages', () => {
+  it('set_position uses id/x/y', () => {
+    expect(A.setPosition(2, 10, 20).action).toEqual({ op: 'set_position', id: 2, x: 10, y: 20 })
+  })
+
+  it('undo / redo are bare messages; load carries a document', () => {
     expect(A.undo()).toEqual({ type: 'undo' })
     expect(A.redo()).toEqual({ type: 'redo' })
+    const doc = { nodes: [], edges: [] }
+    expect(A.loadDocument(doc)).toEqual({ type: 'load', doc })
   })
 })

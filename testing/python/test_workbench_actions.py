@@ -31,6 +31,7 @@ def test_available_kinds_covers_the_library():
     wb.Connect(0, 0, 1, 0),
     wb.Disconnect(0, 0, 1, 0),
     wb.SetParam(2, 1, 4.0),
+    wb.SetPosition(2, 10.0, 20.0),
 ])
 def test_action_dict_roundtrip(action):
     assert wb.from_dict(wb.to_dict(action)) == action
@@ -128,6 +129,16 @@ def test_undo_redo():
     s.undo()
     s.add_node("meter")
     assert not s.redo()
+
+
+def test_set_position_persists_in_the_document():
+    s = wb.GraphSession()
+    gn = s.add_node("gain", {"gain": 1.0})
+    s.set_position(gn, 42.0, 7.0)
+    node = s.to_document()["nodes"][0]
+    assert node["position"] == [42.0, 7.0]
+    # survives a JSON round-trip
+    assert wb.GraphSession.from_json(s.to_json()).to_document()["nodes"][0]["position"] == [42.0, 7.0]
 
 
 def test_remove_node_drops_it_from_the_document():

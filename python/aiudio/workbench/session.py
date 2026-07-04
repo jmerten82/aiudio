@@ -24,6 +24,7 @@ from .actions import (
     Disconnect,
     RemoveNode,
     SetParam,
+    SetPosition,
     from_dict,
     to_dict,
 )
@@ -101,6 +102,12 @@ class GraphSession:
                         f"node {action.node} ({record.kind}) has no param index {action.index}")
             record.params[action.index] = action.value
             return True
+        if isinstance(action, SetPosition):
+            record = self._nodes.get(action.id)
+            if record is None:
+                raise ValueError(f"set_position on unknown node {action.id}")
+            record.position = (action.x, action.y)
+            return True
         raise TypeError(f"unknown action: {action!r}")
 
     # ---- convenience wrappers ---------------------------------------------------- #
@@ -120,6 +127,9 @@ class GraphSession:
 
     def set_param(self, node: int, index: int, value: float) -> bool:
         return self.apply(SetParam(node, index, value))
+
+    def set_position(self, node: int, x: float, y: float) -> bool:
+        return self.apply(SetPosition(node, x, y))
 
     # ---- undo / redo / replay ---------------------------------------------------- #
 
