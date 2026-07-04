@@ -98,6 +98,40 @@ def test_ws_load_replaces_the_graph():
         assert state["doc"]["nodes"][0]["position"] == [1, 2]
 
 
+class _MockAgentClient:
+    """Scripted LLM client: adds a gain, then replies — proves the chat flow without an API key."""
+
+    def create(self, **kwargs):
+        if not getattr(self, "_done", False):
+            self._done = True
+            return {"stop_reason": "tool_use", "content": [
+                {"type": "tool_use", "id": "a", "name": "add_node", "input": {"node": "gain", "args": {"gain": 1.0}}}]}
+        return {"stop_reason": "end_turn", "content": [{"type": "text", "text": "Added a gain."}]}
+
+
+def test_ws_chat_runs_the_agent_and_broadcasts():
+    client = TestClient(create_app(agent_client=_MockAgentClient()))
+    with client.websocket_connect("/ws") as ws:
+        _drain_initial(ws)
+        ws.send_json({"type": "chat", "message": "add a gain"})
+        reply = ws.receive_json()
+        assert reply["type"] == "agent" and reply["text"] == "Added a gain."
+        assert len(reply["applied"]) == 1
+        graph = ws.receive_json()                                    # broadcast of the new graph
+        assert [n["node"] for n in graph["doc"]["nodes"]] == ["gain"]
+
+
+def test_ws_chat_without_agent_reports_unavailable():
+    # no agent client injected and no key/SDK → a graceful error, not a crash
+    import os
+    if os.environ.get("ANTHROPIC_API_KEY"):
+        pytest.skip("a real key is present — the agent would actually be available")
+    with TestClient(create_app()).websocket_connect("/ws") as ws:
+        _drain_initial(ws)
+        ws.send_json({"type": "chat", "message": "hi"})
+        assert ws.receive_json()["type"] == "error"
+
+
 def test_two_clients_share_one_graph():
     app = create_app()
     client = TestClient(app)
