@@ -7,7 +7,35 @@ from __future__ import annotations
 
 import pytest
 
+import aiudio as a
 from aiudio import workbench as wb
+
+
+def test_every_descriptor_is_self_consistent():
+    # for ALL described nodes: named, indexed, and default within its own suggested range
+    for kind, entry in wb.capability_manifest()["kinds"].items():
+        for d in entry["params"]:
+            assert d["name"], f"{kind}: unnamed descriptor {d}"
+            assert d["index"] >= 0
+            assert d["min"] <= d["default"] <= d["max"], (
+                f"{kind}.{d['name']}: default {d['default']} outside [{d['min']}, {d['max']}]")
+
+
+def test_descriptor_defaults_match_real_node_defaults():
+    # the descriptor `default` must equal the node's actual value after compile (smoothed params
+    # settle). Covers every node with a canonical construction default AND a paramValue impl.
+    # Excluded: biquads (no arg-free default — q/freq/gain_db are factory-set UI suggestions);
+    # stereo_width/oscillator/noise (paramValue not yet implemented — introspection-enabler follow-up).
+    man = wb.capability_manifest()["kinds"]
+    for kind in ("gain", "pan", "waveshaper", "delay", "compressor", "gate", "mixer"):
+        g = a.Graph()
+        args = {"gain": 1.0} if kind == "gain" else {}
+        nid = getattr(g, "add_" + kind)(**args)
+        assert a.GraphExecutor().compile(g, channels=2, sample_rate=48000.0, max_block=128)
+        for d in man[kind]["params"]:
+            got = g.param_value(nid, d["index"])
+            assert abs(got - d["default"]) < 1e-3, (
+                f"{kind}.{d['name']}: descriptor default {d['default']} != node value {got}")
 
 
 def test_manifest_covers_the_palette():
