@@ -78,6 +78,14 @@ def test_ws_bad_action_errors_without_mutating():
         assert ws.receive_json()["doc"]["nodes"] == []
 
 
+def test_serves_static_frontend_when_given(tmp_path):
+    (tmp_path / "index.html").write_text("<!doctype html><title>aiudio</title>")
+    client = TestClient(create_app(static_dir=str(tmp_path)))
+    assert client.get("/api/health").json()["status"] == "ok"      # API still wins
+    root = client.get("/")
+    assert root.status_code == 200 and "aiudio" in root.text        # SPA served at /
+
+
 def test_two_clients_share_one_graph():
     app = create_app()
     client = TestClient(app)
