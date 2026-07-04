@@ -132,6 +132,27 @@ def test_ws_chat_without_agent_reports_unavailable():
         assert ws.receive_json()["type"] == "error"
 
 
+def test_ws_tune_optimizes_and_broadcasts():
+    pytest.importorskip("torch")                     # tuning needs the differentiable extra
+    import numpy as np
+
+    from aiudio import workbench as wb
+    s = wb.GraphSession()
+    src, gn, snk = s.add_node("source"), s.add_node("gain", {"gain": 1.0}), s.add_node("sink")
+    s.connect(src, 0, gn, 0)
+    s.connect(gn, 0, snk, 0)
+    x = np.random.default_rng(0).standard_normal((1, 256)).astype(np.float32)
+    with TestClient(create_app(session=s)).websocket_connect("/ws") as ws:
+        _drain_initial(ws)
+        ws.send_json({"type": "tune", "input": x.tolist(), "target": (x * 0.3).tolist(),
+                      "steps": 250, "lr": 0.05})
+        tuned = ws.receive_json()
+        assert tuned["type"] == "tuned" and tuned["loss_after"] < tuned["loss_before"]
+        graph = ws.receive_json()                    # broadcast of the tuned graph
+        gain_node = next(n for n in graph["doc"]["nodes"] if n["id"] == gn)
+        assert abs(gain_node["params"]["0"] - 0.3) < 1e-2
+
+
 def test_two_clients_share_one_graph():
     app = create_app()
     client = TestClient(app)

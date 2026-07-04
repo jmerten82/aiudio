@@ -125,6 +125,25 @@ def create_app(session: wb.GraphSession | None = None, static_dir: str | None = 
         await ws.send_json({"type": "agent", "text": result.text, "applied": result.applied})
         await app.state.manager.broadcast({"type": "graph", "doc": app.state.session.to_document()})
 
+    async def _handle_tune(ws: WebSocket, message: dict) -> None:
+        """Tune the graph's parameters to match a target render (C2, params-by-gradient). Runs the
+        differentiable layer off-thread under the session lock, then broadcasts the tuned graph."""
+        try:
+            async with app.state.lock:
+                stats = await asyncio.to_thread(
+                    wb.tune_to_target, app.state.session, message["input"], message["target"],
+                    steps=int(message.get("steps", 300)), lr=float(message.get("lr", 0.05)),
+                    sample_rate=float(message.get("sample_rate", 48000.0)))
+        except ModuleNotFoundError:
+            await ws.send_json({"type": "error",
+                                "message": 'tuning needs the differentiable layer — install "aiudio[diff]"'})
+            return
+        except (ValueError, KeyError, TypeError) as exc:
+            await ws.send_json({"type": "error", "message": f"tune failed: {exc}"})
+            return
+        await ws.send_json({"type": "tuned", **stats})
+        await app.state.manager.broadcast({"type": "graph", "doc": app.state.session.to_document()})
+
     @app.websocket("/ws")
     async def ws_endpoint(ws: WebSocket) -> None:
         manager = app.state.manager
@@ -136,6 +155,9 @@ def create_app(session: wb.GraphSession | None = None, static_dir: str | None = 
                 message = await ws.receive_json()
                 if message.get("type") == "chat":
                     await _handle_chat(ws, message)
+                    continue
+                if message.get("type") == "tune":
+                    await _handle_tune(ws, message)
                     continue
                 try:
                     async with app.state.lock:

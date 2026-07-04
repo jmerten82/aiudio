@@ -22,6 +22,7 @@ from .actions import (
 )
 from .manifest import capability_manifest, node_manifest, param_issues
 from .session import GraphSession, NodeRecord, available_kinds
+from .tuning import tune_to_target
 
 __all__ = [
     "Action",
@@ -39,4 +40,5 @@ __all__ = [
     "capability_manifest",
     "node_manifest",
     "param_issues",
+    "tune_to_target",
 ]
