@@ -194,8 +194,10 @@ aiudio/
 ├── src/io/, src/graph/    ← library implementations
 ├── bindings/              ← nanobind Python bindings (_aiudio module)
 ├── python/aiudio/         ← Python package (control frontend)
-│   └── diff/              ← optional differentiable layer (`aiudio[diff]`, PyTorch): executor,
-│                            node registry, filters, losses, trainer, DDSP synth, parity harness
+│   ├── diff/              ← optional differentiable layer (`aiudio[diff]`, PyTorch): executor,
+│   │                        node registry, filters, losses, trainer, DDSP synth, parity harness
+│   └── workbench/         ← Phase 2 workbench substrate: typed graph-edit action space + log
+│                            + graph↔JSON (ADR-0020); the UI/agent/wire contract
 ├── tests/                 ← C++ unit tests (CTest) + Python binding tests
 ├── testing/               ← test strategy (testing/README.md) + cross-cutting tests + run.sh
 ├── pyproject.toml         ← `pip install .` (scikit-build-core + nanobind)
