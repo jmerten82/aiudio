@@ -16,7 +16,8 @@
 > "talk to it" complete.** **C2 done** (`tune_to_target` — the graph tunes its own params to a
 > target render via the Phase-1 differentiable layer; server `tune` message). ✅ **Release R4 "it
 > tunes itself" — engine complete** (CLAP metric + UI target-upload + autonomous agent loop are
-> noted follow-ups). Next: **R5** (D0–D3, agent self-extension). Locked scope decisions below. The audio-thread invariant (ADR-0004) is
+> noted follow-ups). Next: **R5** (D0–D3, agent self-extension) — detailed plan in
+> [`docs/pipeline/86`](86-r5-self-extension-plan.md). Locked scope decisions below. The audio-thread invariant (ADR-0004) is
 > **never** relaxed — the self-extension path
 > *enforces* it on generated code (workstream D), and **no invasive change to the live RT audio
 > thread is ever applied without active user notification + explicit confirmation** (§5.1a).

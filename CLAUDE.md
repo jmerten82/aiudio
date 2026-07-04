@@ -4,12 +4,17 @@ Guidance for Claude Code (and humans) working in this repo. Loaded every session
 so it is kept **tight**; depth lives in [`docs/`](docs/). Keep this file and
 [`README.md`](README.md) **current** — see [§9 Living-documents protocol](#9-living-documents-protocol).
 
-> **Last updated:** 2026-07-03 · **Current phase:** Phase 2 — agent control plane + visual
-> workbench (Phase 1 differentiable core **✅ COMPLETE, D0–D8**). **Phase 2 kicked off:** milestone
-> **K done** — scope locked + **ADRs 0019–0024 accepted**; next **A0** (typed graph-edit action
-> space + graph↔JSON) → **A1** (capability manifest). Plan:
-> [`docs/pipeline/85`](docs/pipeline/85-phase2-agent-workbench-roadmap.md) (browser graph editor +
-> grounded LLM companion + agent self-extension). Phase 0 (I/O layer +
+> **Last updated:** 2026-07-04 · **Current phase:** Phase 2 — agent control plane + visual
+> workbench (Phase 1 differentiable core **✅ COMPLETE, D0–D8**). **Phase 2: 4 of 5 releases shipped
+> (K + A0–A2 + B0–B2 + C0–C2, PRs #50–#60).** `aiudio.workbench` (typed action space + log +
+> graph↔JSON + capability manifest, ADR-0020/0021), `aiudio.server` (localhost FastAPI/WebSocket
+> bridge, `aiudio[workbench]`, ADR-0019), `web/` (React + React Flow editor — see/edit by hand:
+> add/connect/tune/delete, undo, drag-layout, save/load), `aiudio.agent` (grounded Claude tool-use
+> over the action space, `aiudio[agent]`, ADR-0022), and `workbench.tune_to_target` (the graph
+> tunes its own params to a target via the Phase-1 diff layer). **Remaining: R5** — agent
+> self-extension (D0–D3, authoring new nodes; RT-safety gate ADR-0024). Plans:
+> [`docs/pipeline/85`](docs/pipeline/85-phase2-agent-workbench-roadmap.md) (Phase 2) ·
+> [`docs/pipeline/86`](docs/pipeline/86-r5-self-extension-plan.md) (R5 detail). Phase 0 (I/O layer +
 > graph spine) is complete, and the **true multi-source I/O** track (`docs/pipeline/76`) was implemented
 > off-schedule and merged. **Phase 1 (merged, #39–#48):** the optional `aiudio.diff` third
 > executor (PyTorch, off-thread; ADR-0016/0017) runs the *same* `Graph` IR through autograd, with

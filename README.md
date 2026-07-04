@@ -17,8 +17,14 @@ offline use.
 > through autograd — the full DSP node library is differentiable, with losses + a
 > trainer, parameter-match against a target, a round-trip that writes trained params
 > back into the C++ real-time graph, a first neural node, and a DDSP synth exemplar
-> (D0–D8, [`docs/pipeline/79`](docs/pipeline/79-phase1-differentiable-core-roadmap.md)). Next: Phase 2
-> (agent control plane). **Last updated:** 2026-07-01.
+> (D0–D8, [`docs/pipeline/79`](docs/pipeline/79-phase1-differentiable-core-roadmap.md)).
+> **Phase 2 (agent control plane & visual workbench) in progress — 4 of 5 releases shipped:** a
+> browser **React + React Flow** graph editor you can drive by hand *or* by natural language via a
+> **grounded LLM companion**, over a **localhost FastAPI/WebSocket** server and one typed action
+> space, and it **tunes its own parameters** to a target via the differentiable layer (R1 see it ·
+> R2 edit it · R3 talk to it · R4 it tunes itself). Remaining: **R5** — agent **self-extension**
+> (authoring new nodes). Plan: [`docs/pipeline/85`](docs/pipeline/85-phase2-agent-workbench-roadmap.md).
+> **Last updated:** 2026-07-04.
 
 ---
 
@@ -148,14 +154,14 @@ status — **kept current as we go**.
 - [x] DDSP exemplar — `HarmonicSynth` matches a target timbre via the STFT loss (D8).
 - [x] Process-tap & offline/file backends (I/O M5–M6) *(M5 ✅ taps; M6 ✅ offline/file backend — both merged)*
 
-### Phase 2 — Agent control plane & visual workbench *(the differentiator)*
-> **Plan:** [`docs/pipeline/85-phase2-agent-workbench-roadmap.md`](docs/pipeline/85-phase2-agent-workbench-roadmap.md) — a browser **visual graph editor** + a **grounded LLM companion** + **agent self-extension** (authoring new nodes), all driving one live engine through one typed action space, grounded in one capability manifest. Ships as five releases (R1 see it · R2 edit it · R3 talk to it · R4 it tunes itself · R5 it extends itself). Local desktop; React + React Flow; full-RT authored nodes behind a mandatory RT-safety gate; personal nodes in a local registry.
-- [ ] Typed graph-edit action space (`add_node`/`connect`/`set_param`/…) — the shared substrate for UI, agent, and API (+ undo/replay action log)
-- [ ] Visual workbench in the browser — see the full graph (nodes/params/metering) and **edit it by hand**
-- [ ] Grounded LLM companion — design/change the graph in natural language, grounded in the real capability manifest
-- [ ] LLM orchestrates structure; differentiable layer (`match_target`) tunes parameters
-- [ ] Render → measure (CLAP/loudness/spectral) → self-correct loop
-- [ ] Agent self-extension — author new (full-RT, gated) nodes into a local personal registry, reusable thereafter
+### Phase 2 — Agent control plane & visual workbench *(the differentiator — 4 of 5 releases shipped)*
+> **Plan:** [`docs/pipeline/85-phase2-agent-workbench-roadmap.md`](docs/pipeline/85-phase2-agent-workbench-roadmap.md) — a browser **visual graph editor** + a **grounded LLM companion** + **agent self-extension** (authoring new nodes), all driving one live engine through one typed action space, grounded in one capability manifest. Ships as five releases (R1 see it · R2 edit it · R3 talk to it · R4 it tunes itself · R5 it extends itself). Local desktop; React + React Flow; full-RT authored nodes behind a mandatory RT-safety gate; personal nodes in a local registry. **R5 detailed plan:** [`docs/pipeline/86`](docs/pipeline/86-r5-self-extension-plan.md).
+- [x] Typed graph-edit action space (`add_node`/`connect`/`set_param`/…) — the shared substrate for UI, agent, and API + undo/replay log + capability manifest *(A0/A1 — `aiudio.workbench`)*
+- [x] Visual workbench in the browser — see the full graph and **edit it by hand** (add/connect/tune/delete, undo, drag-layout, save/load) *(A2/B0–B2 — `aiudio.server` + `web/`)*
+- [x] Grounded LLM companion — change the graph in natural language, grounded in the real capability manifest *(C0/C1 — `aiudio.agent`)*
+- [x] LLM orchestrates structure; differentiable layer (`match_target`) tunes parameters *(C2 — `workbench.tune_to_target`)*
+- [x] Render → measure → self-correct loop *(C2 engine; multi-res STFT — a CLAP perceptual metric + autonomous loop are follow-ups)*
+- [ ] **R5** — agent self-extension: author new (full-RT, gated) nodes into a local personal registry, reusable thereafter *(D0–D3; plan in `docs/pipeline/86`)*
 
 ### Phase 3 — Real-time productionization
 - [ ] C++ RT executor: inline + off-thread pooled neural nodes
