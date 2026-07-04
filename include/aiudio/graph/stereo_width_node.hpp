@@ -17,6 +17,10 @@ public:
 
     explicit StereoWidthNode(float width = 1.0f) noexcept : widthInit_(width) {}
 
+    [[nodiscard]] std::vector<ParamDescriptor> paramDescriptors() const override {
+        return {{kWidth, "width", 0.0, 2.0, 1.0, ""}};
+    }
+
     void setParam(std::uint32_t index, float value) noexcept override {
         if (index == kWidth) width_.setTarget(value < 0.0f ? 0.0f : value);
     }

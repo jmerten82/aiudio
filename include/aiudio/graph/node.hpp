@@ -20,6 +20,18 @@ namespace aiudio::graph {
 using io::AudioBuffer;
 using io::TimeInfo;
 
+/// Describes one control parameter (a `setParam` index) for the capability manifest (ADR-0021):
+/// human name, suggested UI range, type default, and unit. `min`/`max` are *UI suggestions* for
+/// editor sliders + range validation — nodes still clamp internally where they need to.
+struct ParamDescriptor {
+    std::uint32_t index;
+    std::string name;
+    double min;
+    double max;
+    double default_value;
+    std::string unit;  // "dB" | "Hz" | "ms" | "linear" | "ratio" | "frames" | "" …
+};
+
 class Node {
 public:
     virtual ~Node() = default;
@@ -59,6 +71,13 @@ public:
     /// a biquad's filter type, a DC-blocker's corner…) as (name, value) pairs — enums as their
     /// integer value. Introspection for the differentiable layer (ADR-0016). Default: none.
     [[nodiscard]] virtual std::vector<std::pair<std::string, double>> config() const {
+        return {};
+    }
+
+    /// Per-parameter descriptors (name / suggested range / default / unit) for each `setParam`
+    /// index — the grounding source for the capability manifest (ADR-0021), consumed by the UI
+    /// palette + the agent. Off-thread introspection only. Default: none (no live parameters).
+    [[nodiscard]] virtual std::vector<ParamDescriptor> paramDescriptors() const {
         return {};
     }
 

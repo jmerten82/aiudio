@@ -18,6 +18,13 @@ public:
         : numInputs_(numInputs == 0 ? 1 : numInputs), gains_(numInputs_), gainInit_(gain) {}
 
     /// param index = input port number → that input's gain.
+    [[nodiscard]] std::vector<ParamDescriptor> paramDescriptors() const override {
+        std::vector<ParamDescriptor> d;
+        for (std::uint32_t i = 0; i < numInputs(); ++i)
+            d.push_back({i, "gain[" + std::to_string(i) + "]", 0.0, 2.0, 1.0, "linear"});
+        return d;
+    }
+
     void setParam(std::uint32_t index, float value) noexcept override {
         if (index < numInputs_) gains_[index].setTarget(value);
     }

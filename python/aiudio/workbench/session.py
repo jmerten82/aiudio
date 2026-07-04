@@ -53,11 +53,12 @@ def available_kinds() -> list[str]:
 class GraphSession:
     """A live `Graph` plus the action log that built it."""
 
-    def __init__(self) -> None:
+    def __init__(self, validate: bool = True) -> None:
         self.graph = aiudio.Graph()
         self._nodes: dict[int, NodeRecord] = {}
         self.log: list[Action] = []
         self._redo: list[Action] = []
+        self._validate = validate       # reject set_param on an undeclared param index (A1 grounding)
 
     # ---- apply ------------------------------------------------------------------ #
 
@@ -92,6 +93,12 @@ class GraphSession:
             record = self._nodes.get(action.node)
             if record is None:
                 raise ValueError(f"set_param on unknown node {action.node}")
+            if self._validate:
+                # ground the index in the node's real parameter descriptors (A1 / ADR-0021)
+                declared = {int(d["index"]) for d in self.graph.param_descriptors(action.node)}
+                if declared and action.index not in declared:
+                    raise ValueError(
+                        f"node {action.node} ({record.kind}) has no param index {action.index}")
             record.params[action.index] = action.value
             return True
         raise TypeError(f"unknown action: {action!r}")

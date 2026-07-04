@@ -19,6 +19,7 @@ from .actions import (
     from_dict,
     to_dict,
 )
+from .manifest import capability_manifest, node_manifest, param_issues
 from .session import GraphSession, NodeRecord, available_kinds
 
 __all__ = [
@@ -33,4 +34,7 @@ __all__ = [
     "GraphSession",
     "NodeRecord",
     "available_kinds",
+    "capability_manifest",
+    "node_manifest",
+    "param_issues",
 ]
