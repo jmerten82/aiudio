@@ -11,8 +11,9 @@
 > ADR-0021); **A2 done** (`aiudio.server` bridge); **B0 done** (`web/` — React + React Flow
 > read-only view over the WS). **B1 done** (hand editing over the WS). **B2 done** (layout
 > persistence via a `set_position` action, save/load a graph as JSON, param-drag debounce).
-> ✅ **Release R2 "edit it" complete.** Next: **C0/C1** (the agent companion) → Release R3 "talk to
-> it". Locked scope decisions below. The audio-thread invariant (ADR-0004) is
+> ✅ **Release R2 "edit it" complete.** **C0 done** (`aiudio.agent` — grounded Claude tool-use over
+> the action space + consent gate; mock-tested loop). Next: **C1** (wire the agent into the UI as a
+> companion) → Release R3 "talk to it". Locked scope decisions below. The audio-thread invariant (ADR-0004) is
 > **never** relaxed — the self-extension path
 > *enforces* it on generated code (workstream D), and **no invasive change to the live RT audio
 > thread is ever applied without active user notification + explicit confirmation** (§5.1a).
@@ -200,7 +201,7 @@ Four workstreams (A platform · B UI · C agent · D self-extension) + a kickoff
 | **B0** ✅ | Read-only graph view | `web/` — React + React Flow (TS/Vite) app connects to `/ws`, renders the manifest-driven graph (nodes/ports/edges + current param values), reconciles from broadcasts. Pure `documentToFlow` transform (unit-tested); optional static-served by the backend (`--static web/dist`). *(Live metering rides the telemetry channel — a follow-up.)* | A2 |
 | **B1** ✅ | Hand editing | Palette add (manifest `defaults`) · drag-to-connect · delete node/edge · manifest-driven param sliders · undo/redo — all emitted as actions over the WS, server-authoritative (broadcast → `reconcile` preserving local layout). Server errors surfaced; connection validation from the backend. | B0 |
 | **B2** ✅ | Workbench UX | **Layout persistence** (a `set_position` action → positions saved in the document, durable + shared), **save/load** a graph as JSON (via `load` msg → `from_document`), **param-drag debounce**, error banner. *(subgraph grouping + metering/PDC viz deferred — the latter needs the telemetry channel.)* | B1 |
-| **C0** ⬜ | Grounded agent tools | Claude tool-use bound to the action space; system context from the manifest (A1); read-back/inspect tools. | A1, A0 |
+| **C0** ✅ | Grounded agent tools | `aiudio.agent` (`aiudio[agent]`) — Claude tool-use bound to the action space (add/remove/connect/disconnect/set_param + get_graph), `add_node`'s kind enum + system prompt grounded in the manifest (A1). Tool-use loop applies to a `GraphSession`; consent hook (`is_invasive`/`on_invasive`, ADR-0022); mock-client seam → unit-tested without a key (+ a live test gated on `ANTHROPIC_API_KEY`). | A1, A0 |
 | **C1** ⬜ | NL companion | Chat window: NL → proposed actions → preview/apply; shared action log with the hand editor; explanations. **Routine edits auto-apply; RT-invasive changes are staged and require active notification + explicit confirmation (§5.1a / ADR-0022).** | C0, B1 |
 | **C2** ⬜ | Measure → self-correct + diff tuning | render → measure (CLAP/LUFS/spectral) → self-correct; **structure by LLM, params by `match_target`** (Phase 1). *Completes the original Phase-2 vision.* | C1, Phase 1 |
 | **D0** ⬜ | Node-package format + local registry | Package (manifest + C++ src + tests + registration); git-ignored local dir, auto-discovered/loaded; versioning; *promote → PR* path. | A1 |
