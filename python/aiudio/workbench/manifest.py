@@ -44,6 +44,9 @@ def node_manifest(kind: str) -> dict:
         "params": list(graph.param_descriptors(node_id)),
         "config": config,
         "realtime_capable": config.get("realtime_capable", 1.0) != 0.0,
+        # sensible constructor args for "add this node" (the sample args used above) — so a UI/agent
+        # can create any kind, including those whose factory requires args (gain, biquads, …).
+        "defaults": dict(_SAMPLE_ARGS.get(kind, {})),
     }
 
 

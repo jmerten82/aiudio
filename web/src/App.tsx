@@ -1,11 +1,23 @@
-import { Background, Controls, ReactFlow } from '@xyflow/react'
+import {
+  Background,
+  Controls,
+  ReactFlow,
+  useEdgesState,
+  useNodesState,
+  type Connection,
+  type Edge,
+  type Node,
+} from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
-import { documentToFlow } from './graph'
+import * as A from './actions'
 import { AiudioNode } from './GraphView'
+import { handlePort, reconcile, type AiudioNodeData } from './graph'
+import { Inspector } from './Inspector'
+import { Palette } from './Palette'
 import type { GraphDocument, Manifest } from './types'
-import { connect } from './ws'
+import { connect, send } from './ws'
 
 const nodeTypes = { aiudio: AiudioNode }
 const EMPTY: GraphDocument = { nodes: [], edges: [] }
@@ -14,7 +26,13 @@ export default function App() {
   const [manifest, setManifest] = useState<Manifest | null>(null)
   const [doc, setDoc] = useState<GraphDocument>(EMPTY)
   const [connected, setConnected] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [selected, setSelected] = useState<number | null>(null)
+  const [nodes, setNodes, onNodesChange] = useNodesState<Node<AiudioNodeData>>([])
+  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
+  const wsRef = useRef<WebSocket | null>(null)
 
+  // connect once; reconcile React Flow state from each server broadcast (preserving local layout)
   useEffect(() => {
     const proto = location.protocol === 'https:' ? 'wss' : 'ws'
     const ws = connect(
@@ -22,13 +40,48 @@ export default function App() {
       (m) => {
         if (m.type === 'manifest') setManifest(m.manifest)
         else if (m.type === 'graph') setDoc(m.doc)
+        else if (m.type === 'error') setError(m.message)
       },
       setConnected,
     )
+    wsRef.current = ws
     return () => ws.close()
   }, [])
 
-  const { nodes, edges } = useMemo(() => documentToFlow(doc, manifest), [doc, manifest])
+  useEffect(() => {
+    setNodes((prev) => reconcile(prev, doc, manifest).nodes)
+    setEdges(reconcile(nodes, doc, manifest).edges)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [doc, manifest])
+
+  const emit = useCallback((message: A.ClientMessage) => {
+    setError(null)
+    send(wsRef.current, message)
+  }, [])
+
+  const onConnect = useCallback((c: Connection) => {
+    emit(A.connectNodes(Number(c.source), handlePort(c.sourceHandle),
+                        Number(c.target), handlePort(c.targetHandle)))
+  }, [emit])
+
+  const onNodesDelete = useCallback((deleted: Node[]) => {
+    deleted.forEach((n) => emit(A.removeNode(Number(n.id))))
+  }, [emit])
+
+  const onEdgesDelete = useCallback((deleted: Edge[]) => {
+    deleted.forEach((e) => {
+      const d = e.data as { src: number; srcPort: number; dst: number; dstPort: number } | undefined
+      if (d) emit(A.disconnectNodes(d.src, d.srcPort, d.dst, d.dstPort))
+    })
+  }, [emit])
+
+  const addNode = useCallback((kind: string) => {
+    const defaults = (manifest?.kinds[kind]?.defaults ?? {}) as Record<string, unknown>
+    const pos: [number, number] = [120 + doc.nodes.length * 40, 120 + doc.nodes.length * 20]
+    emit(A.addNode(kind, defaults, pos))
+  }, [emit, manifest, doc.nodes.length])
+
+  const selectedNode = doc.nodes.find((n) => n.id === selected) ?? null
 
   return (
     <div className="app">
@@ -37,14 +90,31 @@ export default function App() {
         <span className={`app__status app__status--${connected ? 'on' : 'off'}`}>
           {connected ? 'connected' : 'disconnected'}
         </span>
+        <button onClick={() => emit(A.undo())}>Undo</button>
+        <button onClick={() => emit(A.redo())}>Redo</button>
         <span className="app__count">{doc.nodes.length} nodes · {doc.edges.length} edges</span>
+        {error && <span className="app__error" onClick={() => setError(null)}>⚠ {error}</span>}
       </header>
-      <div className="app__canvas">
-        <ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} fitView
-                   nodesDraggable={false} nodesConnectable={false} elementsSelectable>
-          <Background />
-          <Controls showInteractive={false} />
-        </ReactFlow>
+      <div className="app__body">
+        <Palette manifest={manifest} onAdd={addNode} />
+        <div className="app__canvas">
+          <ReactFlow
+            nodes={nodes} edges={edges} nodeTypes={nodeTypes}
+            onNodesChange={onNodesChange} onEdgesChange={onEdgesChange}
+            onConnect={onConnect} onNodesDelete={onNodesDelete} onEdgesDelete={onEdgesDelete}
+            onSelectionChange={({ nodes: sel }) => setSelected(sel[0] ? Number(sel[0].id) : null)}
+            fitView
+          >
+            <Background />
+            <Controls />
+          </ReactFlow>
+        </div>
+        <Inspector
+          node={selectedNode}
+          manifest={selectedNode ? manifest?.kinds[selectedNode.node] ?? null : null}
+          onSetParam={(index, value) => selected !== null && emit(A.setParam(selected, index, value))}
+          onRemove={() => selected !== null && emit(A.removeNode(selected))}
+        />
       </div>
     </div>
   )

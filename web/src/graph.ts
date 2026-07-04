@@ -33,6 +33,29 @@ export function documentToFlow(
     target: String(e.dst),
     sourceHandle: `out-${e.src_port}`,
     targetHandle: `in-${e.dst_port}`,
+    data: { src: e.src, srcPort: e.src_port, dst: e.dst, dstPort: e.dst_port }, // for disconnect
   }))
   return { nodes, edges }
+}
+
+// Re-derive nodes/edges from a freshly-broadcast document while PRESERVING the local layout
+// (drag positions) of nodes that already exist. New nodes take the document/fallback position;
+// removed nodes drop out. Edges are always re-derived (they carry no layout). Pure + testable.
+export function reconcile(
+  current: Node<AiudioNodeData>[],
+  doc: GraphDocument,
+  manifest: Manifest | null,
+): { nodes: Node<AiudioNodeData>[]; edges: Edge[] } {
+  const positions = new Map(current.map((n) => [n.id, n.position]))
+  const { nodes: fresh, edges } = documentToFlow(doc, manifest)
+  const nodes = fresh.map((n) =>
+    positions.has(n.id) ? { ...n, position: positions.get(n.id)! } : n,
+  )
+  return { nodes, edges }
+}
+
+/** Parse a React Flow handle id like ``"out-2"`` / ``"in-0"`` into its port number. */
+export function handlePort(handleId: string | null | undefined): number {
+  const n = Number(String(handleId ?? '').replace(/^\D+/, ''))
+  return Number.isFinite(n) ? n : 0
 }
