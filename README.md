@@ -198,8 +198,10 @@ aiudio/
 │   │                        node registry, filters, losses, trainer, DDSP synth, parity harness
 │   ├── workbench/         ← Phase 2 workbench substrate: typed graph-edit action space + log
 │   │                        + graph↔JSON (ADR-0020) + capability manifest (ADR-0021)
-│   └── server/            ← Phase 2 localhost bridge (`aiudio[workbench]`): FastAPI + WebSocket
-│                            serving the engine to the browser (ADR-0019); `python -m aiudio.server`
+│   ├── server/            ← Phase 2 localhost bridge (`aiudio[workbench]`): FastAPI + WebSocket
+│   │                        serving the engine to the browser (ADR-0019); `python -m aiudio.server`
+│   └── agent/             ← Phase 2 grounded LLM control plane (`aiudio[agent]`): Claude tool-use
+│                            over the action space, manifest-grounded, consent-gated (ADR-0022)
 ├── web/                   ← Phase 2 visual workbench (React + React Flow, TS/Vite) — the browser
 │                            graph editor over the WS; read-only in B0 (ADR-0019)
 ├── tests/                 ← C++ unit tests (CTest) + Python binding tests

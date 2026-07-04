@@ -20,6 +20,9 @@ diff = ["torch>=2.0"]
 # FastAPI/WebSocket bridge serving the engine to the browser. Optional; the base package and the
 # RT core need none of it. (httpx backs the in-process ASGI test client.)
 workbench = ["fastapi>=0.110", "uvicorn[standard]>=0.29", "httpx>=0.27"]
+# The Phase 2 agent control plane (ADR-0022): `pip install -e ".[agent]"` — the Anthropic SDK for
+# the grounded LLM. Optional; the agent tool-use loop is unit-tested with a mock client (no key).
+agent = ["anthropic>=0.40"]
 
 [tool.ruff]
 # Notebooks intentionally use REPL idioms (semicolon-joined statements, mid-notebook
