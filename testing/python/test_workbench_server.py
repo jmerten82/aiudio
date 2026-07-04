@@ -86,6 +86,18 @@ def test_serves_static_frontend_when_given(tmp_path):
     assert root.status_code == 200 and "aiudio" in root.text        # SPA served at /
 
 
+def test_ws_load_replaces_the_graph():
+    with _client().websocket_connect("/ws") as ws:
+        _drain_initial(ws)
+        doc = {"nodes": [{"id": 0, "node": "gain", "args": {"gain": 0.5}, "params": {}, "position": [1, 2]}],
+               "edges": []}
+        ws.send_json({"type": "load", "doc": doc})
+        state = ws.receive_json()
+        assert state["type"] == "graph"
+        assert [n["node"] for n in state["doc"]["nodes"]] == ["gain"]
+        assert state["doc"]["nodes"][0]["position"] == [1, 2]
+
+
 def test_two_clients_share_one_graph():
     app = create_app()
     client = TestClient(app)

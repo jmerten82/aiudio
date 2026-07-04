@@ -16,6 +16,7 @@ from .actions import (
     Disconnect,
     RemoveNode,
     SetParam,
+    SetPosition,
     from_dict,
     to_dict,
 )
@@ -29,6 +30,7 @@ __all__ = [
     "Connect",
     "Disconnect",
     "SetParam",
+    "SetPosition",
     "to_dict",
     "from_dict",
     "GraphSession",

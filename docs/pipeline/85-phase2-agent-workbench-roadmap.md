@@ -9,9 +9,10 @@
 > 🚧 **in progress** — Phase 1 (D0–D8) complete; **K done** (ADRs 0019–0024); **A0 done**
 > (`aiudio.workbench`: action space + log + graph↔JSON, ADR-0020); **A1 done** (capability manifest,
 > ADR-0021); **A2 done** (`aiudio.server` bridge); **B0 done** (`web/` — React + React Flow
-> read-only view over the WS). ✅ **Release R1 "see it" complete.** **B1 done** (hand editing —
-> palette add / connect / disconnect / delete / param sliders / undo-redo over the WS). Next: **B2**
-> (workbench UX polish) → **Release R2 "edit it"**. Locked scope decisions below. The audio-thread invariant (ADR-0004) is
+> read-only view over the WS). **B1 done** (hand editing over the WS). **B2 done** (layout
+> persistence via a `set_position` action, save/load a graph as JSON, param-drag debounce).
+> ✅ **Release R2 "edit it" complete.** Next: **C0/C1** (the agent companion) → Release R3 "talk to
+> it". Locked scope decisions below. The audio-thread invariant (ADR-0004) is
 > **never** relaxed — the self-extension path
 > *enforces* it on generated code (workstream D), and **no invasive change to the live RT audio
 > thread is ever applied without active user notification + explicit confirmation** (§5.1a).
@@ -198,7 +199,7 @@ Four workstreams (A platform · B UI · C agent · D self-extension) + a kickoff
 | **A2** ✅ | Localhost server bridge | `aiudio.server` (`aiudio[workbench]` extra) — FastAPI HTTP (`/api/manifest`, `/api/graph`) + `/ws` WebSocket that applies actions to one authoritative `GraphSession` and broadcasts state to all clients (human + agent share one graph); `python -m aiudio.server`. Telemetry channel is a documented next increment (needs a running executor). | A1 |
 | **B0** ✅ | Read-only graph view | `web/` — React + React Flow (TS/Vite) app connects to `/ws`, renders the manifest-driven graph (nodes/ports/edges + current param values), reconciles from broadcasts. Pure `documentToFlow` transform (unit-tested); optional static-served by the backend (`--static web/dist`). *(Live metering rides the telemetry channel — a follow-up.)* | A2 |
 | **B1** ✅ | Hand editing | Palette add (manifest `defaults`) · drag-to-connect · delete node/edge · manifest-driven param sliders · undo/redo — all emitted as actions over the WS, server-authoritative (broadcast → `reconcile` preserving local layout). Server errors surfaced; connection validation from the backend. | B0 |
-| **B2** ⬜ | Workbench UX | Layout persistence, subgraph grouping, save/load a graph (JSON), metering/PDC visualizations, error surfaces. | B1 |
+| **B2** ✅ | Workbench UX | **Layout persistence** (a `set_position` action → positions saved in the document, durable + shared), **save/load** a graph as JSON (via `load` msg → `from_document`), **param-drag debounce**, error banner. *(subgraph grouping + metering/PDC viz deferred — the latter needs the telemetry channel.)* | B1 |
 | **C0** ⬜ | Grounded agent tools | Claude tool-use bound to the action space; system context from the manifest (A1); read-back/inspect tools. | A1, A0 |
 | **C1** ⬜ | NL companion | Chat window: NL → proposed actions → preview/apply; shared action log with the hand editor; explanations. **Routine edits auto-apply; RT-invasive changes are staged and require active notification + explicit confirmation (§5.1a / ADR-0022).** | C0, B1 |
 | **C2** ⬜ | Measure → self-correct + diff tuning | render → measure (CLAP/LUFS/spectral) → self-correct; **structure by LLM, params by `match_target`** (Phase 1). *Completes the original Phase-2 vision.* | C1, Phase 1 |
@@ -225,7 +226,7 @@ Milestones bundle into five usable releases:
 | Release | Theme | Bundles | You can… |
 |---|---|---|---|
 | **R1** ✅ | **See it** | K · A0 · A1 · A2 · B0 | watch a live graph in the browser — nodes, edges, params. *(metering: telemetry follow-up)* |
-| **R2** | **Edit it by hand** | B1 · B2 | build/modify graphs visually: add/remove/connect/tune, undo, save/load. |
+| **R2** ✅ | **Edit it by hand** | B1 · B2 | build/modify graphs visually: add/remove/connect/tune, undo, drag-layout, save/load. |
 | **R3** | **Talk to it** | C0 · C1 | change the graph by natural language via the grounded agent companion. |
 | **R4** | **It tunes itself** | C2 | agent runs render→measure→self-correct and tunes params via the diff layer *(original Phase-2 vision complete)*. |
 | **R5** | **It extends itself** | D0 · D1 · D2 · D3 | agent authors new (full-RT, gated) nodes into your local registry, reusable thereafter. |

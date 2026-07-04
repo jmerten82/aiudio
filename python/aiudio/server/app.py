@@ -83,6 +83,10 @@ def create_app(session: wb.GraphSession | None = None, static_dir: str | None = 
             return {"type": "result", "value": session.undo()}
         if kind == "redo":
             return {"type": "result", "value": session.redo()}
+        if kind == "load":
+            # replace the whole graph from a saved document (B2 save/load)
+            app.state.session = wb.GraphSession.from_document(message["doc"])
+            return None
         if kind == "sync":
             return None
         raise ValueError(f"unknown message type: {kind!r}")
