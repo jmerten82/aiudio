@@ -10,6 +10,7 @@ export type ClientMessage =
   | { type: 'redo' }
   | { type: 'sync' }
   | { type: 'load'; doc: GraphDocument }
+  | { type: 'chat'; message: string }
 
 export const addNode = (
   node: string,
@@ -39,3 +40,4 @@ export const setPosition = (id: number, x: number, y: number): ActionMessage =>
 export const undo = (): ClientMessage => ({ type: 'undo' })
 export const redo = (): ClientMessage => ({ type: 'redo' })
 export const loadDocument = (doc: GraphDocument): ClientMessage => ({ type: 'load', doc })
+export const chat = (message: string): ClientMessage => ({ type: 'chat', message })

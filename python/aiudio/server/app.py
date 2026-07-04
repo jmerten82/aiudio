@@ -48,17 +48,23 @@ class ConnectionManager:
         return len(self._clients)
 
 
-def create_app(session: wb.GraphSession | None = None, static_dir: str | None = None) -> "FastAPI":
+def create_app(session: wb.GraphSession | None = None, static_dir: str | None = None,
+               agent_client=None) -> "FastAPI":
     """Build the workbench app around an authoritative `GraphSession` (a fresh one by default).
 
     If ``static_dir`` points at a built frontend (``web/dist``), it is served at ``/`` so the whole
     workbench runs from this process. In dev, skip it — the Vite dev server serves the UI and
     proxies ``/api``/``/ws`` here.
+
+    ``agent_client`` is the LLM client backing the agent companion (C1); if omitted, a real
+    `AnthropicClient` is built lazily on first use (needs the `agent` extra + a key). Injecting a
+    mock makes the chat flow testable without an API key.
     """
     app = FastAPI(title="aiudio workbench", version="0.2")
     app.state.session = session or wb.GraphSession()
     app.state.manager = ConnectionManager()
     app.state.lock = asyncio.Lock()
+    app.state.agent_client = agent_client  # injected (tests) or built lazily
 
     @app.get("/api/health")
     async def health() -> dict:
@@ -91,6 +97,34 @@ def create_app(session: wb.GraphSession | None = None, static_dir: str | None = 
             return None
         raise ValueError(f"unknown message type: {kind!r}")
 
+    def _agent_client():
+        """The LLM client for the companion — injected, or a lazily-built AnthropicClient.
+        Returns None if the agent extra/key isn't available (chat then reports it gracefully)."""
+        if app.state.agent_client is None:
+            try:
+                from aiudio.agent import AnthropicClient
+                app.state.agent_client = AnthropicClient()
+            except Exception:  # noqa: BLE001 - no SDK / no key → agent simply unavailable
+                return None
+        return app.state.agent_client
+
+    async def _handle_chat(ws: WebSocket, message: dict) -> None:
+        """Run the agent companion on a natural-language message (C1). The agent runs off-thread
+        (blocking LLM calls) under the session lock, so it serializes with hand edits; the reply
+        goes to the requester and the new graph is broadcast to everyone."""
+        client = _agent_client()
+        if client is None:
+            await ws.send_json({"type": "error", "message":
+                                'agent unavailable — install "aiudio[agent]" and set ANTHROPIC_API_KEY'})
+            return
+        from aiudio.agent import Agent
+
+        agent = Agent(app.state.session, client)  # bound to the current authoritative session
+        async with app.state.lock:
+            result = await asyncio.to_thread(agent.run, str(message.get("message", "")))
+        await ws.send_json({"type": "agent", "text": result.text, "applied": result.applied})
+        await app.state.manager.broadcast({"type": "graph", "doc": app.state.session.to_document()})
+
     @app.websocket("/ws")
     async def ws_endpoint(ws: WebSocket) -> None:
         manager = app.state.manager
@@ -100,6 +134,9 @@ def create_app(session: wb.GraphSession | None = None, static_dir: str | None = 
         try:
             while True:
                 message = await ws.receive_json()
+                if message.get("type") == "chat":
+                    await _handle_chat(ws, message)
+                    continue
                 try:
                     async with app.state.lock:
                         ack = _handle(message)

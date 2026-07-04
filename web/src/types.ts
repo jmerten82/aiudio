@@ -45,8 +45,14 @@ export interface GraphDocument {
   edges: GraphEdge[]
 }
 
+export interface AppliedAction {
+  name: string
+  input: Record<string, unknown>
+}
+
 export type ServerMessage =
   | { type: 'manifest'; manifest: Manifest }
   | { type: 'graph'; doc: GraphDocument }
   | { type: 'result'; value: unknown }
   | { type: 'error'; message: string }
+  | { type: 'agent'; text: string; applied: AppliedAction[] }

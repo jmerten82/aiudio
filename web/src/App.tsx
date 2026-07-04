@@ -12,6 +12,7 @@ import '@xyflow/react/dist/style.css'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import * as A from './actions'
+import { ChatPanel, type ChatMessage } from './ChatPanel'
 import { AiudioNode } from './GraphView'
 import { handlePort, reconcile, type AiudioNodeData } from './graph'
 import { Inspector } from './Inspector'
@@ -28,6 +29,8 @@ export default function App() {
   const [connected, setConnected] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [selected, setSelected] = useState<number | null>(null)
+  const [chat, setChat] = useState<ChatMessage[]>([])
+  const [agentBusy, setAgentBusy] = useState(false)
   const [nodes, setNodes, onNodesChange] = useNodesState<Node<AiudioNodeData>>([])
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
   const wsRef = useRef<WebSocket | null>(null)
@@ -40,7 +43,11 @@ export default function App() {
       (m) => {
         if (m.type === 'manifest') setManifest(m.manifest)
         else if (m.type === 'graph') setDoc(m.doc)
-        else if (m.type === 'error') setError(m.message)
+        else if (m.type === 'error') { setError(m.message); setAgentBusy(false) }
+        else if (m.type === 'agent') {
+          setChat((c) => [...c, { role: 'agent', text: m.text, applied: m.applied.length }])
+          setAgentBusy(false)
+        }
       },
       setConnected,
     )
@@ -83,6 +90,12 @@ export default function App() {
 
   const loadGraph = useCallback((file: File) => {
     file.text().then((text) => emit(A.loadDocument(JSON.parse(text)))).catch((e) => setError(String(e)))
+  }, [emit])
+
+  const sendChat = useCallback((text: string) => {
+    setChat((c) => [...c, { role: 'user', text }])
+    setAgentBusy(true)
+    emit(A.chat(text))
   }, [emit])
 
   const onConnect = useCallback((c: Connection) => {
@@ -141,12 +154,15 @@ export default function App() {
             <Controls />
           </ReactFlow>
         </div>
-        <Inspector
-          node={selectedNode}
-          manifest={selectedNode ? manifest?.kinds[selectedNode.node] ?? null : null}
-          onSetParam={(index, value) => selected !== null && emitSetParam(selected, index, value)}
-          onRemove={() => selected !== null && emit(A.removeNode(selected))}
-        />
+        <div className="app__right">
+          <Inspector
+            node={selectedNode}
+            manifest={selectedNode ? manifest?.kinds[selectedNode.node] ?? null : null}
+            onSetParam={(index, value) => selected !== null && emitSetParam(selected, index, value)}
+            onRemove={() => selected !== null && emit(A.removeNode(selected))}
+          />
+          <ChatPanel messages={chat} busy={agentBusy} disabled={!connected} onSend={sendChat} />
+        </div>
       </div>
     </div>
   )
