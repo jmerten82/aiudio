@@ -196,8 +196,10 @@ aiudio/
 ├── python/aiudio/         ← Python package (control frontend)
 │   ├── diff/              ← optional differentiable layer (`aiudio[diff]`, PyTorch): executor,
 │   │                        node registry, filters, losses, trainer, DDSP synth, parity harness
-│   └── workbench/         ← Phase 2 workbench substrate: typed graph-edit action space + log
-│                            + graph↔JSON (ADR-0020); the UI/agent/wire contract
+│   ├── workbench/         ← Phase 2 workbench substrate: typed graph-edit action space + log
+│   │                        + graph↔JSON (ADR-0020) + capability manifest (ADR-0021)
+│   └── server/            ← Phase 2 localhost bridge (`aiudio[workbench]`): FastAPI + WebSocket
+│                            serving the engine to the browser (ADR-0019); `python -m aiudio.server`
 ├── tests/                 ← C++ unit tests (CTest) + Python binding tests
 ├── testing/               ← test strategy (testing/README.md) + cross-cutting tests + run.sh
 ├── pyproject.toml         ← `pip install .` (scikit-build-core + nanobind)
@@ -350,6 +352,7 @@ See [`examples/README.md`](examples/README.md) and
 | Research/ML language | **Python 3.11+** | PyTorch/JAX, agent, scripting |
 | Interop | **nanobind** | low-overhead C++↔Python bindings |
 | Differentiable layer | **PyTorch** (optional `aiudio[diff]`) | autograd over the same IR; trainable DSP + neural (ADR-0016/0017) |
+| Workbench (Phase 2) | **FastAPI + WebSocket** server (optional `aiudio[workbench]`) · **React + React Flow** browser UI | visual graph editor + agent companion over the action space (ADR-0019/0020) |
 | Build | **CMake** + **scikit-build-core** | C++ + Python packaging |
 | RT neural inference | **RTNeural** (inline) · **ANIRA** (off-thread pool) | proven RT-safe patterns |
 | ML runtime(s) | **LibTorch / ONNX Runtime** (abstracted) | don't marry one runtime |
