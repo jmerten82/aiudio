@@ -200,6 +200,8 @@ aiudio/
 │   │                        + graph↔JSON (ADR-0020) + capability manifest (ADR-0021)
 │   └── server/            ← Phase 2 localhost bridge (`aiudio[workbench]`): FastAPI + WebSocket
 │                            serving the engine to the browser (ADR-0019); `python -m aiudio.server`
+├── web/                   ← Phase 2 visual workbench (React + React Flow, TS/Vite) — the browser
+│                            graph editor over the WS; read-only in B0 (ADR-0019)
 ├── tests/                 ← C++ unit tests (CTest) + Python binding tests
 ├── testing/               ← test strategy (testing/README.md) + cross-cutting tests + run.sh
 ├── pyproject.toml         ← `pip install .` (scikit-build-core + nanobind)

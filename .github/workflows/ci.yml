@@ -40,6 +40,25 @@ jobs:
           cmake --build build-asan -j
           ctest --test-dir build-asan --output-on-failure
 
+  web:
+    # Phase 2 workbench frontend (web/): typecheck + unit test + production build.
+    name: Web UI (typecheck + test + build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Install + verify
+        working-directory: web
+        run: |
+          npm ci
+          npm run typecheck
+          npm test
+          npm run build
+
   python:
     # macOS so the Core Audio DeviceBackend compiles; the live device tests self-skip
     # (no AIUDIO_LIVE), but everything else — including the notebook — runs.

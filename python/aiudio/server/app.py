@@ -48,8 +48,13 @@ class ConnectionManager:
         return len(self._clients)
 
 
-def create_app(session: wb.GraphSession | None = None) -> "FastAPI":
-    """Build the workbench app around an authoritative `GraphSession` (a fresh one by default)."""
+def create_app(session: wb.GraphSession | None = None, static_dir: str | None = None) -> "FastAPI":
+    """Build the workbench app around an authoritative `GraphSession` (a fresh one by default).
+
+    If ``static_dir`` points at a built frontend (``web/dist``), it is served at ``/`` so the whole
+    workbench runs from this process. In dev, skip it — the Vite dev server serves the UI and
+    proxies ``/api``/``/ws`` here.
+    """
     app = FastAPI(title="aiudio workbench", version="0.2")
     app.state.session = session or wb.GraphSession()
     app.state.manager = ConnectionManager()
@@ -103,11 +108,21 @@ def create_app(session: wb.GraphSession | None = None) -> "FastAPI":
         except WebSocketDisconnect:
             manager.disconnect(ws)
 
+    # Serve the built SPA last, so the API/ws routes above take precedence (mount at "/" is a catch-all).
+    if static_dir is not None:
+        from pathlib import Path
+
+        from fastapi.staticfiles import StaticFiles
+
+        path = Path(static_dir)
+        if path.is_dir():
+            app.mount("/", StaticFiles(directory=str(path), html=True), name="web")
+
     return app
 
 
-def serve(host: str = "127.0.0.1", port: int = 8765) -> None:
+def serve(host: str = "127.0.0.1", port: int = 8765, static_dir: str | None = None) -> None:
     """Run the workbench server (blocking) via uvicorn."""
     import uvicorn
 
-    uvicorn.run(create_app(), host=host, port=port)
+    uvicorn.run(create_app(static_dir=static_dir), host=host, port=port)
