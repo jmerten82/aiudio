@@ -4,10 +4,12 @@ Guidance for Claude Code (and humans) working in this repo. Loaded every session
 so it is kept **tight**; depth lives in [`docs/`](docs/). Keep this file and
 [`README.md`](README.md) **current** — see [§9 Living-documents protocol](#9-living-documents-protocol).
 
-> **Last updated:** 2026-07-01 · **Current phase:** Phase 1 — Differentiable core
-> **✅ COMPLETE (D0–D8)**; moving to **Phase 2** (agent control plane + visual workbench — plan in
-> [`docs/pipeline/85`](docs/pipeline/85-phase2-agent-workbench-roadmap.md): browser graph editor + grounded LLM
-> companion + agent self-extension). Phase 0 (I/O layer +
+> **Last updated:** 2026-07-03 · **Current phase:** Phase 2 — agent control plane + visual
+> workbench (Phase 1 differentiable core **✅ COMPLETE, D0–D8**). **Phase 2 kicked off:** milestone
+> **K done** — scope locked + **ADRs 0019–0024 accepted**; next **A0** (typed graph-edit action
+> space + graph↔JSON) → **A1** (capability manifest). Plan:
+> [`docs/pipeline/85`](docs/pipeline/85-phase2-agent-workbench-roadmap.md) (browser graph editor +
+> grounded LLM companion + agent self-extension). Phase 0 (I/O layer +
 > graph spine) is complete, and the **true multi-source I/O** track (`docs/pipeline/76`) was implemented
 > off-schedule and merged. **Phase 1 (merged, #39–#48):** the optional `aiudio.diff` third
 > executor (PyTorch, off-thread; ADR-0016/0017) runs the *same* `Graph` IR through autograd, with
@@ -41,7 +43,7 @@ From `docs/00-vision-and-scope.md` §3:
 - **Languages:** **C++** real-time core + **Python** research/ML layer.
 
 These — plus the core architecture choices — are formalized as **ADRs** (`adr/`,
-0002–0009). If a change would violate one, stop and flag it — changing a locked
+0002–0024). If a change would violate one, stop and flag it — changing a locked
 decision requires a **new superseding ADR** (§10), never a silent divergence.
 
 ## 3. Where things are

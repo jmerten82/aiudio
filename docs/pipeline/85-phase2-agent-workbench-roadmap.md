@@ -6,8 +6,10 @@
 > editor, agent, self-extension) drive **one live engine** through **one typed action space**,
 > grounded in **one capability manifest**. Builds directly on Phase-0 live editing (G7: lock-free
 > `set_param` + RCU recompile) and Phase-1's differentiable layer (`match_target`). · **Status:**
-> 📋 **planned** — Phase 1 (D0–D8) complete; this is the Phase-2 design. Locked scope decisions
-> below. The audio-thread invariant (ADR-0004) is **never** relaxed — the self-extension path
+> 🚧 **kicked off** — Phase 1 (D0–D8) complete; **milestone K done** (scope locked in `docs/00` +
+> README; **ADRs 0019–0024 accepted**, 2026-07-03). Next: **A0** (action space + graph↔JSON) → **A1**
+> (capability manifest). Locked scope decisions below. The audio-thread invariant (ADR-0004) is
+> **never** relaxed — the self-extension path
 > *enforces* it on generated code (workstream D), and **no invasive change to the live RT audio
 > thread is ever applied without active user notification + explicit confirmation** (§5.1a).
 
@@ -187,7 +189,7 @@ Four workstreams (A platform · B UI · C agent · D self-extension) + a kickoff
 
 | # | Milestone | What | Depends |
 |---|---|---|---|
-| **K** ⬜ | Kickoff — scope, ADRs, vision | Lock scope in `docs/00` + README; write ADRs 0019–0024 (§9). | Phase 1 |
+| **K** ✅ | Kickoff — scope, ADRs, vision | Scope locked in `docs/00` + README; **ADRs 0019–0024 written & accepted** (§9). | Phase 1 |
 | **A0** ⬜ | Action space + IR (de)serialization | The typed edit ops + append-only action log (undo/redo/replay); `Graph`↔JSON (+ UI layout). Over G7. | K |
 | **A1** ⬜ | Capability manifest | Extend node introspection (param name/range/default/unit + ports + metadata); emit JSON manifest — the grounding SoT. | A0 |
 | **A2** ⬜ | Localhost server bridge | FastAPI + WebSocket over the bindings: state, actions, live telemetry; session/reconnect. | A1 |
@@ -230,7 +232,7 @@ ships last** — it's the riskiest and depends on the manifest, action space, an
 
 ## 9. New ADRs
 
-To write at kickoff (K) — Phase 2 adds load-bearing, hard-to-reverse decisions (§10 CLAUDE.md):
+✅ **Written & accepted at kickoff (K), 2026-07-03.** Phase 2's load-bearing, hard-to-reverse decisions:
 
 - **ADR-0019 — Visual workbench architecture.** Localhost server + browser control frontend (React
   Flow + FastAPI/WebSocket). Extends ADR-0002/0010; the browser is a control frontend, never RT.

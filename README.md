@@ -241,6 +241,12 @@ Accepted so far:
 | [0016](adr/0016-differentiable-execution-strategy.md) | Differentiable execution — Python/PyTorch executor over the same IR (Phase 1 · D0) |
 | [0017](adr/0017-autodiff-framework-pytorch.md) | Autodiff framework — PyTorch (optional `aiudio[diff]` extra) |
 | [0018](adr/0018-trainable-filter-form.md) | Trainable-filter form — design-param + magnitude-response training, biquad coeff export (Phase 1 · D2) |
+| [0019](adr/0019-visual-workbench-architecture.md) | Visual workbench — localhost server + React Flow browser control frontend (Phase 2) |
+| [0020](adr/0020-graph-edit-action-space.md) | Graph-edit action space & protocol — one edit substrate (UI + agent + wire) + action log + graph↔JSON (Phase 2) |
+| [0021](adr/0021-capability-manifest-grounding.md) | Capability manifest — registry-introspected node/param descriptors; the grounding source for UI + agent (Phase 2) |
+| [0022](adr/0022-agent-runtime-and-consent-policy.md) | Agent runtime & human-in-the-loop — grounded tool-use; RT-invasive changes need active notify + confirm; structure-by-LLM/params-by-gradient (Phase 2) |
+| [0023](adr/0023-personal-node-registry.md) | Personal node registry & isolation — local plugin dir, reusable, never auto-merged, promote→PR (Phase 2) |
+| [0024](adr/0024-rt-safety-gate-and-plugin-abi.md) | RT-safety gate & node-plugin ABI — automatic pre-flight enforcing ADR-0004 on authored code; off-thread load (Phase 2) |
 
 > **Significant decisions require an ADR.** See `CLAUDE.md` §9 for when to write
 > one and how it ties into keeping the docs current.
