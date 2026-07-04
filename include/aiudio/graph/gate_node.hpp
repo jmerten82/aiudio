@@ -27,6 +27,13 @@ public:
         rangeDb_.store(rangeDb, std::memory_order_relaxed);
     }
 
+    [[nodiscard]] std::vector<ParamDescriptor> paramDescriptors() const override {
+        return {{kThresholdDb, "threshold_db", -80.0, 0.0, -45.0, "dB"},
+                {kAttackMs, "attack_ms", 0.0, 100.0, 1.0, "ms"},
+                {kReleaseMs, "release_ms", 0.0, 1000.0, 120.0, "ms"},
+                {kRangeDb, "range_db", -120.0, 0.0, -80.0, "dB"}};
+    }
+
     void setParam(std::uint32_t index, float value) noexcept override {
         switch (index) {
             case kThresholdDb: thresholdDb_.store(value, std::memory_order_relaxed); break;

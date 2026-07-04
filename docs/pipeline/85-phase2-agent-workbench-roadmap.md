@@ -6,9 +6,10 @@
 > editor, agent, self-extension) drive **one live engine** through **one typed action space**,
 > grounded in **one capability manifest**. Builds directly on Phase-0 live editing (G7: lock-free
 > `set_param` + RCU recompile) and Phase-1's differentiable layer (`match_target`). · **Status:**
-> 🚧 **in progress** — Phase 1 (D0–D8) complete; **K done** (ADRs 0019–0024 accepted); **A0 done**
-> (`aiudio.workbench`: the typed action space + append-only log + graph↔JSON, ADR-0020). Next:
-> **A1** (capability manifest) → A2 (server) → B0 (read-only UI) = Release R1. Locked scope
+> 🚧 **in progress** — Phase 1 (D0–D8) complete; **K done** (ADRs 0019–0024); **A0 done**
+> (`aiudio.workbench`: action space + log + graph↔JSON, ADR-0020); **A1 done** (capability manifest
+> — C++ `paramDescriptors` + `workbench.manifest`, ADR-0021; grounds set_param validation). Next:
+> **A2** (localhost server) → B0 (read-only UI) = Release R1 "see it". Locked scope
 > decisions below. The audio-thread invariant (ADR-0004) is
 > **never** relaxed — the self-extension path
 > *enforces* it on generated code (workstream D), and **no invasive change to the live RT audio
@@ -192,7 +193,7 @@ Four workstreams (A platform · B UI · C agent · D self-extension) + a kickoff
 |---|---|---|---|
 | **K** ✅ | Kickoff — scope, ADRs, vision | Scope locked in `docs/00` + README; **ADRs 0019–0024 written & accepted** (§9). | Phase 1 |
 | **A0** ✅ | Action space + IR (de)serialization | `aiudio.workbench` — typed edit ops (add/remove/connect/disconnect/set_param) + append-only log (undo/redo/replay) + `Graph`↔JSON document (+ UI layout) + action-log serialization. Generic `add_<kind>(**args)` builder; structural validation (kind exists, connect succeeds). | K |
-| **A1** ⬜ | Capability manifest | Extend node introspection (param name/range/default/unit + ports + metadata); emit JSON manifest — the grounding SoT. | A0 |
+| **A1** ✅ | Capability manifest | C++ `Node::paramDescriptors()` (per-param name/suggested-range/default/unit) + binding `Graph.param_descriptors`; `workbench.manifest.capability_manifest()` introspects the registry (ports + params + config + RT-capability) — the grounding SoT for UI + agent; grounds `set_param` index validation (`param_issues`). | A0 |
 | **A2** ⬜ | Localhost server bridge | FastAPI + WebSocket over the bindings: state, actions, live telemetry; session/reconnect. | A1 |
 | **B0** ⬜ | Read-only graph view | React Flow app: render graph from JSON; live params + metering; node inspector. | A2 |
 | **B1** ⬜ | Hand editing | Add (manifest palette)/remove/connect/disconnect/param-edit via the action space → live recompile/`set_param`; undo/redo; connection validation. | B0 |

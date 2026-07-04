@@ -29,6 +29,12 @@ public:
           mixInit_(mix),
           maxChannels_(maxChannels == 0 ? 1 : maxChannels) {}
 
+    [[nodiscard]] std::vector<ParamDescriptor> paramDescriptors() const override {
+        return {{kDelayFrames, "delay_frames", 0.0, 192000.0, 24000.0, "frames"},
+                {kFeedback, "feedback", 0.0, 0.99, 0.3, ""},
+                {kMix, "mix", 0.0, 1.0, 0.3, ""}};
+    }
+
     void setParam(std::uint32_t index, float value) noexcept override {
         if (index == kDelayFrames) {
             std::uint32_t d = static_cast<std::uint32_t>(value < 0.0f ? 0.0f : value);

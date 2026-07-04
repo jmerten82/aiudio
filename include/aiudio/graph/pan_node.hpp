@@ -17,6 +17,10 @@ public:
 
     explicit PanNode(float pan = 0.0f) noexcept : panInit_(pan) {}
 
+    [[nodiscard]] std::vector<ParamDescriptor> paramDescriptors() const override {
+        return {{kPan, "pan", -1.0, 1.0, 0.0, ""}};
+    }
+
     void setParam(std::uint32_t index, float value) noexcept override {
         if (index == kPan) pan_.setTarget(value < -1.0f ? -1.0f : (value > 1.0f ? 1.0f : value));
     }

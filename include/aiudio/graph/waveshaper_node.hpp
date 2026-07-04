@@ -22,6 +22,11 @@ public:
     explicit WaveshaperNode(Shape shape = Shape::Tanh, float drive = 1.0f, float mix = 1.0f) noexcept
         : shape_(shape), driveInit_(drive), mixInit_(mix) {}
 
+    [[nodiscard]] std::vector<ParamDescriptor> paramDescriptors() const override {
+        return {{kDrive, "drive", 0.1, 10.0, 1.0, "linear"},
+                {kMix, "mix", 0.0, 1.0, 1.0, ""}};
+    }
+
     void setParam(std::uint32_t index, float value) noexcept override {
         if (index == kDrive) drive_.setTarget(value < 0.0f ? 0.0f : value);
         else if (index == kMix) mix_.setTarget(value < 0.0f ? 0.0f : (value > 1.0f ? 1.0f : value));

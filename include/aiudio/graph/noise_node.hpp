@@ -22,6 +22,10 @@ public:
                        std::uint32_t maxChannels = 2) noexcept
         : color_(color), ampInit_(amplitude), maxChannels_(maxChannels == 0 ? 1 : maxChannels) {}
 
+    [[nodiscard]] std::vector<ParamDescriptor> paramDescriptors() const override {
+        return {{kAmplitude, "amplitude", 0.0, 1.0, 0.5, "linear"}};
+    }
+
     void setParam(std::uint32_t index, float value) noexcept override {
         if (index == kAmplitude) amp_.setTarget(value);
     }

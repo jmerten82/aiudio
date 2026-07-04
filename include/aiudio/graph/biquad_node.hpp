@@ -53,6 +53,12 @@ public:
     // design with the changed cutoff/Q/gain against the stored sample rate + filter shape.
     // RT-safe — only sin/cos + arithmetic, no allocation. No-op if the filter was set
     // via raw setCoefficients() (no design parameters to vary).
+    [[nodiscard]] std::vector<ParamDescriptor> paramDescriptors() const override {
+        return {{kCutoffHz, "freq", 20.0, 20000.0, 1000.0, "Hz"},
+                {kQ, "q", 0.1, 18.0, 0.707, ""},
+                {kGainDb, "gain_db", -24.0, 24.0, 0.0, "dB"}};
+    }
+
     void setParam(std::uint32_t index, float value) noexcept override {
         if (!designed_) return;
         if (index == kCutoffHz) freqHz_ = value;

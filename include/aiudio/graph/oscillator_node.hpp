@@ -25,6 +25,11 @@ public:
                             float amplitude = 0.5f) noexcept
         : wave_(wave), freqInit_(freqHz), ampInit_(amplitude) {}
 
+    [[nodiscard]] std::vector<ParamDescriptor> paramDescriptors() const override {
+        return {{kFrequencyHz, "freq", 20.0, 20000.0, 440.0, "Hz"},
+                {kAmplitude, "amplitude", 0.0, 1.0, 0.5, "linear"}};
+    }
+
     void setParam(std::uint32_t index, float value) noexcept override {
         if (index == kFrequencyHz) freqHz_.store(value < 0.0f ? 0.0f : value, std::memory_order_relaxed);
         else if (index == kAmplitude) amp_.setTarget(value);

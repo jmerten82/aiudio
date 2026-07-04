@@ -23,6 +23,10 @@ public:
     void setGain(float gain) noexcept { gain_.store(gain, std::memory_order_relaxed); }
     [[nodiscard]] float gain() const noexcept { return gain_.load(std::memory_order_relaxed); }
 
+    [[nodiscard]] std::vector<ParamDescriptor> paramDescriptors() const override {
+        return {{kGain, "gain", 0.0, 4.0, 1.0, "linear"}};
+    }
+
     void setParam(std::uint32_t index, float value) noexcept override {
         if (index == kGain) gain_.store(value, std::memory_order_relaxed);
     }

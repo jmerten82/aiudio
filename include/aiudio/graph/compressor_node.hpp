@@ -37,6 +37,14 @@ public:
 
     [[nodiscard]] std::uint32_t latencyFrames() const noexcept override { return lookahead_; }
 
+    [[nodiscard]] std::vector<ParamDescriptor> paramDescriptors() const override {
+        return {{kThresholdDb, "threshold_db", -60.0, 0.0, -18.0, "dB"},
+                {kRatio, "ratio", 1.0, 20.0, 4.0, "ratio"},
+                {kAttackMs, "attack_ms", 0.0, 200.0, 5.0, "ms"},
+                {kReleaseMs, "release_ms", 0.0, 1000.0, 80.0, "ms"},
+                {kMakeupDb, "makeup_db", 0.0, 24.0, 0.0, "dB"}};
+    }
+
     void setParam(std::uint32_t index, float value) noexcept override {
         switch (index) {
             case kThresholdDb: thresholdDb_.store(value, std::memory_order_relaxed); break;

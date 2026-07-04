@@ -440,6 +440,23 @@ NB_MODULE(_aiudio, m) {
         }, "node"_a,
            "Non-numeric construction config as a {name: value} dict (e.g. waveshaper 'shape', "
            "biquad 'type', dc-blocker 'corner_hz'); enums as their int value. Empty if none.")
+        .def("param_descriptors", [](const graph::Graph& g, graph::NodeId id) {
+            nb::list out;
+            if (const graph::Node* n = g.node(id))
+                for (const auto& d : n->paramDescriptors()) {
+                    nb::dict e;
+                    e["index"] = d.index;
+                    e["name"] = d.name;
+                    e["min"] = d.min;
+                    e["max"] = d.max;
+                    e["default"] = d.default_value;
+                    e["unit"] = d.unit;
+                    out.append(e);
+                }
+            return out;
+        }, "node"_a,
+           "Per-parameter descriptors [{index, name, min, max, default, unit}] for each setParam "
+           "index — the grounding source for the capability manifest (ADR-0021). Empty if none.")
         .def_prop_ro("live_node_count", [](const graph::Graph& g) { return g.liveNodeCount(); },
                      "Number of live (non-removed) nodes.")
         .def("set_gain", [](graph::Graph& g, graph::NodeId id, float v) {
