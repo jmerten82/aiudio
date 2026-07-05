@@ -10,6 +10,9 @@ This folder holds the **strategy** and the **cross-cutting / higher-level tests*
 Fine-grained unit tests stay next to the code they test (`tests/` for C++, `bindings/`
 for the Python bindings); this document maps the whole picture.
 
+> **Later phases have their own plans:** Phase 2 (the agent workbench) — its headless-first,
+> contract-on-both-sides testing plan is [`docs/pipeline/87`](../docs/pipeline/87-phase2-testing-plan.md).
+
 ---
 
 ## 1. Why a bespoke strategy (the risks that ordinary tests miss)

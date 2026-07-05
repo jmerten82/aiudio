@@ -18,13 +18,16 @@ offline use.
 > trainer, parameter-match against a target, a round-trip that writes trained params
 > back into the C++ real-time graph, a first neural node, and a DDSP synth exemplar
 > (D0–D8, [`docs/pipeline/79`](docs/pipeline/79-phase1-differentiable-core-roadmap.md)).
-> **Phase 2 (agent control plane & visual workbench) in progress — 4 of 5 releases shipped:** a
-> browser **React + React Flow** graph editor you can drive by hand *or* by natural language via a
+> **Phase 2 (agent control plane & visual workbench) complete (R1–R4):** a browser
+> **React + React Flow** graph editor you can drive by hand *or* by natural language via a
 > **grounded LLM companion**, over a **localhost FastAPI/WebSocket** server and one typed action
-> space, and it **tunes its own parameters** to a target via the differentiable layer (R1 see it ·
-> R2 edit it · R3 talk to it · R4 it tunes itself). Remaining: **R5** — agent **self-extension**
-> (authoring new nodes). Plan: [`docs/pipeline/85`](docs/pipeline/85-phase2-agent-workbench-roadmap.md).
-> **Last updated:** 2026-07-04.
+> space, and it **tunes its own parameters** to a target via the differentiable layer (see it ·
+> edit it · talk to it · it tunes itself). Roadmap
+> [`docs/pipeline/85`](docs/pipeline/85-phase2-agent-workbench-roadmap.md) · testing plan
+> [`docs/pipeline/87`](docs/pipeline/87-phase2-testing-plan.md) · cookbook
+> [`docs/cookbooks/88`](docs/cookbooks/88-agent-workbench.md). Next: **Phase 2.1** — agent
+> **self-extension** (authoring new nodes, [`docs/pipeline/86`](docs/pipeline/86-r5-self-extension-plan.md)).
+> **Last updated:** 2026-07-05.
 
 ---
 
@@ -154,14 +157,20 @@ status — **kept current as we go**.
 - [x] DDSP exemplar — `HarmonicSynth` matches a target timbre via the STFT loss (D8).
 - [x] Process-tap & offline/file backends (I/O M5–M6) *(M5 ✅ taps; M6 ✅ offline/file backend — both merged)*
 
-### Phase 2 — Agent control plane & visual workbench *(the differentiator — 4 of 5 releases shipped)*
-> **Plan:** [`docs/pipeline/85-phase2-agent-workbench-roadmap.md`](docs/pipeline/85-phase2-agent-workbench-roadmap.md) — a browser **visual graph editor** + a **grounded LLM companion** + **agent self-extension** (authoring new nodes), all driving one live engine through one typed action space, grounded in one capability manifest. Ships as five releases (R1 see it · R2 edit it · R3 talk to it · R4 it tunes itself · R5 it extends itself). Local desktop; React + React Flow; full-RT authored nodes behind a mandatory RT-safety gate; personal nodes in a local registry. **R5 detailed plan:** [`docs/pipeline/86`](docs/pipeline/86-r5-self-extension-plan.md).
+### Phase 2 — Agent control plane & visual workbench *(the differentiator — ✅ complete, R1–R4)*
+> **Roadmap:** [`docs/pipeline/85`](docs/pipeline/85-phase2-agent-workbench-roadmap.md) — a browser **visual graph editor** + a **grounded LLM companion** + differentiable **self-tuning**, all driving one live engine through one typed action space, grounded in one capability manifest. Local desktop; React + React Flow. **Testing plan:** [`docs/pipeline/87`](docs/pipeline/87-phase2-testing-plan.md) · **Cookbook:** [`docs/cookbooks/88`](docs/cookbooks/88-agent-workbench.md).
 - [x] Typed graph-edit action space (`add_node`/`connect`/`set_param`/…) — the shared substrate for UI, agent, and API + undo/replay log + capability manifest *(A0/A1 — `aiudio.workbench`)*
 - [x] Visual workbench in the browser — see the full graph and **edit it by hand** (add/connect/tune/delete, undo, drag-layout, save/load) *(A2/B0–B2 — `aiudio.server` + `web/`)*
 - [x] Grounded LLM companion — change the graph in natural language, grounded in the real capability manifest *(C0/C1 — `aiudio.agent`)*
 - [x] LLM orchestrates structure; differentiable layer (`match_target`) tunes parameters *(C2 — `workbench.tune_to_target`)*
 - [x] Render → measure → self-correct loop *(C2 engine; multi-res STFT — a CLAP perceptual metric + autonomous loop are follow-ups)*
-- [ ] **R5** — agent self-extension: author new (full-RT, gated) nodes into a local personal registry, reusable thereafter *(D0–D3; plan in `docs/pipeline/86`)*
+
+### Phase 2.1 — Agent self-extension *(planned)*
+> **Plan:** [`docs/pipeline/86`](docs/pipeline/86-r5-self-extension-plan.md) — the agent **authors new node *types*** at runtime (a node-plugin ABI + runtime registry, spec→C++ scaffold + off-thread build, an RT-safety pre-flight gate, ADR-0023/0024). Full-RT authored nodes behind a mandatory safety gate; personal nodes in a local git-ignored registry, never auto-merged.
+- [ ] Node-plugin ABI + runtime node registry; local personal package registry *(D0)*
+- [ ] Spec→C++ scaffold + off-thread build pipeline *(D1)*
+- [ ] RT-safety pre-flight gate (static + RTSan/alloc-hook + contract → pass/quarantine/discard) *(D2)*
+- [ ] Agent authors a node end-to-end, into the local registry, reusable *(D3)*
 
 ### Phase 3 — Real-time productionization
 - [ ] C++ RT executor: inline + off-thread pooled neural nodes

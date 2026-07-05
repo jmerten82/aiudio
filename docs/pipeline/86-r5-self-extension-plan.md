@@ -1,8 +1,9 @@
-# 86 — R5: Agent Self-Extension (authoring new nodes) — Implementation Plan
+# 86 — Phase 2.1: Agent Self-Extension (authoring new nodes) — Implementation Plan
 
-> **Last updated:** 2026-07-04 · **Scope:** the detailed plan for **Release R5 "it extends itself"**
-> — milestones **D0–D3** of [`docs/pipeline/85`](85-phase2-agent-workbench-roadmap.md). When the
-> built-in library can't express something, the agent **authors a new node type**; it lands in a
+> **Last updated:** 2026-07-05 · **Scope:** the detailed plan for **Phase 2.1 "it extends itself"**
+> — milestones **D0–D3** (originally Release R5 of Phase 2, now split out as its own follow-on phase
+> since Phase 2 shipped at R1–R4; see [`docs/pipeline/85`](85-phase2-agent-workbench-roadmap.md)).
+> When the built-in library can't express something, the agent **authors a new node type**; it lands in a
 > **personal, local registry** (never shipping `main`), passes an **RT-safety gate**, and becomes a
 > reusable node like any other. Governed by **ADR-0023** (personal registry & isolation) and
 > **ADR-0024** (RT-safety gate & plugin ABI). · **Status:** 📋 planned. **Honest up front:** this is
