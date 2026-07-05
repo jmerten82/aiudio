@@ -6,17 +6,15 @@
 > editor, agent, self-extension) drive **one live engine** through **one typed action space**,
 > grounded in **one capability manifest**. Builds directly on Phase-0 live editing (G7: lock-free
 > `set_param` + RCU recompile) and Phase-1's differentiable layer (`match_target`). · **Status:**
-> 🚧 **in progress** — Phase 1 (D0–D8) complete; **K done** (ADRs 0019–0024); **A0 done**
-> (`aiudio.workbench`: action space + log + graph↔JSON, ADR-0020); **A1 done** (capability manifest,
-> ADR-0021); **A2 done** (`aiudio.server` bridge); **B0 done** (`web/` — React + React Flow
-> read-only view over the WS). **B1 done** (hand editing over the WS). **B2 done** (layout
-> persistence via a `set_position` action, save/load a graph as JSON, param-drag debounce).
-> ✅ **Release R2 "edit it" complete.** **C0 done** (`aiudio.agent` — grounded Claude tool-use).
-> **C1 done** (agent companion wired into the server `/ws` + a chat panel in `web/`). ✅ **Release R3
-> "talk to it" complete.** **C2 done** (`tune_to_target` — the graph tunes its own params to a
-> target render via the Phase-1 differentiable layer; server `tune` message). ✅ **Release R4 "it
-> tunes itself" — engine complete** (CLAP metric + UI target-upload + autonomous agent loop are
-> noted follow-ups). Next: **R5** (D0–D3, agent self-extension). Locked scope decisions below. The audio-thread invariant (ADR-0004) is
+> ✅ **COMPLETE — Releases R1–R4 shipped (K + A0–A2 + B0–B2 + C0–C2, PRs #50–#60).** `aiudio.workbench`
+> (action space + log + graph↔JSON + capability manifest, ADR-0020/0021), `aiudio.server` (localhost
+> FastAPI/WebSocket bridge, ADR-0019), `web/` (React + React Flow editor — see it / edit it by hand:
+> add/connect/tune/delete, undo, drag-layout, save/load), `aiudio.agent` (grounded Claude tool-use,
+> ADR-0022), and `workbench.tune_to_target` (the graph tunes its own params to a target via the
+> Phase-1 diff layer). **Testing plan:** [`docs/pipeline/87`](87-phase2-testing-plan.md) ·
+> **Cookbook:** [`docs/cookbooks/88`](../cookbooks/88-agent-workbench.md).
+> **R5 (agent self-extension) has been split out as its own follow-on phase — Phase 2.1** — detailed plan in
+> [`docs/pipeline/86`](86-r5-self-extension-plan.md). Locked scope decisions below. The audio-thread invariant (ADR-0004) is
 > **never** relaxed — the self-extension path
 > *enforces* it on generated code (workstream D), and **no invasive change to the live RT audio
 > thread is ever applied without active user notification + explicit confirmation** (§5.1a).
@@ -207,6 +205,7 @@ Four workstreams (A platform · B UI · C agent · D self-extension) + a kickoff
 | **C0** ✅ | Grounded agent tools | `aiudio.agent` (`aiudio[agent]`) — Claude tool-use bound to the action space (add/remove/connect/disconnect/set_param + get_graph), `add_node`'s kind enum + system prompt grounded in the manifest (A1). Tool-use loop applies to a `GraphSession`; consent hook (`is_invasive`/`on_invasive`, ADR-0022); mock-client seam → unit-tested without a key (+ a live test gated on `ANTHROPIC_API_KEY`). | A1, A0 |
 | **C1** ✅ | NL companion | Server `/ws` `chat` message runs `Agent.run` off-thread under the session lock (agent + hand edits serialize; agent client injectable → headless-testable) → reply + broadcast; a chat panel in `web/`. Shares one graph/log with the hand editor. **RT-invasive changes require confirm (§5.1a)** — the gate is wired; nothing is invasive in an offline session yet, so the interactive confirm dialog lands with live audio. | C0, B1 |
 | **C2** ✅ | Measure → self-correct + diff tuning | `workbench.tune_to_target` — compile → `DiffExecutor` → **`match_target`** (D5) against a target render → write tuned params back into the session (D6), broadcast; server `tune` message (off-thread, gated on `aiudio[diff]`). **Structure by LLM (C0/C1), params by gradient.** Measure = multi-res STFT; **CLAP** perceptual metric, UI target-upload, and the fully-autonomous agent loop are follow-ups. | C1, Phase 1 |
+| *(D0–D3 are now **Phase 2.1** — detailed plan in [`docs/pipeline/86`](86-r5-self-extension-plan.md))* | | | |
 | **D0** ⬜ | Node-package format + local registry | Package (manifest + C++ src + tests + registration); git-ignored local dir, auto-discovered/loaded; versioning; *promote → PR* path. | A1 |
 | **D1** ⬜ | Scaffold + build pipeline | Spec → Node-contract C++ (templates) + tests + bindings → compile to a loadable plugin; off-thread build; load via RCU. | D0 |
 | **D2** ⬜ | RT-safety pre-flight | An **automatic** pre-flight (§5.1): static checks + sanitizers/RTSan + golden/contract tests, run before RT-load. Pass → usable (incl. RT); fail → **auto-discard / quarantine to non-RT** (no human ceremony for local use — throw-away *is* the failure path). Enforces ADR-0004 on generated code. | D1 |
@@ -233,7 +232,7 @@ Milestones bundle into five usable releases:
 | **R2** ✅ | **Edit it by hand** | B1 · B2 | build/modify graphs visually: add/remove/connect/tune, undo, drag-layout, save/load. |
 | **R3** ✅ | **Talk to it** | C0 · C1 | change the graph by natural language via the grounded agent companion. |
 | **R4** ✅ | **It tunes itself** | C2 | the graph tunes its own params to a target via the diff layer (engine); CLAP + UI upload + autonomous loop are follow-ups. |
-| **R5** | **It extends itself** | D0 · D1 · D2 · D3 | agent authors new (full-RT, gated) nodes into your local registry, reusable thereafter. |
+| **R5** → **Phase 2.1** | **It extends itself** | D0 · D1 · D2 · D3 | agent authors new (full-RT, gated) nodes into your local registry — split out as its own follow-on phase ([`docs/pipeline/86`](86-r5-self-extension-plan.md)). |
 
 Rationale: observability (R1) before editing (R2) before automation (R3→R4); **self-extension (R5)
 ships last** — it's the riskiest and depends on the manifest, action space, and agent being solid.
